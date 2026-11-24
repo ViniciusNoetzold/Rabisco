@@ -1,8 +1,8 @@
 import type { Point, Rect } from '../layers/types';
-import type { FormaId } from '../shapes/tipos';
+import type { IdForma } from '../shapes/tipos';
 
 export interface GeometriaForma {
-  id: FormaId;
+  id: IdForma;
   caixa: Rect;
   rotacao: number;
   pontos?: Point[];
@@ -63,7 +63,7 @@ export function caixaDosPontos(pontos: readonly Point[]): Rect {
   return { x, y, width: Math.max(1, direita - x), height: Math.max(1, base - y) };
 }
 
-export function geometriaPorPontos(id: FormaId, pontos: readonly Point[]): GeometriaForma {
+export function geometriaPorPontos(id: IdForma, pontos: readonly Point[]): GeometriaForma {
   const caixa = caixaDosPontos(pontos);
   return {
     id,
@@ -77,7 +77,7 @@ export function geometriaPorPontos(id: FormaId, pontos: readonly Point[]): Geome
 }
 
 export function geometriaDoArraste(
-  id: FormaId,
+  id: IdForma,
   inicio: Point,
   fim: Point,
   restringir: boolean,

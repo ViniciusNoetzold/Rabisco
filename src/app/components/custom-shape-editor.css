@@ -1,0 +1,236 @@
+.shape-editor-dialog.app-dialog.window {
+  max-width: 710px;
+  width: calc(100vw - 24px);
+}
+
+.shape-editor-body.dialog-body.window-body {
+  --editor-border: #bfd2e0;
+  --editor-text: #315978;
+  --editor-padding: 20px;
+  padding: var(--editor-padding);
+}
+
+.shape-editor-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--editor-border);
+  padding-bottom: 5px;
+}
+
+.shape-editor-modes button,
+.shape-editor-toolset button {
+  min-width: 0;
+  padding: 5px 8px;
+}
+
+.shape-editor-modes button[aria-selected='true'],
+.shape-editor-toolset button[aria-pressed='true'] {
+  color: #204d6d;
+  border-color: #78a8ca;
+  background: linear-gradient(#f1f8fc, #d9ebf8);
+}
+
+.shape-editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.shape-editor-artboard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--editor-border);
+  border-radius: 5px;
+  background: radial-gradient(circle at 50% 35%, #fcfeff, #eaf3fa 100%);
+}
+
+.shape-editor-artboard canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  touch-action: none;
+}
+
+.shape-editor-artboard canvas:focus-visible {
+  outline: 2px solid #157bb2;
+  outline-offset: -3px;
+}
+
+.shape-editor-artboard canvas[data-editavel='adicionar'] {
+  cursor: crosshair;
+}
+
+.shape-editor-artboard canvas[data-editavel='mover'] {
+  cursor: move;
+}
+
+.shape-editor-artboard canvas[data-editavel='remover'] {
+  cursor: crosshair;
+}
+
+.shape-editor-artboard-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--editor-text);
+  font-size: 13px;
+}
+
+.shape-editor-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.shape-editor-controls > button {
+  justify-self: start;
+}
+
+.shape-editor-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--editor-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shape-editor-field > input,
+.shape-editor-field select {
+  box-sizing: border-box;
+  height: 31px;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--editor-border);
+  border-radius: 3px;
+  background-color: #fff;
+  color: #243f53;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.shape-editor-param input[type='number'] {
+  max-width: 90px;
+}
+
+.shape-editor-range {
+  display: flex;
+  align-items: center;
+  min-height: 21px;
+  gap: 7px;
+}
+
+.shape-editor-range input {
+  flex: 1;
+  min-width: 0;
+}
+
+.shape-editor-range > span {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.shape-editor-metadata,
+.shape-editor-style-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.shape-editor-style {
+  margin: 12px 0 0;
+  min-width: 0;
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  padding: 4px 8px 8px;
+  color: var(--editor-text);
+  box-shadow: none;
+}
+
+.shape-editor-style:not(:has(.shape-editor-style-fields)) {
+  border-color: transparent;
+  padding: 0;
+}
+
+.shape-editor-style legend,
+.shape-editor-checks {
+  color: var(--editor-text);
+  font-size: 12px;
+}
+
+.shape-editor-style legend label,
+.shape-editor-checks label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.shape-editor-style-fields {
+  grid-template-columns: 1fr 1fr clamp(74px, 15%, 95px) 45px 45px;
+  margin-top: 0;
+}
+
+.shape-editor-style-fields input[type='color'] {
+  padding: 2px 4px;
+}
+
+.shape-editor-toolset,
+.shape-editor-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shape-editor-checks {
+  column-gap: 12px;
+}
+
+.shape-editor-body .shape-editor-hint {
+  color: #496779;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.shape-editor-actions.dialog-actions {
+  margin: 14px calc(-1 * var(--editor-padding)) calc(-1 * var(--editor-padding));
+  padding: 12px var(--editor-padding);
+  position: sticky;
+  bottom: calc(-1 * var(--editor-padding));
+}
+
+@media (max-width: 560px) {
+  .shape-editor-body.dialog-body.window-body {
+    --editor-padding: 12px;
+  }
+
+  .shape-editor-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .shape-editor-artboard {
+    width: min(100%, 290px);
+    justify-self: center;
+  }
+
+  .shape-editor-style-fields {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .shape-editor-style-fields label:nth-child(-n + 2) {
+    grid-column: span 3;
+  }
+
+  .shape-editor-style-fields label:nth-child(n + 3) {
+    grid-column: span 2;
+  }
+}

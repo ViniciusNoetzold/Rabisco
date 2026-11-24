@@ -1,5 +1,7 @@
 import type { Point } from '../layers/types';
-import type { FormaId, ParametrosForma, ShapeDef } from './tipos';
+import type { FormaId, IdForma, ParametrosForma, ShapeDef, TracadorForma } from './tipos';
+
+type FormaNativa = ShapeDef & { id: FormaId };
 
 const ELLIPSE =
   'M.5 0 C.7761 0 1 .2239 1 .5 C1 .7761 .7761 1 .5 1 C.2239 1 0 .7761 0 .5 C0 .2239 .2239 0 .5 0Z';
@@ -7,12 +9,12 @@ const NUVEM =
   'M.19 .88 C.06 .88 0 .77 0 .62 C0 .48 .08 .4 .2 .38 C.17 .23 .25 .12 .38 .12 C.44 .02 .56 0 .64 .06 C.75 .07 .8 .18 .79 .28 C.93 .27 1 .38 1 .53 C1 .66 .95 .77 .83 .81 C.76 .94 .6 .99 .49 .89 C.4 1 .24 1 .19 .88Z';
 
 function caminhoDosPontos(
+  caminho: TracadorForma,
   largura: number,
   altura: number,
   pontos: readonly Point[],
   fechar: boolean,
 ) {
-  const caminho = new Path2D();
   for (const [indice, ponto] of pontos.entries()) {
     const x = ponto.x * largura;
     const y = ponto.y * altura;
@@ -20,7 +22,6 @@ function caminhoDosPontos(
     else caminho.lineTo(x, y);
   }
   if (fechar && pontos.length >= 3) caminho.closePath();
-  return caminho;
 }
 
 function ajustarNaCaixa(pontos: readonly Point[]): Point[] {
@@ -48,10 +49,16 @@ function limitar(valor: number, min: number, max: number, padrao: number) {
   return Math.min(max, Math.max(min, Number.isFinite(valor) ? valor : padrao));
 }
 
-function estrela(w: number, h: number, parametros: ParametrosForma, pontas?: number) {
+function estrela(
+  caminho: TracadorForma,
+  w: number,
+  h: number,
+  parametros: ParametrosForma,
+  pontas?: number,
+) {
   const numeroDePontas = pontas ?? Math.round(limitar(parametros.pontas, 3, 24, 5));
   const raio = limitar(parametros.raioInterno, 10, 90, 45) / 100;
-  return caminhoDosPontos(w, h, radial(numeroDePontas, raio), true);
+  caminhoDosPontos(caminho, w, h, radial(numeroDePontas, raio), true);
 }
 
 const linha = [
@@ -73,10 +80,9 @@ const poligono = [
   { x: 0.12, y: 0.78 },
 ];
 
-function caminhoDaCurva(w: number, h: number, pontos: readonly Point[]) {
+function caminhoDaCurva(caminho: TracadorForma, w: number, h: number, pontos: readonly Point[]) {
   const [inicio, fim, primeiro, segundo] = pontos;
-  const caminho = new Path2D();
-  if (!inicio || !fim) return caminho;
+  if (!inicio || !fim) return;
   caminho.moveTo(inicio.x * w, inicio.y * h);
   if (primeiro && segundo) {
     caminho.bezierCurveTo(
@@ -90,32 +96,31 @@ function caminhoDaCurva(w: number, h: number, pontos: readonly Point[]) {
   } else if (primeiro) {
     caminho.quadraticCurveTo(primeiro.x * w, primeiro.y * h, fim.x * w, fim.y * h);
   } else caminho.lineTo(fim.x * w, fim.y * h);
-  return caminho;
 }
 
-function espiral(w: number, h: number) {
+function espiral(caminho: TracadorForma, w: number, h: number) {
   const pontos = Array.from({ length: 160 }, (_, i) => {
     const proporcao = i / 159;
     const angulo = proporcao * Math.PI * 5.5;
     return { x: Math.cos(angulo) * proporcao, y: Math.sin(angulo) * proporcao };
   });
-  return caminhoDosPontos(w, h, ajustarNaCaixa(pontos), false);
+  caminhoDosPontos(caminho, w, h, ajustarNaCaixa(pontos), false);
 }
 
-export const FORMAS: readonly ShapeDef[] = [
+export const FORMAS: readonly FormaNativa[] = [
   {
     id: 'line',
     nome: 'Linha',
     categoria: 'basicas',
     fechada: false,
-    path: (w, h, _p, pontos = linha) => caminhoDosPontos(w, h, pontos, false),
+    path: (c, w, h, _p, pontos = linha) => caminhoDosPontos(c, w, h, pontos, false),
   },
   {
     id: 'curve',
     nome: 'Curva',
     categoria: 'basicas',
     fechada: false,
-    path: (w, h, _p, pontos = curva) => caminhoDaCurva(w, h, pontos),
+    path: (c, w, h, _p, pontos = curva) => caminhoDaCurva(c, w, h, pontos),
   },
   { id: 'ellipse', nome: 'Elipse', categoria: 'basicas', fechada: true, path: ELLIPSE },
   {
@@ -137,7 +142,7 @@ export const FORMAS: readonly ShapeDef[] = [
     nome: 'Polígono livre',
     categoria: 'basicas',
     fechada: true,
-    path: (w, h, _p, pontos = poligono, aberta) => caminhoDosPontos(w, h, pontos, !aberta),
+    path: (c, w, h, _p, pontos = poligono, aberta) => caminhoDosPontos(c, w, h, pontos, !aberta),
   },
   {
     id: 'triangulo',
@@ -165,21 +170,21 @@ export const FORMAS: readonly ShapeDef[] = [
     nome: 'Pentágono',
     categoria: 'basicas',
     fechada: true,
-    path: (w, h) => caminhoDosPontos(w, h, radial(5), true),
+    path: (c, w, h) => caminhoDosPontos(c, w, h, radial(5), true),
   },
   {
     id: 'hexagono',
     nome: 'Hexágono',
     categoria: 'basicas',
     fechada: true,
-    path: (w, h) => caminhoDosPontos(w, h, radial(6, undefined, Math.PI / 6), true),
+    path: (c, w, h) => caminhoDosPontos(c, w, h, radial(6, undefined, Math.PI / 6), true),
   },
   {
     id: 'octogono',
     nome: 'Octógono',
     categoria: 'basicas',
     fechada: true,
-    path: (w, h) => caminhoDosPontos(w, h, radial(8, undefined, Math.PI / 8), true),
+    path: (c, w, h) => caminhoDosPontos(c, w, h, radial(8, undefined, Math.PI / 8), true),
   },
   {
     id: 'trapezio',
@@ -278,28 +283,28 @@ export const FORMAS: readonly ShapeDef[] = [
     nome: 'Estrela de 4 pontas',
     categoria: 'estrelas',
     fechada: true,
-    path: (w, h, p) => estrela(w, h, p, 4),
+    path: (c, w, h, p) => estrela(c, w, h, p, 4),
   },
   {
     id: 'estrela-5',
     nome: 'Estrela de 5 pontas',
     categoria: 'estrelas',
     fechada: true,
-    path: (w, h, p) => estrela(w, h, p, 5),
+    path: (c, w, h, p) => estrela(c, w, h, p, 5),
   },
   {
     id: 'estrela-6',
     nome: 'Estrela de 6 pontas',
     categoria: 'estrelas',
     fechada: true,
-    path: (w, h, p) => estrela(w, h, p, 6),
+    path: (c, w, h, p) => estrela(c, w, h, p, 6),
   },
   {
     id: 'estrela-n',
     nome: 'Estrela de N pontas',
     categoria: 'estrelas',
     fechada: true,
-    path: (w, h, p) => estrela(w, h, p),
+    path: (c, w, h, p) => estrela(c, w, h, p),
     params: {
       pontas: { rotulo: 'Pontas', min: 3, max: 24 },
       raioInterno: { rotulo: 'Raio interno (%)', min: 10, max: 90 },
@@ -345,15 +350,16 @@ export const FORMAS: readonly ShapeDef[] = [
     nome: 'Polígono regular',
     categoria: 'simbolos',
     fechada: true,
-    path: (w, h, p) => caminhoDosPontos(w, h, radial(Math.round(limitar(p.lados, 3, 24, 6))), true),
+    path: (c, w, h, p) =>
+      caminhoDosPontos(c, w, h, radial(Math.round(limitar(p.lados, 3, 24, 6))), true),
     params: { lados: { rotulo: 'Lados', min: 3, max: 24 } },
   },
   { id: 'espiral', nome: 'Espiral', categoria: 'simbolos', fechada: false, path: espiral },
 ];
 
-const indice = new Map<FormaId, ShapeDef>(FORMAS.map((forma) => [forma.id, forma]));
+const indice = new Map<IdForma, FormaNativa>(FORMAS.map((forma) => [forma.id, forma]));
 
-export function obterForma(id: FormaId): ShapeDef {
+export function obterForma(id: IdForma): FormaNativa {
   const forma = indice.get(id);
   if (!forma) throw new Error(`Forma desconhecida: ${id}`);
   return forma;

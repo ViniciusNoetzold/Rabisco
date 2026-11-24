@@ -7,9 +7,10 @@ import type {
 } from '../brushes/catalogo';
 import type { Point, Rect, ToolId } from '../layers/types';
 import type {
+  ConfiguracaoForma,
   EstiloContorno,
   EstiloPreenchimento,
-  FormaId,
+  IdForma,
   ParametrosForma,
 } from '../shapes/tipos';
 
@@ -40,7 +41,8 @@ export interface ToolCtx {
     espessura: number;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
-    forma: FormaId;
+    forma: IdForma;
+    definicaoForma?: ConfiguracaoForma['definicao'];
     contornoForma: EstiloContorno;
     preenchimentoForma: EstiloPreenchimento;
     parametrosForma: ParametrosForma;
@@ -74,6 +76,7 @@ export interface Tool {
   overlay?(ctx: ToolCtx, grafico: CanvasRenderingContext2D): void;
   limitesOverlay?(ctx: ToolCtx): Rect | null;
   temPendente?(): boolean;
+  obterFormaPendente?(ctx: ToolCtx): ConfiguracaoForma | null;
   descartarPendente?(): void;
   commitPendente?(ctx: ToolCtx): void;
 }

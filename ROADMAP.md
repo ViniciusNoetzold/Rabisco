@@ -5,7 +5,7 @@ Cada etapa deve ser utilizável, documentada e validada antes de iniciar a segui
 | Versão | Entrega                                                                                                                                        | Estado               |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
 | 0.1    | Shell Aero com 7.css, canvas único, lápis, pincel, borracha, balde, formas básicas, Cor 1/Cor 2, seleção retangular, histórico, PNG e autosave | Concluída e validada |
-| 0.2    | Paridade das ferramentas clássicas, texto editável durante inserção, zoom/pan e atalhos completos                                              | Passo 4 concluído    |
+| 0.2    | Paridade das ferramentas clássicas, texto editável durante inserção, zoom/pan e atalhos completos                                              | Passo 5 concluído    |
 | 0.3    | Camadas, importar/colar imagem, transformação livre, formato .rabisco, PSD e ORA                                                               | Planejada            |
 | 0.4    | Estabilizador, pressão, simetria e reconhecimento de formas                                                                                    | Planejada            |
 | 0.5    | Filtros, arquitetura de estilos, ASCII, pixel art e dithering                                                                                  | Planejada            |
@@ -15,7 +15,7 @@ Cada etapa deve ser utilizável, documentada e validada antes de iniciar a segui
 | 0.9    | Tutor Rabi, lições e modo de traçar por cima                                                                                                   | Planejada            |
 | 1.0    | PWA, Tauri, i18n, acessibilidade ampliada, testes visuais, performance e documentação final                                                    | Planejada            |
 
-O próximo passo da 0.2 é criar, salvar, importar e gerenciar formas próprias.
+O próximo passo da 0.2 é completar a seleção, o texto, a borracha e o balde.
 
 ## Próximos critérios de validação
 

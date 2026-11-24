@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
+import type { DadosFormaPropria, FormaPropria } from '../shapes/presets';
+import { listarFormas, salvarForma } from '../storage/formas';
 import { useEditor } from './store';
 import type { Point } from '../layers/types';
 import { toolRegistry } from '../tools/toolRegistry';
@@ -10,6 +12,13 @@ import { Ribbon } from './components/Ribbon';
 import { StudioPanel } from './components/StudioPanel';
 import { EditorStatus, type CursorStatusApi } from './components/EditorStatus';
 import { EditorDialogs, type EditorDialogKind } from './components/EditorDialogs';
+import { CustomShapeEditor, type ReferenciaEditorForma } from './components/CustomShapeEditor';
+import { ShapeLibrary } from './components/ShapeLibrary';
+
+type PainelDeFormas =
+  | { tipo: 'gerenciar' }
+  | { tipo: 'criar'; referencia: ReferenciaEditorForma | null }
+  | { tipo: 'editar'; forma: FormaPropria };
 
 export default function App() {
   const editor = useRef<EditorApi>(null);
@@ -18,6 +27,8 @@ export default function App() {
   const cursorStatus = useRef<CursorStatusApi>(null);
   const [tab, setTab] = useState('Início');
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+  const [formas, setFormas] = useState<FormaPropria[]>([]);
+  const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
   const corDeFundo = useEditor((estado) => estado.color2);
   const [message, setMessage] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,6 +62,25 @@ export default function App() {
     [notify],
   );
 
+  const atualizarFormas = useCallback(async () => {
+    const atuais = await listarFormas();
+    setFormas(atuais);
+    useEditor.getState().sincronizarFormaPropria(atuais);
+  }, []);
+  useEffect(() => run(atualizarFormas), [atualizarFormas, run]);
+
+  function criarForma() {
+    setPainelFormas({ tipo: 'criar', referencia: editor.current?.obterReferenciaForma() ?? null });
+  }
+
+  async function salvarFormaDoEditor(dados: DadosFormaPropria) {
+    const id = painelFormas?.tipo === 'editar' ? painelFormas.forma.id : undefined;
+    await salvarForma(dados, id);
+    await atualizarFormas();
+    setPainelFormas(id ? { tipo: 'gerenciar' } : null);
+    notify('Forma salva na sua biblioteca.');
+  }
+
   useEffect(() => {
     document.title = `${info.name} — Rabisco`;
   }, [info.name]);
@@ -62,6 +92,7 @@ export default function App() {
         target.matches('input,textarea,select,[contenteditable="true"]') ||
         target.closest('[role="menu"]') ||
         dialog ||
+        painelFormas ||
         info.saving === 'loading'
       )
         return;
@@ -119,7 +150,7 @@ export default function App() {
     }
     window.addEventListener('keydown', keys);
     return () => window.removeEventListener('keydown', keys);
-  }, [dialog, info.saving, run]);
+  }, [dialog, painelFormas, info.saving, run]);
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -144,6 +175,11 @@ export default function App() {
         tab={tab}
         editor={editor}
         info={info}
+        galeriaFormas={{
+          formasProprias: formas,
+          criarForma,
+          gerenciarFormas: () => setPainelFormas({ tipo: 'gerenciar' }),
+        }}
         onOpen={openFile}
         onPropriedades={() => setDialog('properties')}
         onTransformar={() => setDialog('transform')}
@@ -216,6 +252,24 @@ export default function App() {
         }
         onTransformar={(opcoes) => editor.current?.transformarImagem(opcoes)}
       />
+      {painelFormas?.tipo === 'gerenciar' && (
+        <ShapeLibrary
+          formas={formas}
+          editar={(forma) => setPainelFormas({ tipo: 'editar', forma })}
+          atualizar={atualizarFormas}
+          fechar={() => setPainelFormas(null)}
+        />
+      )}
+      {(painelFormas?.tipo === 'criar' || painelFormas?.tipo === 'editar') && (
+        <CustomShapeEditor
+          editar={painelFormas.tipo === 'editar' ? painelFormas.forma : null}
+          referencia={painelFormas.tipo === 'criar' ? painelFormas.referencia : null}
+          aoSalvar={salvarFormaDoEditor}
+          fechar={() =>
+            setPainelFormas(painelFormas.tipo === 'editar' ? { tipo: 'gerenciar' } : null)
+          }
+        />
+      )}
     </main>
   );
 }

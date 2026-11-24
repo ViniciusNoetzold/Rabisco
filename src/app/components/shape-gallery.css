@@ -130,6 +130,30 @@
   font-weight: 600;
 }
 
+.shape-menu-folder {
+  padding: 3px 5px 0;
+  color: #375675;
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.shape-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px 0 2px;
+}
+
+.shape-menu-actions button {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  gap: 5px;
+  padding: 2px 8px;
+  color: #294d69;
+}
+
 .shape-menu-items {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -153,6 +177,12 @@
   font: inherit;
   font-size: 12px;
   line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.shape-menu-items button > span {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .shape-menu-items .shape-thumbnail {

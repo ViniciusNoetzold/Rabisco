@@ -13,6 +13,14 @@ async function selecionarForma(page: Page, nome: string) {
   await page.getByRole('menuitemradio', { name: nome, exact: true }).click();
 }
 
+async function abrirEditorDeFormas(page: Page) {
+  await page.getByRole('button', { name: 'Mais formas', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Criar forma…', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Editor de formas' });
+  await expect(editor).toBeVisible();
+  return editor;
+}
+
 async function posicao(page: Page, [x, y]: number[]) {
   return page.locator('.drawing-canvas').evaluate(
     (elemento, ponto) => {
@@ -78,6 +86,34 @@ function medirCor(page: Page, seletor: string, cor: number[]) {
     };
   }, cor);
 }
+
+test('cria uma estrela própria de sete pontas, recupera a predefinição e usa no desenho', async ({
+  page,
+}) => {
+  await abrirEditor(page);
+  const nome = 'Estrela da Ana';
+  const editor = await abrirEditorDeFormas(page);
+  await editor
+    .getByRole('combobox', { name: 'Base', exact: true })
+    .selectOption({ label: 'Estrela' });
+  await editor.getByRole('spinbutton', { name: 'Pontas', exact: true }).fill('7');
+  await editor.getByRole('textbox', { name: 'Nome da forma', exact: true }).fill(nome);
+  await editor.getByRole('button', { name: 'Salvar forma', exact: true }).click();
+  await expect(editor).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await selecionarForma(page, nome);
+  await arrastar(page, [160, 150], [320, 320]);
+  await expect(page.locator('.workspace[data-forma-pendente]')).toBeVisible();
+  expect((await medirCor(page, '.preview-canvas', azul)).quantidade).toBeGreaterThan(300);
+  expect((await medirCor(page, '.drawing-canvas', azul)).quantidade).toBe(0);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.history-list').getByText(nome, { exact: true })).toBeVisible();
+  expect((await medirCor(page, '.drawing-canvas', azul)).quantidade).toBeGreaterThan(300);
+  await page.keyboard.press('Control+z');
+  expect((await medirCor(page, '.drawing-canvas', azul)).quantidade).toBe(0);
+});
 
 test('edita posição, tamanho e rotação de uma estrela antes de confirmar uma única edição', async ({
   page,

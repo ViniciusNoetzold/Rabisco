@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { dimensoesValidas, dpiValido } from '../document/dimensoes';
+import type { FormaPropria } from '../shapes/presets';
 
 export interface DocumentSnapshot {
   id: 'current';
@@ -14,14 +15,16 @@ export interface DocumentSnapshot {
 
 class DocumentDatabase extends Dexie {
   documents!: Table<DocumentSnapshot, 'current'>;
+  formas!: Table<FormaPropria, string>;
 
   constructor() {
     super('rabisco-documentos');
     this.version(1).stores({ documents: 'id' });
+    this.version(2).stores({ documents: 'id', formas: 'id' });
   }
 }
 
-const database = new DocumentDatabase();
+export const database = new DocumentDatabase();
 
 /** Impede que um registro incompleto ou corrompido seja restaurado no canvas. */
 function validateSnapshot(snapshot: DocumentSnapshot): void {

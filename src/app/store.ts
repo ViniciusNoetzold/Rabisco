@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
 import type { ToolId } from '../layers/types';
 import { obterForma } from '../shapes/catalogo';
+import type { FormaPropria } from '../shapes/presets';
 import {
   PARAMETROS_PADRAO,
   type EstiloContorno,
@@ -53,7 +54,9 @@ interface EditorState {
   colorTarget: 1 | 2;
   size: number;
   forma: FormaId;
+  formaPropria: FormaPropria | null;
   ultimaFormaGeral: FormaId;
+  ultimaFormaPropria: FormaPropria | null;
   contornoForma: EstiloContorno;
   preenchimentoForma: EstiloPreenchimento;
   parametrosForma: ParametrosForma;
@@ -64,6 +67,8 @@ interface EditorState {
   setTool: (tool: ToolId) => void;
   setPincel: (tipo: TipoPincel) => void;
   setForma: (forma: FormaId) => void;
+  selecionarFormaPropria: (forma: FormaPropria) => void;
+  sincronizarFormaPropria: (formas: readonly FormaPropria[]) => void;
   setParametroForma: (chave: keyof ParametrosForma, valor: number) => void;
   setColor: (color: string) => void;
   swapColors: () => void;
@@ -100,7 +105,9 @@ export const useEditor = create<EditorState>()(
     colorTarget: 1,
     size: 6,
     forma: 'rectangle',
+    formaPropria: null,
     ultimaFormaGeral: 'rectangle',
+    ultimaFormaPropria: null,
     contornoForma: 'solid',
     preenchimentoForma: 'none',
     parametrosForma: { ...PARAMETROS_PADRAO },
@@ -113,25 +120,51 @@ export const useEditor = create<EditorState>()(
         state.tool = tool;
         if (formaRapida(tool)) state.forma = tool;
         if (tool === 'shape') state.forma = state.ultimaFormaGeral;
+        state.formaPropria = tool === 'shape' ? state.ultimaFormaPropria : null;
       }),
     setPincel: (tipo) =>
       set((state) => {
         if (tipo === 'spray' && state.pincel !== 'spray' && state.size < 16) state.size = 32;
         state.pincel = tipo;
         state.tool = 'brush';
+        state.formaPropria = null;
       }),
     setForma: (forma) =>
       set((estado) => {
         estado.forma = forma;
+        estado.formaPropria = null;
         if (formaRapida(forma)) estado.tool = forma;
         else {
           estado.tool = 'shape';
           estado.ultimaFormaGeral = forma;
+          estado.ultimaFormaPropria = null;
         }
+      }),
+    selecionarFormaPropria: (forma) =>
+      set((estado) => {
+        estado.tool = 'shape';
+        estado.forma = estado.ultimaFormaGeral;
+        estado.formaPropria = estado.ultimaFormaPropria = forma;
+        if (forma.estilo) {
+          const { cor1, cor2, espessura, contorno, preenchimento } = forma.estilo;
+          estado.color1 = cor1;
+          estado.color2 = cor2;
+          estado.size = espessura;
+          estado.contornoForma = contorno;
+          estado.preenchimentoForma = preenchimento;
+        }
+      }),
+    sincronizarFormaPropria: (formas) =>
+      set((estado) => {
+        const anterior = estado.ultimaFormaPropria;
+        if (!anterior) return;
+        const atual = formas.find(({ id }) => id === anterior.id) ?? null;
+        estado.ultimaFormaPropria = atual;
+        if (estado.formaPropria) estado.formaPropria = atual;
       }),
     setParametroForma: (chave, valor) =>
       set((estado) => {
-        const limites = obterForma(estado.forma).params?.[chave];
+        const limites = estado.formaPropria ? undefined : obterForma(estado.forma).params?.[chave];
         if (!limites || !Number.isFinite(valor)) return;
         estado.parametrosForma[chave] = Math.max(
           limites.min,

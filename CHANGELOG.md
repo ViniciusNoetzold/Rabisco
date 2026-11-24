@@ -2,6 +2,12 @@
 
 ## 0.2 em desenvolvimento
 
+### Passo 5 — Formas próprias
+
+- Editor com cinco bases paramétricas, desenho por pontos e curvas Bézier com encaixe e desfazer próprio. Permite reaproveitar a forma ativa, a última forma ou uma silhueta da seleção.
+- Biblioteca local com pastas, estilos opcionais, favoritas, edição, duplicação, exclusão confirmada e reordenação. Os pacotes `.rabisco-formas.json` aceitam somente comandos geométricos validados.
+- Formas próprias usam as mesmas alças, estilos e histórico das formas clássicas. A migração do IndexedDB preserva o último desenho salvo.
+
 ### Passo 4 — Formas clássicas editáveis
 
 - Biblioteca de 37 formas com miniaturas renderizadas a partir da mesma definição usada no papel. Inclui curva com dois controles, polígono livre, estrelas com número de pontas ajustável e polígonos regulares.

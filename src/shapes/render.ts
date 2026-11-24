@@ -1,30 +1,39 @@
 import { opacidadeDoPincel } from '../brushes/motor';
 import type { Rect } from '../layers/types';
 import { obterForma } from './catalogo';
+import { pontosDosLimites } from './limites';
 import { padraoDeTextura } from './texturas';
 import {
   PARAMETROS_PADRAO,
   type ConfiguracaoForma,
   type EstiloContorno,
   type FormaId,
+  type ShapeDef,
 } from './tipos';
 
 type Grafico = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
+export function obterDefinicaoForma({ id, definicao }: ConfiguracaoForma): ShapeDef {
+  return definicao ? { ...definicao, id, categoria: 'minhas' } : obterForma(id);
+}
+
 /** As formas prontas, os controles livres e as miniaturas compartilham o catálogo. */
 export function caminhoDaForma({
   id,
+  definicao,
   caixa,
   parametros,
   pontos,
   aberta,
 }: ConfiguracaoForma): Path2D {
-  const { path } = obterForma(id);
+  const { path } = definicao ?? obterForma(id);
   const { width, height } = caixa;
-  if (typeof path !== 'string') return path(width, height, parametros, pontos, aberta);
-
   const caminho = new Path2D();
-  caminho.addPath(new Path2D(path), new DOMMatrix([width, 0, 0, height, 0, 0]));
+  if (typeof path === 'string') {
+    caminho.addPath(new Path2D(path), new DOMMatrix([width, 0, 0, height, 0, 0]));
+  } else {
+    path(caminho, width, height, parametros, pontos, aberta);
+  }
   return caminho;
 }
 
@@ -57,7 +66,7 @@ export function desenharForma(ctx: Grafico, forma: ConfiguracaoForma): void {
     ctx.rotate(rotacao);
     ctx.translate(-width / 2, -height / 2);
 
-    if (preenchimento !== 'none' && obterForma(forma.id).fechada && !aberta) {
+    if (preenchimento !== 'none' && obterDefinicaoForma(forma).fechada && !aberta) {
       comEstilo(ctx, preenchimento, cor2, (pigmento) => {
         ctx.fillStyle = pigmento;
         ctx.fill(caminho, 'evenodd');
@@ -89,7 +98,8 @@ export function areaDaForma(forma: ConfiguracaoForma): Rect {
   let maiorX = caixa.width / 2;
   let menorY = -caixa.height / 2;
   let maiorY = caixa.height / 2;
-  for (const ponto of pontos ?? []) {
+  const controles = forma.definicao ? pontosDosLimites(forma.definicao.path) : pontos;
+  for (const ponto of controles ?? []) {
     const x = (ponto.x - 0.5) * caixa.width;
     const y = (ponto.y - 0.5) * caixa.height;
     menorX = Math.min(menorX, x);

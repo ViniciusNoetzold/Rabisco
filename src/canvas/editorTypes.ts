@@ -1,5 +1,6 @@
 import type { Point, Rect } from '../layers/types';
 import type { OpcoesTransformacao, OrientacaoImagem } from '../commands/comandos';
+import type { DadosFormaPropria } from '../shapes/presets';
 
 export interface DocumentInfo {
   name: string;
@@ -29,6 +30,7 @@ export interface EditorApi {
   transformarImagem(opcoes: OpcoesTransformacao): void;
   girarImagem(orientacao: OrientacaoImagem): void;
   tecla(evento: KeyboardEvent): boolean;
+  obterReferenciaForma(): Omit<DadosFormaPropria, 'pasta'> | null;
 }
 
 export interface CanvasCallbacks {

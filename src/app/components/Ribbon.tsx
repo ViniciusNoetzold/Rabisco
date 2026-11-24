@@ -6,13 +6,14 @@ import { PALETTE, useEditor } from '../store';
 import { BrushGallery } from './BrushGallery';
 import { OrientationMenu } from './OrientationMenu';
 import { Icon, RibbonGroup, type RunAction } from './Primitives';
-import { ShapeGallery } from './ShapeGallery';
+import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
 import { SprayControls, StrokeThickness } from './StrokeThickness';
 
 interface RibbonProps {
   tab: string;
   editor: RefObject<EditorApi | null>;
   info: DocumentInfo;
+  galeriaFormas: Omit<ShapeGalleryProps, 'carregando'>;
   onOpen(): void;
   onPropriedades(): void;
   onTransformar(): void;
@@ -23,6 +24,7 @@ export function Ribbon({
   tab,
   editor,
   info,
+  galeriaFormas,
   onOpen,
   onPropriedades,
   onTransformar,
@@ -143,7 +145,7 @@ export function Ribbon({
             {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
           </RibbonGroup>
           <RibbonGroup title="Formas" className="formas-ribbon">
-            <ShapeGallery carregando={carregando} />
+            <ShapeGallery carregando={carregando} {...galeriaFormas} />
           </RibbonGroup>
           <RibbonGroup title="Espessura" className="size-group">
             <StrokeThickness />

@@ -1,14 +1,17 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { FORMAS, obterForma } from '../../shapes/catalogo';
-import { desenharMiniatura } from '../../shapes/render';
-import type {
-  EstiloContorno,
-  EstiloPreenchimento,
-  FormaId,
-  ParametrosForma,
+import { PASTA_PADRAO, type FormaPropria } from '../../shapes/presets';
+import { desenharForma, desenharMiniatura } from '../../shapes/render';
+import {
+  PARAMETROS_PADRAO,
+  type EstiloContorno,
+  type EstiloPreenchimento,
+  type FormaId,
+  type ParametrosForma,
 } from '../../shapes/tipos';
 import { useEditor } from '../store';
+import { Icon } from './Primitives';
 import './shape-gallery.css';
 
 const FORMAS_DIRETAS = ['line', 'rectangle', 'ellipse'] as const;
@@ -23,7 +26,6 @@ const CATEGORIAS = [
   { id: 'estrelas', nome: 'Estrelas' },
   { id: 'baloes', nome: 'Balões de fala' },
   { id: 'simbolos', nome: 'Símbolos' },
-  { id: 'minhas', nome: 'Minhas formas' },
 ]
   .map((categoria) => ({
     ...categoria,
@@ -45,17 +47,34 @@ const ESTILOS_CONTORNO = [
   ...ESTILOS_COMUNS.slice(2),
 ] as const;
 const LIMITE_DA_TELA = 8;
-const ITEM_FORMA = '[role="menuitemradio"]';
+const ITEM_MENU = '[role="menuitemradio"], [role="menuitem"]';
 
-function MiniaturaForma({ id }: { id: FormaId }) {
+export function MiniaturaForma(props: { id: FormaId } | { propria: FormaPropria }) {
   const superficie = useRef<HTMLCanvasElement>(null);
+  const id = 'id' in props ? props.id : undefined;
+  const propria = 'propria' in props ? props.propria : undefined;
 
   useEffect(() => {
     const contexto = superficie.current?.getContext('2d');
     if (!contexto) return;
     contexto.clearRect(0, 0, 48, 40);
-    desenharMiniatura(contexto, id, { x: 6, y: 5, width: 36, height: 30 });
-  }, [id]);
+    if (id) {
+      desenharMiniatura(contexto, id, { x: 6, y: 5, width: 36, height: 30 });
+    } else if (propria) {
+      desenharForma(contexto, {
+        id: `propria:${propria.id}`,
+        definicao: propria,
+        caixa: { x: 6, y: 5, width: 36, height: 30 },
+        rotacao: 0,
+        cor1: '#273c52',
+        cor2: '#fff',
+        espessura: 1.3,
+        contorno: 'solid',
+        preenchimento: 'none',
+        parametros: PARAMETROS_PADRAO,
+      });
+    }
+  }, [id, propria]);
 
   return (
     <canvas
@@ -115,11 +134,12 @@ function CampoParametro({
   );
 }
 
-function EstilosDaForma({ id }: { id: FormaId }) {
+function EstilosDaForma({ id, propria }: { id: FormaId; propria: FormaPropria | null }) {
   const estado = useEditor();
-  const definicao = obterForma(id);
-  const parametros = Object.entries(definicao.params ?? {}).flatMap(([chave, parametro]) =>
-    parametro ? [{ chave: chave as keyof ParametrosForma, ...parametro }] : [],
+  const definicao = propria ?? obterForma(id);
+  const parametros = Object.entries('params' in definicao ? (definicao.params ?? {}) : {}).flatMap(
+    ([chave, parametro]) =>
+      parametro ? [{ chave: chave as keyof ParametrosForma, ...parametro }] : [],
   );
 
   return (
@@ -189,13 +209,37 @@ function focar(item: HTMLButtonElement | undefined, painel: HTMLDivElement) {
   else if (caixa.bottom > visivel.bottom) painel.scrollTop += caixa.bottom - visivel.bottom + 4;
 }
 
-export function ShapeGallery({ carregando }: { carregando: boolean }) {
-  const { forma, tool, setForma } = useEditor();
+export interface ShapeGalleryProps {
+  carregando: boolean;
+  formasProprias: FormaPropria[];
+  criarForma(): void;
+  gerenciarFormas(): void;
+}
+
+export function ShapeGallery({
+  carregando,
+  formasProprias,
+  criarForma,
+  gerenciarFormas,
+}: ShapeGalleryProps) {
+  const { forma, formaPropria, tool, setForma, selecionarFormaPropria } = useEditor();
   const ativa = tool === 'shape' || tool === 'line' || tool === 'rectangle' || tool === 'ellipse';
+  const propriaAtiva = tool === 'shape' ? formaPropria : null;
   const formasDoTrilho =
-    ativa && !formaDireta(forma)
+    ativa && !propriaAtiva && !formaDireta(forma)
       ? [obterForma(forma), ...TRILHO.filter(({ id }) => id !== forma)]
       : TRILHO;
+  const favoritas: FormaPropria[] = [];
+  const pastas = new Map<string, FormaPropria[]>();
+  for (const propria of formasProprias) {
+    if (propria.favorita) {
+      favoritas.push(propria);
+    } else {
+      const pasta = pastas.get(propria.pasta);
+      if (pasta) pasta.push(propria);
+      else pastas.set(propria.pasta, [propria]);
+    }
+  }
   const [aberto, setAberto] = useState(false);
   const gatilho = useRef<HTMLButtonElement>(null);
   const painel = useRef<HTMLDivElement>(null);
@@ -225,7 +269,7 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
     }
 
     posicionar();
-    const itens = Array.from(menu.querySelectorAll<HTMLButtonElement>(ITEM_FORMA));
+    const itens = Array.from(menu.querySelectorAll<HTMLButtonElement>(ITEM_MENU));
     const atual = itens.findIndex((item) => item.getAttribute('aria-checked') === 'true');
     const indice =
       focoInicial.current === 'fim'
@@ -262,7 +306,7 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
     }
 
     const menu = evento.currentTarget;
-    const itens = Array.from(menu.querySelectorAll<HTMLButtonElement>(ITEM_FORMA));
+    const itens = Array.from(menu.querySelectorAll<HTMLButtonElement>(ITEM_MENU));
     const atual = itens.findIndex((item) => item === document.activeElement);
     let proximo: number;
     switch (evento.key) {
@@ -287,18 +331,50 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
     focar(itens[(proximo + itens.length) % itens.length], menu);
   }
 
+  function itemProprio(propria: FormaPropria) {
+    return (
+      <button
+        key={propria.id}
+        type="button"
+        role="menuitemradio"
+        aria-checked={propriaAtiva?.id === propria.id}
+        tabIndex={-1}
+        title={propria.pasta === PASTA_PADRAO ? propria.nome : `${propria.pasta} / ${propria.nome}`}
+        onClick={() => {
+          selecionarFormaPropria(propria);
+          fechar();
+        }}
+      >
+        <MiniaturaForma propria={propria} />
+        <span>{propria.nome}</span>
+      </button>
+    );
+  }
+
   return (
     <div className="shape-gallery">
       <div className="shape-gallery-top">
         <div className="shape-strip" role="group" aria-label="Formas rápidas">
+          {propriaAtiva && (
+            <button
+              type="button"
+              className="selected"
+              aria-label={propriaAtiva.nome}
+              title={propriaAtiva.nome}
+              aria-pressed="true"
+              onClick={() => selecionarFormaPropria(propriaAtiva)}
+            >
+              <MiniaturaForma propria={propriaAtiva} />
+            </button>
+          )}
           {formasDoTrilho.map(({ id, nome }) => (
             <button
               key={id}
               type="button"
-              className={ativa && forma === id ? 'selected' : undefined}
+              className={ativa && !propriaAtiva && forma === id ? 'selected' : undefined}
               aria-label={nome}
               title={nome}
-              aria-pressed={ativa && forma === id}
+              aria-pressed={ativa && !propriaAtiva && forma === id}
               onClick={() => setForma(id)}
             >
               <MiniaturaForma id={id} />
@@ -313,7 +389,11 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
           aria-haspopup="menu"
           aria-expanded={aberto}
           aria-controls={aberto ? menuId : undefined}
-          title={ativa ? `Mais formas. Atual: ${obterForma(forma).nome}` : 'Mais formas'}
+          title={
+            ativa
+              ? `Mais formas. Atual: ${propriaAtiva?.nome ?? obterForma(forma).nome}`
+              : 'Mais formas'
+          }
           disabled={carregando}
           onClick={() => (aberto ? fechar() : abrir())}
           onKeyDown={(evento) => {
@@ -326,7 +406,9 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
         </button>
       </div>
 
-      {ativa && <EstilosDaForma key={forma} id={forma} />}
+      {ativa && (
+        <EstilosDaForma key={propriaAtiva?.id ?? forma} id={forma} propria={propriaAtiva} />
+      )}
 
       {aberto &&
         createPortal(
@@ -338,6 +420,57 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
             aria-label="Formas"
             onKeyDown={navegar}
           >
+            <div className="shape-menu-section" role="group" aria-label="Minhas formas">
+              <div className="shape-menu-heading" aria-hidden="true">
+                Minhas formas
+              </div>
+              <div className="shape-menu-actions" role="presentation">
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => {
+                    fechar();
+                    criarForma();
+                  }}
+                >
+                  <Icon name="plus" /> Criar forma…
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => {
+                    fechar();
+                    gerenciarFormas();
+                  }}
+                >
+                  <Icon name="folder-open" /> Gerenciar formas
+                </button>
+              </div>
+              {favoritas.length > 0 && (
+                <div role="group" aria-label="Favoritas">
+                  <div className="shape-menu-folder" aria-hidden="true">
+                    Favoritas
+                  </div>
+                  <div className="shape-menu-items" role="presentation">
+                    {favoritas.map(itemProprio)}
+                  </div>
+                </div>
+              )}
+              {Array.from(pastas, ([pasta, proprias]) => (
+                <div key={pasta} role="group" aria-label={pasta}>
+                  {pasta !== PASTA_PADRAO && (
+                    <div className="shape-menu-folder" aria-hidden="true">
+                      {pasta}
+                    </div>
+                  )}
+                  <div className="shape-menu-items" role="presentation">
+                    {proprias.map(itemProprio)}
+                  </div>
+                </div>
+              ))}
+            </div>
             {CATEGORIAS.map(({ id, nome, formas }) => (
               <div className="shape-menu-section" key={id} role="group" aria-label={nome}>
                 <div className="shape-menu-heading" aria-hidden="true">
@@ -349,7 +482,7 @@ export function ShapeGallery({ carregando }: { carregando: boolean }) {
                       key={formaId}
                       type="button"
                       role="menuitemradio"
-                      aria-checked={ativa && forma === formaId}
+                      aria-checked={ativa && !propriaAtiva && forma === formaId}
                       tabIndex={-1}
                       onClick={() => {
                         setForma(formaId);

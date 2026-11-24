@@ -40,6 +40,7 @@ export type FormaId =
   | 'espiral';
 
 export type CategoriaForma = 'basicas' | 'setas' | 'estrelas' | 'baloes' | 'simbolos' | 'minhas';
+export type IdForma = FormaId | `propria:${string}`;
 export type EstiloPreenchimento = 'none' | 'solid' | 'giz' | 'marcador' | 'aquarela';
 export type EstiloContorno = EstiloPreenchimento | 'dash' | 'dot';
 
@@ -55,25 +56,33 @@ export type ParamSchema = Partial<
   Record<keyof ParametrosForma, { rotulo: string; min: number; max: number }>
 >;
 
+export type TracadorForma = Pick<
+  Path2D,
+  'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'closePath'
+>;
+
 export interface ShapeDef {
-  id: FormaId;
+  id: IdForma;
   nome: string;
   categoria: CategoriaForma;
   path:
     | string
     | ((
+        caminho: TracadorForma,
         largura: number,
         altura: number,
         parametros: ParametrosForma,
         pontos?: readonly Point[],
         aberta?: boolean,
-      ) => Path2D);
+      ) => void);
   params?: ParamSchema;
   fechada: boolean;
 }
 
 export interface ConfiguracaoForma {
-  id: FormaId;
+  id: IdForma;
+  /** A geometria fica junto do comando, mesmo após editar ou excluir a predefinição. */
+  definicao?: { nome: string; path: string; fechada: boolean };
   caixa: Rect;
   /** Ângulo em radianos, em torno do centro da caixa. */
   rotacao: number;

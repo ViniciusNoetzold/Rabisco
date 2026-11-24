@@ -7,6 +7,8 @@ import {
   desenharMiniatura,
 } from '../../src/shapes/render';
 import { PARAMETROS_PADRAO, type ConfiguracaoForma } from '../../src/shapes/tipos';
+import { lerCaminho } from '../../src/shapes/presets';
+import { referenciaDaForma, referenciaDaSelecao } from '../../src/shapes/referencia';
 
 /** Registra o caminho sem exigir um bitmap ou uma biblioteca de canvas no executor de unidade. */
 class RegistroCaminho {
@@ -70,6 +72,34 @@ function modelo(alteracoes: Partial<ConfiguracaoForma> = {}): ConfiguracaoForma 
 function operacoes(forma: ConfiguracaoForma): string[] {
   return (caminhoDaForma(forma) as unknown as RegistroCaminho).operacoes;
 }
+
+it('leva as formas clássicas rotacionadas para um caminho de predefinição válido', () => {
+  for (const { id } of FORMAS) {
+    const referencia = referenciaDaForma(modelo({ id, rotacao: Math.PI / 3 }));
+    expect(referencia?.path, id).toBeTruthy();
+    expect(lerCaminho(referencia?.path), id).not.toBeNull();
+  }
+  const estrela = referenciaDaForma(
+    modelo({ id: 'estrela-n', parametros: { ...PARAMETROS_PADRAO, pontas: 7 } }),
+  );
+  expect(lerCaminho(estrela?.path)).toHaveLength(15);
+});
+
+it('traça a silhueta de tinta da seleção e preserva o vazado', () => {
+  const data = new Uint8ClampedArray(7 * 7 * 4).fill(255);
+  for (let y = 1; y <= 5; y++) {
+    for (let x = 1; x <= 5; x++) {
+      if (y === 1 || x === 1 || y === 5 || x === 5)
+        data.fill(0, (y * 7 + x) * 4, (y * 7 + x) * 4 + 3);
+    }
+  }
+  const area = { x: 0, y: 0, width: 7, height: 7 };
+  const referencia = referenciaDaSelecao({ ...area, data }, area);
+  const comandos = lerCaminho(referencia?.path);
+  expect(comandos?.filter(({ tipo }) => tipo === 'Z')).toHaveLength(2);
+  data.fill(255);
+  expect(referenciaDaSelecao({ ...area, data }, area)).toBe(null);
+});
 
 function criarGraficoDeTeste() {
   const chamadas: unknown[][] = [];

@@ -19,6 +19,8 @@ import { DPI_PADRAO } from '../document/dimensoes';
 import { RabiscoDocument } from '../document/model';
 import { exportPng, openPng } from '../io/png';
 import type { Point, Rect, ToolId } from '../layers/types';
+import { referenciaDaForma, referenciaDaSelecao } from '../shapes/referencia';
+import type { ConfiguracaoForma } from '../shapes/tipos';
 import { loadDocument, saveDocument } from '../storage/documents';
 import type { EstiloTraco, EventoFerramenta, Tool, ToolCtx } from '../tools/tool';
 import { criarFerramentas } from '../tools/toolRegistry';
@@ -46,6 +48,7 @@ export class EditorController implements EditorApi {
     area: Rect | null;
   } | null = null;
   private selecao: Rect | null = null;
+  private ultimaForma: ConfiguracaoForma | null = null;
   private copiado: ImageData | null = null;
   private pronto = false;
   private ativo = true;
@@ -66,7 +69,12 @@ export class EditorController implements EditorApi {
       const ferramentaAnterior = this.ferramentas[anterior.tool];
       const ferramenta = this.ferramentas[atual.tool];
       const trocouFerramenta = atual.tool !== anterior.tool;
-      const trocouForma = atual.forma !== anterior.forma && atual.tool === 'shape';
+      const trocouForma =
+        atual.tool === 'shape' &&
+        (atual.forma !== anterior.forma ||
+          atual.formaPropria?.id !== anterior.formaPropria?.id ||
+          atual.formaPropria?.path !== anterior.formaPropria?.path ||
+          atual.formaPropria?.fechada !== anterior.formaPropria?.fechada);
       if (trocouFerramenta || trocouForma) {
         if (this.gesto) this.cancelarGesto();
         ferramentaAnterior.commitPendente?.(this.contexto(anterior));
@@ -346,6 +354,17 @@ export class EditorController implements EditorApi {
     return this.ativo && this.pronto && !this.gesto;
   }
 
+  obterReferenciaForma(): ReturnType<EditorApi['obterReferenciaForma']> {
+    const estado = useEditor.getState();
+    const ativa = this.ferramentas[estado.tool].obterFormaPendente?.(this.contexto(estado));
+    if (ativa) return referenciaDaForma(ativa);
+    if (this.selecao) {
+      const referencia = referenciaDaSelecao(this.doc.obterDados(), this.selecao);
+      if (referencia) return referencia;
+    }
+    return this.ultimaForma ? referenciaDaForma(this.ultimaForma) : null;
+  }
+
   private contexto(estado = useEditor.getState()): ToolCtx {
     const {
       color1,
@@ -354,6 +373,7 @@ export class EditorController implements EditorApi {
       pincel,
       densidadeSpray,
       forma,
+      formaPropria,
       contornoForma,
       preenchimentoForma,
       parametrosForma,
@@ -368,7 +388,10 @@ export class EditorController implements EditorApi {
         espessura: size,
         pincel,
         densidadeSpray,
-        forma,
+        forma: formaPropria ? `propria:${formaPropria.id}` : forma,
+        definicaoForma: formaPropria
+          ? { nome: formaPropria.nome, path: formaPropria.path, fechada: formaPropria.fechada }
+          : undefined,
         contornoForma,
         preenchimentoForma,
         parametrosForma,
@@ -516,6 +539,8 @@ export class EditorController implements EditorApi {
     // As prévias não entram no histórico. O comando rasteriza uma única vez na camada.
     this.limparPrevia();
     if (!this.comandos.executar(comando)) return false;
+    if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
+    if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
     aposExecutar?.();
     this.edicaoAplicada();
     return true;

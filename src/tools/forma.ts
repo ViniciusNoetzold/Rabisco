@@ -1,6 +1,6 @@
 import type { Point, Rect } from '../layers/types';
 import { areaDaForma, desenharForma } from '../shapes/render';
-import type { ConfiguracaoForma, FormaId } from '../shapes/tipos';
+import type { ConfiguracaoForma, IdForma } from '../shapes/tipos';
 import {
   alcaDeRotacao,
   alcasDeTamanho,
@@ -22,7 +22,7 @@ import { definirFerramenta, opcaoEspessura, type EventoFerramenta, type ToolCtx 
 type FerramentaForma = 'line' | 'rectangle' | 'ellipse' | 'shape';
 type Operacao = 'mover' | 'girar' | AlcaForma;
 type GestoForma =
-  | { tipo: 'criar'; inicio: Point; id: FormaId; previa: GeometriaForma | null }
+  | { tipo: 'criar'; inicio: Point; id: IdForma; previa: GeometriaForma | null }
   | { tipo: 'editar'; inicio: Point; original: GeometriaForma; operacao: Operacao }
   | { tipo: 'controle'; ponto: Point }
   | { tipo: 'vertice' };
@@ -37,6 +37,7 @@ function configurar(geometria: GeometriaForma, ctx: ToolCtx): ConfiguracaoForma 
   const { cor1, cor2, espessura, contornoForma, preenchimentoForma, parametrosForma } = ctx.opcoes;
   return {
     ...geometria,
+    definicao: ctx.opcoes.definicaoForma && { ...ctx.opcoes.definicaoForma },
     cor1,
     cor2,
     espessura,
@@ -145,14 +146,18 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
       return pendente;
     }
 
-    function confirmar(ctx: ToolCtx) {
+    function obterFormaPendente(ctx: ToolCtx) {
       const geometria =
         poligono && poligono.vertices.length >= 3
           ? geometriaPorPontos('polygon', poligono.vertices)
           : geometriaAtual();
+      return geometria ? configurar(geometria, ctx) : null;
+    }
+
+    function confirmar(ctx: ToolCtx) {
+      const configuracao = obterFormaPendente(ctx);
       descartar();
-      if (geometria)
-        ctx.executar({ tipo: 'AplicarForma', configuracao: configurar(geometria, ctx) });
+      if (configuracao) ctx.executar({ tipo: 'AplicarForma', configuracao });
     }
 
     function proximoVertice(evento: EventoFerramenta): Point {
@@ -223,6 +228,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
     return {
       cursor: () => 'crosshair',
       temPendente,
+      obterFormaPendente,
       descartarPendente: descartar,
       commitPendente: confirmar,
       onPointerDown(ctx, evento) {
