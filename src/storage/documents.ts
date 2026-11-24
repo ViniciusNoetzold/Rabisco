@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 import type { FormaPropria } from '../shapes/presets';
 import type { CorPersonalizada } from './cores';
+import type { BlocoSalvo, PapelSalvo } from './papel';
 
 export interface DocumentSnapshot {
   id: 'current';
@@ -18,19 +19,30 @@ class DocumentDatabase extends Dexie {
   documents!: Table<DocumentSnapshot, 'current'>;
   formas!: Table<FormaPropria, string>;
   cores!: Table<CorPersonalizada, number>;
+  papeis!: Table<PapelSalvo, 'current'>;
+  blocos!: Table<BlocoSalvo, string>;
 
   constructor() {
     super('rabisco-documentos');
     this.version(1).stores({ documents: 'id' });
     this.version(2).stores({ documents: 'id', formas: 'id' });
     this.version(3).stores({ documents: 'id', formas: 'id', cores: 'slot' });
+    // 0.2.1: o papel passa a ser gravado em blocos. O registro antigo é convertido na
+    // primeira abertura (ver editorController) e só então apagado.
+    this.version(4).stores({
+      documents: 'id',
+      formas: 'id',
+      cores: 'slot',
+      papeis: 'id',
+      blocos: 'id, documento',
+    });
   }
 }
 
 export const database = new DocumentDatabase();
 
 /** Impede que um registro incompleto ou corrompido seja restaurado no canvas. */
-function validateSnapshot(snapshot: DocumentSnapshot): void {
+export function validateSnapshot(snapshot: DocumentSnapshot): void {
   const { width, height, pixels } = snapshot;
   if (
     snapshot.id !== 'current' ||

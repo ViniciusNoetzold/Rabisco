@@ -2,6 +2,13 @@
 
 ## 0.2.1 em desenvolvimento
 
+### Passo 4 — Autosave leve
+
+- O autosave grava o papel em blocos de 256 × 256 px. Cada edição marca só os blocos que tocou. Depois de 800 ms sem edições, esses blocos são lidos, convertidos em PNG num Web Worker e gravados numa transação com a descrição do papel. Blocos de uma cor só viram um número. A aba oculta (`visibilitychange`) e o fechamento da página (`pagehide`) gravam na hora.
+- Uma pincelada em 4000 × 4000 grava 18 KiB em 2 blocos, contra 62,5 MB antes. Soltar o pincel caiu de 210 para 10,7 ms, e desfazer de 210 para 8,2 ms. O autosave passou a terminar também em 8192 × 4096.
+- O IndexedDB ganhou as tabelas `papeis` e `blocos` (esquema 4), com a chave documento + camada + bloco, pronta para várias camadas. O desenho salvo pela 0.2 é convertido em blocos na primeira abertura, e o registro antigo só é apagado depois da gravação nova. Com o armazenamento cheio, aparece a mensagem para salvar em PNG.
+- Testes: 9 unitários (grade de blocos, cores lisas, transação, recusa de bloco inválido, agendador, falha e nova tentativa) e um E2E de conversão da 0.2 que confere pixels dos dois lados da divisa entre blocos. O teste da fundação passou a aceitar leituras de bloco (até 256 × 256) e continua recusando a leitura do papel inteiro.
+
 ### Passo 3 — Pixels num lugar só
 
 - O documento deixou de manter uma cópia dos pixels em JavaScript. Cada camada guarda os pixels no próprio canvas, e os comandos leem só a área que alteram. `copiarPixels()` copia o papel inteiro e fica restrito a balde, transformações, arquivos e autosave.

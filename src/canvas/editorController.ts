@@ -32,7 +32,11 @@ import type { OpcoesImpressao } from '../io/imprimir';
 import type { PixelBuffer, Point, Rect, ToolId } from '../layers/types';
 import { referenciaDaForma, referenciaDaSelecao } from '../shapes/referencia';
 import type { ConfiguracaoForma } from '../shapes/tipos';
-import { loadDocument, saveDocument } from '../storage/documents';
+import { AutosaveBlocos } from '../storage/autosave';
+import { LADO_BLOCO, rgbaDaCor } from '../storage/blocos';
+import { criarCodificadorPng } from '../storage/codificador';
+import { validateSnapshot } from '../storage/documents';
+import { apagarLegado, lerPapel, type BlocoSalvo } from '../storage/papel';
 import type { EstiloTraco, EventoFerramenta, Tool, ToolCtx } from '../tools/tool';
 import { aplicarBorrachaDeCor } from '../tools/pixels';
 import type { ConfiguracaoTexto } from '../tools/texto';
@@ -80,8 +84,12 @@ export class EditorController implements EditorApi {
   private acompanharAjuste = true;
   private ajustandoZoom = false;
   private ativo = true;
-  private revisao = 0;
-  private gravando = false;
+  private readonly codificador = criarCodificadorPng();
+  private readonly autosave: AutosaveBlocos;
+  private readonly aoOcultar = () => {
+    if (document.visibilityState === 'hidden') void this.autosave.gravarAgora();
+  };
+  private readonly aoSair = () => void this.autosave.gravarAgora();
   private salvamento: DocumentInfo['saving'] = 'loading';
 
   constructor(
@@ -93,6 +101,28 @@ export class EditorController implements EditorApi {
   ) {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
     this.overlay = previa.getContext('2d')!;
+    this.autosave = new AutosaveBlocos({
+      fonte: {
+        descrever: () => ({
+          nome: this.doc.name,
+          largura: this.doc.width,
+          altura: this.doc.height,
+          dpi: this.doc.dpi,
+          camadas: this.doc.layers.map(({ id, name }) => ({ id, nome: name })),
+        }),
+        lerArea: (_camada, area) => this.doc.lerPixels(area),
+      },
+      codificar: this.codificador.codificar,
+      aoMudar: (estado, erro) => {
+        if (!this.ativo) return;
+        this.salvamento = estado;
+        this.notificar();
+        if (erro) this.eventos.avisar(erro.message);
+      },
+      aoGravar: medicaoAtiva ? registrarGravacao : undefined,
+    });
+    document.addEventListener('visibilitychange', this.aoOcultar);
+    window.addEventListener('pagehide', this.aoSair);
     this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
       if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
       if (!this.pronto) return;
@@ -141,20 +171,33 @@ export class EditorController implements EditorApi {
     this.compor();
     this.fit();
     try {
-      const salvo = await loadDocument();
+      const salvo = await lerPapel();
       if (!this.ativo) return;
-      if (salvo) {
-        this.doc.substituir(salvo.name, {
-          width: salvo.width,
-          height: salvo.height,
-          data: salvo.pixels,
+      if (salvo?.tipo === 'blocos') {
+        const { papel, blocos } = salvo;
+        await this.restaurarBlocos(papel.nome, papel.largura, papel.altura, blocos);
+        if (!this.ativo) return;
+        this.doc.dpi = papel.dpi;
+      } else if (salvo?.tipo === 'legado') {
+        // Registro da 0.2 (pixels inteiros): converte em blocos e só então apaga o antigo.
+        const { snapshot } = salvo;
+        validateSnapshot(snapshot);
+        this.doc.substituir(snapshot.name, {
+          width: snapshot.width,
+          height: snapshot.height,
+          data: snapshot.pixels,
         });
-        this.doc.dpi = salvo.dpi ?? DPI_PADRAO;
+        this.doc.dpi = snapshot.dpi ?? DPI_PADRAO;
+        this.autosave.marcar(this.doc.activeLayerId, null);
+        await this.autosave.gravarAgora();
+        if (this.salvamento !== 'error') await apagarLegado();
+      }
+      if (salvo) {
         this.compor();
         this.fit();
         this.eventos.avisar('Seu último rabisco foi recuperado. Continue de onde parou.');
       }
-      this.salvamento = 'saved';
+      if (this.salvamento !== 'error') this.salvamento = 'saved';
     } catch {
       if (!this.ativo) return;
       this.salvamento = 'error';
@@ -164,7 +207,41 @@ export class EditorController implements EditorApi {
     this.notificar();
   }
 
+  /** Monta a camada a partir dos blocos salvos: cores lisas são pintadas, PNGs decodificados. */
+  private async restaurarBlocos(
+    nome: string,
+    largura: number,
+    altura: number,
+    blocos: BlocoSalvo[],
+  ) {
+    const imagens = await Promise.all(
+      blocos.map((bloco) => (bloco.png ? createImageBitmap(bloco.png) : null)),
+    );
+    if (!this.ativo) return;
+    this.doc.preencherPapel(largura, altura, 'transparent');
+    this.doc.name = nome;
+    const contexto = this.doc.contextoAtivo();
+    blocos.forEach((bloco, i) => {
+      if (bloco.camada !== this.doc.activeLayerId) return;
+      const x = bloco.bx * LADO_BLOCO;
+      const y = bloco.by * LADO_BLOCO;
+      const imagem = imagens[i];
+      if (imagem) {
+        contexto.drawImage(imagem, x, y);
+        imagem.close();
+      } else if (bloco.cor !== undefined) {
+        const [r, g, b, a] = rgbaDaCor(bloco.cor);
+        contexto.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+        contexto.fillRect(x, y, LADO_BLOCO, LADO_BLOCO);
+      }
+    });
+  }
+
   encerrar() {
+    void this.autosave.gravarAgora().finally(() => this.codificador.encerrar());
+    this.autosave.encerrar();
+    document.removeEventListener('visibilitychange', this.aoOcultar);
+    window.removeEventListener('pagehide', this.aoSair);
     this.ativo = false;
     this.desconectarOpcoes();
     this.cancelarGesto();
@@ -898,42 +975,9 @@ export class EditorController implements EditorApi {
   }
 
   private edicaoAplicada() {
-    this.compor(this.comandos.ultimaAlteracao ?? undefined);
-    this.revisao++;
-    this.salvamento = 'saving';
-    this.notificar();
-    if (!this.gravando) void this.persistir();
-  }
-
-  private async persistir() {
-    this.gravando = true;
-    // O IndexedDB copia o buffer antes de aguardar. Edições concorrentes ficam na próxima revisão.
-    let revisao: number;
-    do {
-      revisao = this.revisao;
-      const { width, height, data } = this.doc.copiarPixels();
-      try {
-        await saveDocument({
-          id: 'current',
-          name: this.doc.name,
-          width,
-          height,
-          dpi: this.doc.dpi,
-          pixels: data,
-          updatedAt: Date.now(),
-        });
-        if (medicaoAtiva) registrarGravacao({ bytes: data.byteLength, blocos: 0 });
-        if (revisao === this.revisao) this.salvamento = 'saved';
-      } catch (erro) {
-        if (revisao === this.revisao) {
-          this.salvamento = 'error';
-          if (this.ativo)
-            this.eventos.avisar(erro instanceof Error ? erro.message : 'Salve uma cópia em PNG.');
-        }
-      }
-    } while (revisao !== this.revisao);
-    this.gravando = false;
-    this.notificar();
+    const area = this.comandos.ultimaAlteracao;
+    this.compor(area ?? undefined);
+    this.autosave.marcar(this.doc.activeLayerId, area);
   }
 
   private notificar() {

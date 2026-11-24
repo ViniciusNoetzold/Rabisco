@@ -31,9 +31,15 @@ test('registra uma pincelada sem ler o papel inteiro', async ({ page }) => {
   await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
 
   const leituras = await page.evaluate(() => (window as JanelaInstrumentada).leiturasDaTela);
-  expect(leituras.length).toBeLessThanOrEqual(2);
-  for (const { largura, altura } of leituras) {
-    expect(largura * altura).toBeLessThan(10_000);
+  // O comando lê a área do traço antes e depois. O autosave lê só os blocos de 256 × 256 px
+  // que o traço tocou. Nenhuma leitura cobre o papel inteiro (1024 × 640 px).
+  const doTraco = leituras.filter(({ largura, altura }) => largura * altura < 10_000);
+  const blocos = leituras.filter(({ largura, altura }) => largura * altura >= 10_000);
+  expect(doTraco.length).toBeLessThanOrEqual(2);
+  expect(blocos.length).toBeLessThanOrEqual(2);
+  for (const { largura, altura } of blocos) {
+    expect(largura).toBeLessThanOrEqual(256);
+    expect(altura).toBeLessThanOrEqual(256);
   }
 
   await page.getByRole('button', { name: 'Desfazer (Ctrl+Z)', exact: true }).click();

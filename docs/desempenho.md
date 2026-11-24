@@ -60,3 +60,19 @@ O que os números mostram:
 | Balde no papel todo                        |         64 |       1.185 |       2.047 |
 
 Sem a cópia, o papel ocupa memória só no canvas. Até o Passo 4 o autosave lê o papel inteiro do canvas a cada edição, o que encarece soltar o botão e desfazer em 4000 × 4000. Pelo mesmo motivo, o teste `fundacao.spec.ts` (uma pincelada não lê o papel inteiro) fica vermelho entre os Passos 3 e 4.
+
+### Passo 4 — 24/11/2026 (autosave por blocos)
+
+| Medida                                         |       1024 × 640 |      4000 × 4000 |      8192 × 4096 |
+| ---------------------------------------------- | ---------------: | ---------------: | ---------------: |
+| Gravado por pincelada — Passo 3                |        2.560 KiB |       62.500 KiB |    não terminava |
+| Gravado por pincelada — Passo 4                | 19 KiB, 2 blocos | 18 KiB, 2 blocos | 18 KiB, 2 blocos |
+| Pincel, soltar o botão — 3ª (Passo 3 → 4)      |       13,9 → 8,7 |     210,0 → 10,7 |      14,6 → 15,8 |
+| Spray, soltar o botão (Passo 3 → 4)            |       15,3 → 7,2 |     240,2 → 14,2 |      13,6 → 16,0 |
+| Desfazer, total (Passo 3 → 4)                  |       10,2 → 0,5 |      210,0 → 8,2 |      18,1 → 13,7 |
+| Tarefas > 100 ms na 3ª pincelada e no desfazer |                0 |                0 |                0 |
+| Autosave concluído no ensaio                   |              sim |              sim | sim (antes: não) |
+| Pincel, soltar o botão — 1ª pincelada          |             39,7 |            144,8 |            286,1 |
+| Balde no papel todo                            |               56 |            1.068 |            2.040 |
+
+Pendências que continuam: a primeira pincelada depois de criar o papel (sincronização GPU → camada) e o balde em papel grande, que roda na thread principal.
