@@ -342,6 +342,25 @@ export class EditorController implements EditorApi, NucleoEditor {
     await this.colagem.copiar(recortar, () => this.deleteSelection());
   }
 
+  /** Ctrl+Shift+C: copia a seleção como se vê, com todas as camadas visíveis. */
+  async copiarMesclado() {
+    if (!this.disponivel()) return;
+    if (!this.selecao.area) {
+      this.avisar('Selecione uma parte do desenho primeiro.');
+      return;
+    }
+    this.colagem.confirmar();
+    const tela = this.telaParaSaida();
+    await this.colagem.copiar(
+      false,
+      () => {},
+      (area) =>
+        tela
+          .getContext('2d', { willReadFrequently: true })!
+          .getImageData(area.x, area.y, area.width, area.height),
+    );
+  }
+
   async paste() {
     if (!this.disponivel()) return;
     this.colagem.colar();
@@ -426,6 +445,16 @@ export class EditorController implements EditorApi, NucleoEditor {
     this.doc.editandoMascara = mascara && Boolean(camada.mascara);
     this.persistencia.marcarDescricao();
     this.notificar();
+  }
+
+  /** Máscara nova na camada. Com seleção, só a área selecionada (laço incluído) fica visível. */
+  adicionarMascara(id: string) {
+    const area = this.selecao.area ?? undefined;
+    return this.executarCamada({
+      tipo: 'AdicionarMascara',
+      id,
+      ...(area ? { area, mascara: this.selecao.mascara } : {}),
+    });
   }
 
   /** Desenha a miniatura de uma camada (ou da máscara) num canvas pequeno do painel. */

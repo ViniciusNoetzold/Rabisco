@@ -50,6 +50,8 @@ export interface EditorApi {
   obterReferenciaForma(): Omit<DadosFormaPropria, 'pasta'> | null;
   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>): boolean;
   novaCamada(): boolean;
+  copiarMesclado(): Promise<void>;
+  adicionarMascara(id: string): boolean;
   importarComoCamada(pixels: PixelBuffer, nome: string): boolean;
   ativarCamada(id: string, mascara?: boolean): void;
   miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;

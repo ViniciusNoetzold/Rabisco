@@ -1929,3 +1929,47 @@ input[type='range']::-webkit-slider-thumb {
   padding: 2px 6px;
   min-width: 0;
 }
+
+/* Efeitos e máscara no painel de camadas (0.3). */
+.camada-efeitos {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #465e71;
+}
+.camada-efeitos summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.camada-efeitos-corpo {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0 2px 2px;
+}
+.camada-efeitos-corpo > label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.efeito-ajustes {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding-left: 16px;
+}
+.efeito-ajustes input[type='color'] {
+  width: 24px;
+  height: 18px;
+  padding: 0;
+}
+.botao-adesivo {
+  justify-self: start;
+  font-size: 11px;
+}
+.efeito-mascara {
+  display: flex;
+  gap: 4px;
+}
+.efeito-mascara button {
+  font-size: 11px;
+}

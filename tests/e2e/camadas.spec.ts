@@ -151,3 +151,27 @@ test('imagem arrastada flutua e vira camada nova ao confirmar; Mover (V) desloca
   await page.keyboard.press('Control+z');
   await expect.poll(() => pixel(page, 30, 30)).toEqual([226, 75, 75, 255]);
 });
+
+test('virar adesivo dá contorno branco por fora e desfaz em um passo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  // Papel escuro para o contorno branco aparecer.
+  await page.locator('.drawing-canvas').focus();
+  await page.getByRole('button', { name: 'Usar cor #252a34', exact: true }).click();
+  await page.keyboard.press('f');
+  const canto = await pontoNaTela(page, 5, 5);
+  await page.mouse.click(canto.x, canto.y);
+  await expect.poll(() => pixel(page, 5, 5)).toEqual([37, 42, 52, 255]);
+
+  await page.getByRole('button', { name: '＋ Nova' }).click();
+  await page.getByRole('button', { name: 'Usar cor #e24b4b', exact: true }).click();
+  await page.keyboard.press('r');
+  await riscar(page, [200, 200], [300, 280]);
+  await page.keyboard.press('Enter');
+  await page.getByText('Efeitos e máscara').click();
+  await page.getByRole('button', { name: '✨ Virar adesivo' }).click();
+  // Logo à esquerda do retângulo: contorno branco por fora.
+  await expect.poll(() => pixel(page, 194, 240)).toEqual(BRANCO);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 194, 240)).toEqual([37, 42, 52, 255]);
+});

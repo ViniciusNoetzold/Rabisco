@@ -209,6 +209,7 @@ export default function App() {
         const posicao = camadas.findIndex((camada) => camada.id === info.estrutura.ativa);
         const comCamada: Record<string, () => void> = {
           n: () => editor.current?.novaCamada(),
+          c: () => run(() => editor.current?.copiarMesclado()),
           m: () =>
             editor.current?.executarCamada({ tipo: 'MesclarAbaixo', id: info.estrutura.ativa }),
         };

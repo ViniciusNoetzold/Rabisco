@@ -2,6 +2,12 @@
 
 ## 0.3 em desenvolvimento
 
+### Passo 4 — Máscaras, recorte e efeitos na interface
+
+- Seção "Efeitos e máscara" no painel de Camadas: contorno (cor, espessura, por fora ou por dentro) e sombra (cor, distância, desfoque), recalculados sem estragar os pixels. O botão "✨ Virar adesivo" aplica contorno branco e sombra suave num clique, para as colagens.
+- Com uma seleção (retângulo ou laço), o botão Máscara cria uma máscara em que só a área selecionada fica visível. Também há "Aplicar máscara" (junta a máscara aos pixels) e "Excluir máscara".
+- Copiar mesclado (Ctrl+Shift+C) copia a seleção como se vê, com todas as camadas visíveis.
+
 ### Passo 3 (parcial) — Ferramentas cientes de camadas
 
 - O texto confirmado entra numa camada própria ("Texto: …"), num único item do histórico. Dá para desligar em Texto › Fundo › "Em nova camada".

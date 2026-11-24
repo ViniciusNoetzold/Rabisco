@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import {
   MODOS_MESCLAGEM,
+  type EfeitosCamada,
   novoId,
   type ModoMesclagem,
   type PropriedadesCamada,
@@ -233,6 +234,8 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
         </div>
       )}
 
+      {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
+
       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">
         <button
           type="button"
@@ -258,9 +261,9 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
         </button>
         <button
           type="button"
-          title="Adicionar máscara à camada"
+          title="Adicionar máscara (com uma seleção, só a área selecionada fica visível)"
           disabled={!ativa || ativa.temMascara}
-          onClick={() => ativa && api()?.executarCamada({ tipo: 'AdicionarMascara', id: ativa.id })}
+          onClick={() => ativa && api()?.adicionarMascara(ativa.id)}
         >
           Máscara
         </button>
@@ -287,5 +290,170 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
         </button>
       </div>
     </section>
+  );
+}
+
+const ADESIVO: EfeitosCamada = {
+  contorno: { cor: '#ffffff', espessura: 8, posicao: 'fora' },
+  sombra: { cor: '#000000', distancia: 6, angulo: 45, desfoque: 6, opacidade: 0.35 },
+};
+
+/** Contorno, sombra e o atalho "Adesivo" (modo de colagem), mais as ações da máscara. */
+function EfeitosDaCamada({
+  camada,
+  alterar,
+  api,
+}: {
+  camada: PropriedadesCamada;
+  alterar: (id: string, propriedades: Partial<PropriedadesCamada>) => unknown;
+  api: () => EditorApi | null;
+}) {
+  const efeitos = camada.efeitos ?? {};
+  const mudar = (novos: EfeitosCamada) => {
+    const limpos: EfeitosCamada = {};
+    if (novos.contorno) limpos.contorno = novos.contorno;
+    if (novos.sombra) limpos.sombra = novos.sombra;
+    alterar(camada.id, { efeitos: limpos.contorno || limpos.sombra ? limpos : undefined });
+  };
+  const contorno = efeitos.contorno ?? { cor: '#ffffff', espessura: 6, posicao: 'fora' as const };
+  const sombra = efeitos.sombra ?? {
+    cor: '#000000',
+    distancia: 6,
+    angulo: 45,
+    desfoque: 6,
+    opacidade: 0.35,
+  };
+  const numero = (evento: { currentTarget: HTMLInputElement }) =>
+    Number(evento.currentTarget.value);
+  const temEfeito = Boolean(efeitos.contorno || efeitos.sombra);
+  return (
+    <details className="camada-efeitos">
+      <summary>Efeitos e máscara</summary>
+      <div className="camada-efeitos-corpo" key={`${camada.id}-${JSON.stringify(efeitos)}`}>
+        <button
+          type="button"
+          className="botao-adesivo"
+          title="Contorno branco e sombra suave, como um adesivo recortado"
+          onClick={() => mudar(temEfeito ? {} : ADESIVO)}
+        >
+          {temEfeito ? 'Tirar efeitos' : '✨ Virar adesivo'}
+        </button>
+        <label>
+          <input
+            type="checkbox"
+            checked={Boolean(efeitos.contorno)}
+            onChange={(evento) =>
+              mudar({ ...efeitos, contorno: evento.target.checked ? contorno : undefined })
+            }
+          />
+          Contorno
+        </label>
+        {efeitos.contorno && (
+          <div className="efeito-ajustes">
+            <input
+              type="color"
+              aria-label="Cor do contorno"
+              defaultValue={contorno.cor}
+              onBlur={(evento) =>
+                mudar({ ...efeitos, contorno: { ...contorno, cor: evento.target.value } })
+              }
+            />
+            <input
+              type="range"
+              min="1"
+              max="30"
+              aria-label="Espessura do contorno"
+              defaultValue={contorno.espessura}
+              onPointerUp={(evento) =>
+                mudar({ ...efeitos, contorno: { ...contorno, espessura: numero(evento) } })
+              }
+              onKeyUp={(evento) =>
+                mudar({ ...efeitos, contorno: { ...contorno, espessura: numero(evento) } })
+              }
+            />
+            <select
+              aria-label="Posição do contorno"
+              value={contorno.posicao}
+              onChange={(evento) =>
+                mudar({
+                  ...efeitos,
+                  contorno: { ...contorno, posicao: evento.target.value as 'fora' | 'dentro' },
+                })
+              }
+            >
+              <option value="fora">Fora</option>
+              <option value="dentro">Dentro</option>
+            </select>
+          </div>
+        )}
+        <label>
+          <input
+            type="checkbox"
+            checked={Boolean(efeitos.sombra)}
+            onChange={(evento) =>
+              mudar({ ...efeitos, sombra: evento.target.checked ? sombra : undefined })
+            }
+          />
+          Sombra
+        </label>
+        {efeitos.sombra && (
+          <div className="efeito-ajustes">
+            <input
+              type="color"
+              aria-label="Cor da sombra"
+              defaultValue={sombra.cor}
+              onBlur={(evento) =>
+                mudar({ ...efeitos, sombra: { ...sombra, cor: evento.target.value } })
+              }
+            />
+            <input
+              type="range"
+              min="0"
+              max="40"
+              aria-label="Distância da sombra"
+              title="Distância"
+              defaultValue={sombra.distancia}
+              onPointerUp={(evento) =>
+                mudar({ ...efeitos, sombra: { ...sombra, distancia: numero(evento) } })
+              }
+              onKeyUp={(evento) =>
+                mudar({ ...efeitos, sombra: { ...sombra, distancia: numero(evento) } })
+              }
+            />
+            <input
+              type="range"
+              min="0"
+              max="30"
+              aria-label="Desfoque da sombra"
+              title="Desfoque"
+              defaultValue={sombra.desfoque}
+              onPointerUp={(evento) =>
+                mudar({ ...efeitos, sombra: { ...sombra, desfoque: numero(evento) } })
+              }
+              onKeyUp={(evento) =>
+                mudar({ ...efeitos, sombra: { ...sombra, desfoque: numero(evento) } })
+              }
+            />
+          </div>
+        )}
+        {camada.temMascara && (
+          <div className="efeito-mascara">
+            <button
+              type="button"
+              title="Junta a máscara aos pixels da camada"
+              onClick={() => api()?.executarCamada({ tipo: 'AplicarMascara', id: camada.id })}
+            >
+              Aplicar máscara
+            </button>
+            <button
+              type="button"
+              onClick={() => api()?.executarCamada({ tipo: 'ExcluirMascara', id: camada.id })}
+            >
+              Excluir máscara
+            </button>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }

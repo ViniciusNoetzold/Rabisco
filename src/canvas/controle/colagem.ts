@@ -45,12 +45,17 @@ export class ControleColagem {
   }
 
   /** Cópia para o editor e para a área de transferência do sistema (como PNG). */
-  async copiar(recortar: boolean, apagarSelecao: () => void) {
+  async copiar(
+    recortar: boolean,
+    apagarSelecao: () => void,
+    /** Copiar mesclado: lê o que se vê (todas as camadas) em vez da camada ativa. */
+    lerMesclado?: (area: Rect) => ImageData,
+  ) {
     const area = this.selecao.area;
     if (!area) return;
     const { selecaoTransparente, color2 } = useEditor.getState();
     const recorte = prepararRecorteDaArea(
-      this.nucleo.doc.lerPixels(area),
+      lerMesclado ? lerMesclado(area) : this.nucleo.doc.lerPixels(area),
       area,
       this.selecao.mascara,
       selecaoTransparente ? color2 : undefined,
@@ -65,9 +70,11 @@ export class ControleColagem {
     this.nucleo.avisar(
       recortar
         ? 'Seleção recortada. Use Colar para reposicionar.'
-        : copiadoNoSistema
-          ? 'Seleção copiada como PNG.'
-          : 'Seleção copiada neste editor.',
+        : lerMesclado
+          ? 'Cópia mesclada de todas as camadas visíveis.'
+          : copiadoNoSistema
+            ? 'Seleção copiada como PNG.'
+            : 'Seleção copiada neste editor.',
     );
   }
 
