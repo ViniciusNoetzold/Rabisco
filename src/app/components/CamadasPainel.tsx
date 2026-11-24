@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
+import { useEditor } from '../store';
 import {
   MODOS_MESCLAGEM,
   type EfeitosCamada,
@@ -243,6 +244,14 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
           onClick={() => api()?.novaCamada()}
         >
           ＋ Nova
+        </button>
+        <button
+          type="button"
+          title="Transformação livre: mover, escalar e girar (Ctrl+T)"
+          disabled={!ativa}
+          onClick={() => useEditor.getState().setTool('transform')}
+        >
+          Transformar
         </button>
         <button
           type="button"

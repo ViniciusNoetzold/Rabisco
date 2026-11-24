@@ -248,6 +248,7 @@ export default function App() {
           w: () => setDialog('transform'),
           a: () => editor.current?.selectAll(),
           c: () => run(() => editor.current?.copy()),
+          t: () => state.setTool('transform'),
           x: () => run(() => editor.current?.copy(true)),
           '0': () => editor.current?.fit(),
           r: () => state.set({ ruler: !state.ruler }),

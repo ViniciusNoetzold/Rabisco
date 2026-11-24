@@ -182,6 +182,14 @@ export class ControleFerramentas {
       largura: doc.width,
       altura: doc.height,
       camadaAtiva: doc.activeLayerId,
+      camadaParaTransformar: () => this.camadaParaTransformar(),
+      ocultarCamadaAtiva: (ocultar) => {
+        const camada = doc.activeLayer;
+        if (Boolean(camada.foraDaTela) === ocultar) return;
+        camada.foraDaTela = ocultar || undefined;
+        if (!ocultar) delete camada.foraDaTela;
+        superficie.compor();
+      },
       opcoes: opcoesDaFerramenta(estado),
       selecao: selecao.area,
       mascaraSelecao: selecao.mascara,
@@ -201,6 +209,58 @@ export class ControleFerramentas {
         superficie.selecao(origem, destino, recorte),
       limparPrevia: () => superficie.limpar(),
     };
+  }
+
+  /** Recorta os pixels não transparentes da camada ativa (com a máscara aplicada à prévia). */
+  private camadaParaTransformar() {
+    const { doc } = this.nucleo;
+    const camada = doc.activeLayer;
+    if (camada.locked || camada.bloqueioPosicao) {
+      this.nucleo.avisar('Esta camada está bloqueada. Desbloqueie para transformar.');
+      return null;
+    }
+    const { data, width, height } = doc.lerPixels(undefined, { camada: camada.id });
+    let esquerda = width;
+    let topo = height;
+    let direita = -1;
+    let base = -1;
+    for (let y = 0; y < height; y++) {
+      const linha = y * width * 4;
+      for (let x = 0; x < width; x++) {
+        if (!data[linha + x * 4 + 3]) continue;
+        if (x < esquerda) esquerda = x;
+        if (x > direita) direita = x;
+        if (y < topo) topo = y;
+        base = y;
+      }
+    }
+    if (direita < 0) {
+      this.nucleo.avisar('A camada está vazia: não há o que transformar.');
+      return null;
+    }
+    const limites = {
+      x: esquerda,
+      y: topo,
+      width: direita - esquerda + 1,
+      height: base - topo + 1,
+    };
+    const conteudo = document.createElement('canvas');
+    conteudo.width = limites.width;
+    conteudo.height = limites.height;
+    conteudo
+      .getContext('2d')!
+      .drawImage(
+        camada.canvas,
+        limites.x,
+        limites.y,
+        limites.width,
+        limites.height,
+        0,
+        0,
+        limites.width,
+        limites.height,
+      );
+    return { conteudo, limites };
   }
 
   /** Conta-gotas: lê o pixel e, depois de usado, volta para a ferramenta anterior. */

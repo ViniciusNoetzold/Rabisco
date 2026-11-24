@@ -473,6 +473,34 @@ export class Executador {
           }
         });
       }
+      case 'TransformarCamada': {
+        const camada = doc.camada(comando.id);
+        if (!camada || comando.matriz.some((valor) => !Number.isFinite(valor))) return null;
+        if (camada.locked || camada.bloqueioPosicao) {
+          this.motivoRecusa = 'bloqueada';
+          return null;
+        }
+        const alvos = this.alvosDa(comando.id);
+        return this.alterarDocumento(comando, 'Transformação livre', alvos, () => {
+          for (const alvo of alvos) {
+            const copia = document.createElement('canvas');
+            copia.width = doc.width;
+            copia.height = doc.height;
+            copia.getContext('2d')!.drawImage(doc.canvasDo(alvo), 0, 0);
+            const contexto = doc.contexto(alvo);
+            contexto.save();
+            if (alvo.mascara) {
+              contexto.fillStyle = '#ffffff';
+              contexto.fillRect(0, 0, doc.width, doc.height);
+            } else contexto.clearRect(0, 0, doc.width, doc.height);
+            contexto.imageSmoothingEnabled = true;
+            contexto.imageSmoothingQuality = 'high';
+            contexto.setTransform(...comando.matriz);
+            contexto.drawImage(copia, 0, 0);
+            contexto.restore();
+          }
+        });
+      }
       case 'MesclarAbaixo': {
         const posicao = indice(comando.id);
         if (posicao <= 0) {

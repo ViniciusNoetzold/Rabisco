@@ -177,7 +177,7 @@ function desenharLista(destino: Contexto, camadas: Camada[], janela: Rect) {
     const camada = camadas[i];
     const recortadas: Camada[] = [];
     while (camadas[i + 1]?.recorte) recortadas.push(camadas[++i]);
-    if (!camada.visible || camada.opacity <= 0) continue;
+    if (!camada.visible || camada.opacity <= 0 || camada.foraDaTela) continue;
     desenharCamada(destino, camada, recortadas, janela);
   }
 }

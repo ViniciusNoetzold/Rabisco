@@ -175,3 +175,63 @@ test('virar adesivo dá contorno branco por fora e desfaz em um passo', async ({
   await page.keyboard.press('Control+z');
   await expect.poll(() => pixel(page, 194, 240)).toEqual([37, 42, 52, 255]);
 });
+
+test('transformação livre: escala pela alça, move, confirma com Enter e desfaz', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '＋ Nova' }).click();
+  await page.locator('.drawing-canvas').focus();
+  await page.getByRole('button', { name: 'Usar cor #e24b4b', exact: true }).click();
+  await page.keyboard.press('b');
+  // Um bloco de traços (60 × 46 px) para haver "dentro" longe das alças.
+  for (const y of [200, 210, 220, 230, 240]) await riscar(page, [200, y], [260, y]);
+  const vermelho = await pixel(page, 230, 220);
+  expect(vermelho).not.toEqual(BRANCO);
+  const caixa = await page.evaluate(() => {
+    // Limites reais do traço na tela, para achar a alça do canto.
+    const tela = document.querySelector<HTMLCanvasElement>('.drawing-canvas')!;
+    const { data, width, height } = tela
+      .getContext('2d')!
+      .getImageData(0, 0, tela.width, tela.height);
+    let direita = 0;
+    let base = 0;
+    let esquerda = width;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) continue;
+        direita = Math.max(direita, x);
+        base = Math.max(base, y);
+        esquerda = Math.min(esquerda, x);
+      }
+    return { direita: direita + 1, base: base + 1, esquerda };
+  });
+
+  await page.keyboard.press('Control+t');
+  // Alça do canto inferior direito: arrastar até dobrar a largura (escala a partir do centro).
+  const centro = (caixa.esquerda + caixa.direita) / 2;
+  const alca = await pontoNaTela(page, caixa.direita, caixa.base);
+  const destino = await pontoNaTela(page, centro + (caixa.direita - centro) * 2, caixa.base);
+  await page.mouse.move(alca.x, alca.y);
+  await page.mouse.down();
+  await page.mouse.move(destino.x, destino.y, { steps: 6 });
+  await page.mouse.up();
+  // Arrasta por dentro para mover 120 px à direita.
+  const dentro = await pontoNaTela(page, 215, 210);
+  const fim = await pontoNaTela(page, 335, 210);
+  await page.mouse.move(dentro.x, dentro.y);
+  await page.mouse.down();
+  await page.mouse.move(fim.x, fim.y, { steps: 6 });
+  await page.mouse.up();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.history-list').getByText('Transformação livre')).toHaveCount(1);
+  await page.keyboard.press('b');
+  // O traço tinha ~66 px; com o dobro de largura e 120 px adiante, cobre x = 380.
+  await expect.poll(() => pixel(page, 380, 220)).not.toEqual(BRANCO);
+  await expect.poll(() => pixel(page, 205, 220)).toEqual(BRANCO);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 230, 220)).toEqual(vermelho);
+  await expect.poll(() => pixel(page, 380, 220)).toEqual(BRANCO);
+});

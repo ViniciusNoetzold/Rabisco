@@ -132,6 +132,12 @@ export type ComandoCamada =
   | { tipo: 'MoverCamada'; id: string; posicao: number; grupo?: string | null }
   | { tipo: 'MesclarAbaixo'; id: string }
   | { tipo: 'DeslocarCamada'; id: string; dx: number; dy: number }
+  /** Matriz afim [a, b, c, d, e, f] aplicada aos pixels e à máscara da camada. */
+  | {
+      tipo: 'TransformarCamada';
+      id: string;
+      matriz: [number, number, number, number, number, number];
+    }
   | { tipo: 'MesclarVisiveis'; novoId: string }
   | { tipo: 'AchatarImagem' }
   | { tipo: 'AgruparCamadas'; ids: string[]; grupoId: string; nome: string }

@@ -15,6 +15,8 @@ export interface Layer<Superficie extends CanvasDaCamada = CanvasDaCamada>
   canvas: Superficie;
   /** Máscara em tons de cinza do tamanho do papel: branco revela, preto esconde. */
   mascara?: Superficie;
+  /** Só na tela: a camada some enquanto uma prévia (transformação) a substitui. */
+  foraDaTela?: boolean;
 }
 
 export type { Alvo, EstruturaDocumento, Grupo, PropriedadesCamada } from './camadas';
@@ -48,7 +50,12 @@ function contexto2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   return contexto;
 }
 
-function semCanvas({ canvas: _canvas, mascara: _mascara, ...propriedades }: Layer) {
+function semCanvas({
+  canvas: _canvas,
+  mascara: _mascara,
+  foraDaTela: _foraDaTela,
+  ...propriedades
+}: Layer) {
   return structuredClone(propriedades) as PropriedadesCamada;
 }
 

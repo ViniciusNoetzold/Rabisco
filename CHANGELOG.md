@@ -14,6 +14,11 @@
 - Balde e conta-gotas ganharam "Amostrar todas as camadas": a área ou a cor vêm do que se vê, mas o balde pinta só na camada ativa.
 - Já no Passo 1: borracha transparente fora do papel, travar transparência e aviso ao pintar em camada oculta ou bloqueada. Falta "Copiar mesclado" (Ctrl+Shift+C) e a opção de formas em nova camada.
 
+### Passo 5 — Transformação livre
+
+- Ctrl+T (ou "Transformar" no painel de Camadas) mostra a caixa dos pixels da camada ativa com 8 alças e uma alça de giro. Arrastar por dentro move, as alças escalam a partir do centro (Shift mantém a proporção) e a bolinha gira (Shift de 15° em 15°). A prévia aparece no lugar da camada. Enter, um clique fora ou trocar de ferramenta confirmam num único item do histórico ("Transformação livre"), e Esc cancela. A máscara acompanha os pixels.
+- Falta deste passo: distorcer pelos cantos, perspectiva e guias de encaixe.
+
 ### Passo 5 (parcial) — Colagem em camadas e ferramenta Mover
 
 - Imagem colada de fora (Ctrl+V) ou arrastada para a janela flutua para ser posicionada e, ao confirmar, vira uma camada nova com o nome do arquivo. Ctrl+Shift+V cola na camada atual, como antes. Várias imagens soltas de uma vez viram uma camada cada, centralizadas; as maiores que o papel são reduzidas para caber.

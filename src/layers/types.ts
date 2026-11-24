@@ -26,7 +26,8 @@ export type ToolId =
   | 'text'
   | 'zoom'
   | 'eyedropper'
-  | 'move';
+  | 'move'
+  | 'transform';
 
 /** Forma mínima de ImageData, também utilizável em testes e workers. */
 export interface PixelBuffer {

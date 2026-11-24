@@ -39,6 +39,10 @@ export interface ToolCtx {
   readonly altura: number;
   /** Camada onde as ferramentas pintam (comandos de camada precisam do identificador). */
   readonly camadaAtiva: string;
+  /** Pixels não transparentes da camada ativa e onde estão (transformação livre). */
+  camadaParaTransformar(): { conteudo: HTMLCanvasElement; limites: Rect } | null;
+  /** Tira a camada ativa da tela enquanto a prévia da transformação aparece por cima. */
+  ocultarCamadaAtiva(ocultar: boolean): void;
   readonly opcoes: {
     cor1: string;
     cor2: string;

@@ -34,4 +34,6 @@ export const hints: Record<ToolId, string> = {
   zoom: 'Clique para ampliar. Use o botão direito para reduzir.',
   eyedropper: 'Encontre uma cor no seu desenho e continue com ela.',
   move: 'Arraste para mover a camada ativa inteira. Setas não mudam nada aqui.',
+  transform:
+    'Arraste dentro para mover, nas alças para escalar (Shift mantém a proporção) e na bolinha de cima para girar. Enter confirma, Esc cancela.',
 };
