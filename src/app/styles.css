@@ -1778,3 +1778,42 @@ input[type='range']::-webkit-slider-thumb {
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* Aviso de módulo carregando sob demanda (Primitives.tsx). */
+.carregando-discreto {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #2d4c65;
+  background: #f7fbfe;
+  border: 1px solid #9ec0d8;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #23405822;
+}
+.carregando-ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3083c5;
+  animation: carregando-pulso 0.9s ease-in-out infinite alternate;
+}
+@keyframes carregando-pulso {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carregando-ponto {
+    animation: none;
+  }
+}

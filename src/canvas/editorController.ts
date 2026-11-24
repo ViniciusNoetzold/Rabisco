@@ -155,8 +155,11 @@ export class EditorController implements EditorApi, NucleoEditor {
   }
 
   encerrar() {
-    this.persistencia.encerrar();
+    // Primeiro desliga: a última gravação não pode mais avisar a interface (em desenvolvimento,
+    // o React monta o editor duas vezes, e a instância antiga anunciava "Salvo" enquanto a
+    // nova ainda recuperava o desenho).
     this.ligado = false;
+    this.persistencia.encerrar();
     this.desconectarOpcoes();
     this.ferramentas.encerrar();
     this.selecao.encerrar();

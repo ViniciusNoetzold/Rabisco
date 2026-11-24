@@ -76,3 +76,15 @@ Sem a cópia, o papel ocupa memória só no canvas. Até o Passo 4 o autosave l�
 | Balde no papel todo                            |               56 |            1.068 |            2.040 |
 
 Pendências que continuam: a primeira pincelada depois de criar o papel (sincronização GPU → camada) e o balde em papel grande, que roda na thread principal.
+
+### Passo 7 — 24/11/2026 (tamanho para abrir)
+
+| Arquivo JavaScript                   | Antes (0.2)           | Depois (0.2.1)        |
+| ------------------------------------ | --------------------- | --------------------- |
+| Inicial do Rabisco                   | 516,7 KB (gzip 167,2) | 185,6 KB (gzip 62,0)  |
+| React (arquivo próprio, em cache)    | dentro do inicial     | 223,4 KB (gzip 69,3)  |
+| Banco local (Dexie), logo após abrir | dentro do inicial     | 101,4 KB (gzip 33,4)  |
+| Total baixado para abrir a janela    | 516,7 KB              | 409,0 KB (gzip 131,3) |
+| Aviso de tamanho do Vite             | sim                   | não                   |
+
+Diálogos, editor e biblioteca de formas, editor de cores, codificadores de imagem e impressão continuam em arquivos carregados só quando usados.

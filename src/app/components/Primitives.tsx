@@ -116,3 +116,22 @@ export function RibbonGroup({
     </section>
   );
 }
+
+/**
+ * Aviso discreto enquanto um módulo carregado sob demanda (diálogos, editor de formas) chega.
+ * Só aparece se a espera passar de 200 ms, para não piscar em conexões rápidas.
+ */
+export function CarregandoDiscreto() {
+  const [visivel, setVisivel] = useState(false);
+  useEffect(() => {
+    const espera = setTimeout(() => setVisivel(true), 200);
+    return () => clearTimeout(espera);
+  }, []);
+  if (!visivel) return null;
+  return (
+    <div className="carregando-discreto" role="status">
+      <span className="carregando-ponto" aria-hidden="true" />
+      Carregando…
+    </div>
+  );
+}

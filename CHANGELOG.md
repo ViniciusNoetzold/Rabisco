@@ -1,6 +1,20 @@
 # Histórico de alterações
 
-## 0.2.1 em desenvolvimento
+## 0.2.1 — 2026-11-24
+
+Estabilização depois da revisão da 0.2: testes confiáveis, desempenho medido de verdade, um só lugar para os pixels, autosave por blocos, editor em módulos, interface em qualquer largura e um app mais leve para abrir. Os números de cada passo estão em [docs/desempenho.md](docs/desempenho.md).
+
+### Passo 7 — App mais leve para abrir
+
+- O arquivo JavaScript inicial passou de 516,7 KB para 185,6 KB (gzip: de 167,2 KB para 62,0 KB), sem aviso de tamanho no build. O React foi para um arquivo próprio (223,4 KB, guardado em cache entre versões). O banco local (Dexie, 101,4 KB) passou a carregar logo depois que a janela aparece, para recuperar o desenho e salvar. Somando o que o navegador baixa para abrir: 409,0 KB contra 516,7 KB antes.
+- Diálogos, editor e biblioteca de formas, editor de cores, codificadores BMP, GIF e ICO e impressão continuam carregando só quando usados. Se a espera passar de 200 ms, aparece um aviso discreto "Carregando…".
+- O servidor de desenvolvimento pré-otimiza o Dexie para não recarregar a página quando o banco é importado sob demanda.
+- Testes: um E2E segura o módulo dos diálogos e confere o aviso. O teste de conversão da 0.2 passou a esperar o banco ser criado.
+- Correção encontrada na validação final: ao desmontar o editor, a última gravação do autosave ainda avisava "Salvo neste dispositivo". Em desenvolvimento o React monta o editor duas vezes, então a interface mostrava "Salvo" enquanto a instância nova ainda recuperava o desenho, e abrir um arquivo nesse instante não fazia nada. O editor agora se desliga antes da última gravação.
+
+### Validação da 0.2.1
+
+- 124 testes unitários, build de produção sem avisos e três rodadas seguidas da suíte E2E completa no Edge (`npm run test:e2e:estavel`), com 54 de 54 fluxos em cada rodada.
 
 ### Passo 6 — Interface em qualquer largura
 

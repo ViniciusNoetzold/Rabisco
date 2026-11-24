@@ -58,6 +58,14 @@ npm run test:e2e:estavel
 
 O último comando executa três rodadas completas no Edge e encerra ao encontrar uma falha.
 
+Para medir o desempenho (pincel, spray, balde, desfazer, memória e autosave em três tamanhos de papel), rode sem outras suítes em andamento:
+
+```powershell
+npm run perf -- --rotulo=meu-ensaio
+```
+
+A metodologia e os resultados de cada versão estão em [docs/desempenho.md](docs/desempenho.md).
+
 Os testes de navegador usam Playwright com o Edge instalado no Windows, como nesta validação.
 Para usar o Chromium fornecido pelo Playwright em outra máquina:
 
@@ -114,7 +122,8 @@ O documento tem uma camada raster editável, composta em uma tela separada. O re
 
 - Imagens de 1 a 8192 px por lado, com até 40 milhões de pixels. A importação PNG aceita arquivos de até 20 MiB. JPEG, GIF, WebP e ICO aceitam até 64 MiB. O limite do BMP considera o tamanho do bitmap sem compressão.
 - O histórico guarda os pixels da área afetada e descarta comandos antigos ao atingir 128 MiB. Quando uma única edição ultrapassa esse orçamento, ela permanece disponível para desfazer.
-- O autosave guarda o último documento neste navegador. Limpar os dados do site também remove desenho, formas próprias e cores personalizadas.
+- O autosave guarda o último documento neste navegador, em blocos de 256 × 256 px: grava só o que mudou, 800 ms depois da última edição, e na hora quando a aba é ocultada ou fechada. Limpar os dados do site também remove desenho, formas próprias e cores personalizadas.
+- A primeira pincelada depois de criar ou abrir um papel grande tem um atraso único (127 ms em 4000 × 4000), e o balde no papel inteiro leva cerca de 1 s em 4000 × 4000. Os dois estão registrados como pendências em [docs/desempenho.md](docs/desempenho.md).
 - A leitura e a escrita diretas na área de transferência do sistema exigem HTTPS ou localhost e permissão do navegador. Na prévia HTTP da rede, use `Ctrl+V`, **Colar de…** ou arraste o arquivo. O botão **Colar** também usa a cópia interna.
 - Instalação PWA, camadas múltiplas, IA, efeitos e Tauri estão no roteiro. A área de texto é editável até a confirmação, quando vira pixels no papel.
 

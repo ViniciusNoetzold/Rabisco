@@ -1,7 +1,7 @@
 import type { PixelBuffer, Rect } from '../layers/types';
 import { areaDoBloco, BlocosSujos, corUniforme, type PosicaoBloco } from './blocos';
 import type { CodificarPng } from './codificador';
-import { gravarPapel, type BlocoParaGravar, type PapelSalvo } from './papel';
+import type { BlocoParaGravar, gravarPapel, PapelSalvo } from './papel';
 
 /** O que o autosave precisa saber do documento, sem depender do editor. */
 export interface FonteDoPapel {
@@ -16,7 +16,8 @@ export interface OpcoesAutosave {
   codificar: CodificarPng;
   aoMudar(estado: EstadoAutosave, erro?: Error): void;
   aoGravar?(gravacao: { bytes: number; blocos: number }): void;
-  gravar?: typeof gravarPapel;
+  /** Grava descrição e blocos (normalmente `gravarPapel`, carregado sob demanda). */
+  gravar: typeof gravarPapel;
   /** Pausa sem edições antes de gravar. */
   espera?: number;
   /** Blocos lidos do canvas antes de devolver a vez para a interface. */
@@ -53,7 +54,7 @@ export class AutosaveBlocos {
   constructor(private readonly opcoes: OpcoesAutosave) {
     this.espera = opcoes.espera ?? 800;
     this.blocosPorLeitura = Math.max(1, opcoes.blocosPorLeitura ?? 16);
-    this.gravar = opcoes.gravar ?? gravarPapel;
+    this.gravar = opcoes.gravar;
   }
 
   get pendente(): boolean {

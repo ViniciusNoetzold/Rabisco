@@ -3,8 +3,13 @@ import type { Rect } from '../../layers/types';
 import { AutosaveBlocos } from '../../storage/autosave';
 import { LADO_BLOCO, rgbaDaCor } from '../../storage/blocos';
 import { criarCodificadorPng } from '../../storage/codificador';
-import { validateSnapshot } from '../../storage/documents';
-import { apagarLegado, lerPapel, type BlocoSalvo } from '../../storage/papel';
+import type { BlocoSalvo } from '../../storage/papel';
+
+/** O banco local (Dexie, ~100 KB) carrega depois da primeira pintura da janela. */
+const armazenamento = () =>
+  Promise.all([import('../../storage/papel'), import('../../storage/documents')]).then(
+    ([papel, documentos]) => ({ ...papel, validateSnapshot: documentos.validateSnapshot }),
+  );
 import type { DocumentInfo } from '../editorTypes';
 import { medicaoAtiva, registrarGravacao } from '../medicao';
 import type { NucleoEditor } from './nucleo';
@@ -33,6 +38,7 @@ export class Persistencia {
         lerArea: (_camada, area) => doc.lerPixels(area),
       },
       codificar: this.codificador.codificar,
+      gravar: async (...argumentos) => (await armazenamento()).gravarPapel(...argumentos),
       aoMudar: (estado, erro) => {
         if (!nucleo.ativo()) return;
         this.estado = estado;
@@ -54,6 +60,7 @@ export class Persistencia {
   async recuperar(): Promise<boolean> {
     const { doc } = this.nucleo;
     try {
+      const { lerPapel, apagarLegado, validateSnapshot } = await armazenamento();
       const salvo = await lerPapel();
       if (!this.nucleo.ativo()) return false;
       if (salvo?.tipo === 'blocos') {

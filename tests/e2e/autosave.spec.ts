@@ -19,11 +19,21 @@ test('converte o desenho salvo pela versão 0.2 em blocos sem perder os pixels',
 
   // Simula o registro da 0.2: pixels inteiros na tabela antiga e nenhum papel em blocos.
   await page.evaluate(async () => {
-    const banco = await new Promise<IDBDatabase>((resolver, rejeitar) => {
-      const pedido = indexedDB.open('rabisco-documentos');
-      pedido.onsuccess = () => resolver(pedido.result);
-      pedido.onerror = () => rejeitar(pedido.error);
-    });
+    // O app abre o banco sob demanda: espera as tabelas da versão 0.2.1 existirem.
+    let banco: IDBDatabase | null = null;
+    for (let tentativa = 0; tentativa < 50 && !banco; tentativa++) {
+      const aberto = await new Promise<IDBDatabase>((resolver, rejeitar) => {
+        const pedido = indexedDB.open('rabisco-documentos');
+        pedido.onsuccess = () => resolver(pedido.result);
+        pedido.onerror = () => rejeitar(pedido.error);
+      });
+      if (aberto.objectStoreNames.contains('papeis')) banco = aberto;
+      else {
+        aberto.close();
+        await new Promise((resolver) => setTimeout(resolver, 100));
+      }
+    }
+    if (!banco) throw new Error('O banco do Rabisco não foi criado.');
     const largura = 300;
     const altura = 200;
     const pixels = new Uint8ClampedArray(largura * altura * 4);

@@ -1,14 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
 import type { DadosFormaPropria, FormaPropria } from '../shapes/presets';
-import { listarFormas, salvarForma } from '../storage/formas';
+// O banco local (Dexie) carrega depois da primeira pintura da janela.
+const armazenamentoDeFormas = () => import('../storage/formas');
 import { useEditor } from './store';
 import type { PixelBuffer, Point } from '../layers/types';
 import { imagemDaTransferencia, lerImagemClipboard } from '../io/clipboard';
 import { TIPOS_IMAGEM } from '../io/formatosImagem';
 import { dimensoesValidas } from '../document/dimensoes';
 import { toolRegistry } from '../tools/toolRegistry';
-import { Icon } from './components/Primitives';
+import { CarregandoDiscreto, Icon } from './components/Primitives';
 import { initialInfo } from './components/editorUi';
 import { EditorChrome, ToolHint } from './components/EditorChrome';
 import { Ribbon } from './components/Ribbon';
@@ -104,7 +105,7 @@ export default function App() {
   );
 
   const atualizarFormas = useCallback(async () => {
-    const atuais = await listarFormas();
+    const atuais = await (await armazenamentoDeFormas()).listarFormas();
     setFormas(atuais);
     useEditor.getState().sincronizarFormaPropria(atuais);
   }, []);
@@ -139,7 +140,7 @@ export default function App() {
 
   async function salvarFormaDoEditor(dados: DadosFormaPropria) {
     const id = painelFormas?.tipo === 'editar' ? painelFormas.forma.id : undefined;
-    await salvarForma(dados, id);
+    await (await armazenamentoDeFormas()).salvarForma(dados, id);
     await atualizarFormas();
     setPainelFormas(id ? { tipo: 'gerenciar' } : null);
     notify('Forma salva na sua biblioteca.');
@@ -393,7 +394,7 @@ export default function App() {
           </button>
         </div>
       )}
-      <Suspense fallback={null}>
+      <Suspense fallback={<CarregandoDiscreto />}>
         {dialog && (
           <EditorDialogs
             dialog={dialog}
