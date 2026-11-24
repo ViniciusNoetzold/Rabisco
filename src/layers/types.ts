@@ -24,6 +24,7 @@ export type ToolId =
   | 'select'
   | 'lasso'
   | 'text'
+  | 'zoom'
   | 'eyedropper';
 
 /** Forma mínima de ImageData, também utilizável em testes e workers. */

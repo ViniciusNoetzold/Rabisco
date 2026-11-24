@@ -11,6 +11,7 @@ import { SprayControls, StrokeThickness } from './StrokeThickness';
 import { TextTools } from './TextTools';
 import { ControlesDeBalde, ControlesDeBorracha } from './ContextPixelTools';
 import { SelectionMenu } from './SelectionMenu';
+import { nivelSeguinte } from '../../canvas/zoom';
 
 interface RibbonProps {
   tab: string;
@@ -20,6 +21,7 @@ interface RibbonProps {
   onOpen(): void;
   onPropriedades(): void;
   onTransformar(): void;
+  alternarTelaInteira(): void;
   run: RunAction;
 }
 
@@ -31,6 +33,7 @@ export function Ribbon({
   onOpen,
   onPropriedades,
   onTransformar,
+  alternarTelaInteira,
   run,
 }: RibbonProps) {
   const state = useEditor();
@@ -151,14 +154,7 @@ export function Ribbon({
                   {botaoFerramenta('brush')}
                   {botaoFerramenta('eraser')}
                   {botaoFerramenta('text')}
-                  <button
-                    className="tool-button"
-                    title="Ajustar à janela"
-                    aria-label="Ajustar à janela"
-                    onClick={() => editor.current?.fit()}
-                  >
-                    <Icon name="magnifier" />
-                  </button>
+                  {botaoFerramenta('zoom')}
                 </div>
               </RibbonGroup>
               <RibbonGroup title="Pincéis" className="brush-group">
@@ -255,14 +251,14 @@ export function Ribbon({
             <div className="view-buttons">
               <button
                 className="ribbon-large"
-                onClick={() => state.set({ zoom: Math.min(4, state.zoom + 0.25) })}
+                onClick={() => state.set({ zoom: nivelSeguinte(state.zoom, 1) })}
               >
                 <Icon name="magnifier" className="large-icon" />
                 <span>Ampliar</span>
               </button>
               <button
                 className="ribbon-large"
-                onClick={() => state.set({ zoom: Math.max(0.1, state.zoom - 0.25) })}
+                onClick={() => state.set({ zoom: nivelSeguinte(state.zoom, -1) })}
               >
                 <Icon name="minus" className="large-icon" />
                 <span>Reduzir</span>
@@ -297,12 +293,27 @@ export function Ribbon({
               ))}
             </div>
           </RibbonGroup>
-          <RibbonGroup title="Seu espaço">
-            <p className="view-note">
-              Aproxime para cuidar dos detalhes.
-              <br />
-              Afaste para enxergar novas ideias.
-            </p>
+          <RibbonGroup title="Navegação">
+            <div className="view-buttons">
+              <button
+                type="button"
+                className="ribbon-large"
+                aria-pressed={state.miniatura}
+                onClick={() => state.set({ miniatura: !state.miniatura })}
+              >
+                <Icon name="picture" className="large-icon" />
+                <span>Miniatura</span>
+              </button>
+              <button
+                type="button"
+                className="ribbon-large"
+                title="Tela inteira (F11)"
+                onClick={alternarTelaInteira}
+              >
+                <Icon name="application-resize-full" className="large-icon" />
+                <span>Tela inteira</span>
+              </button>
+            </div>
           </RibbonGroup>
         </>
       )}

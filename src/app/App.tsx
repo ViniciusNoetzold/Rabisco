@@ -14,6 +14,8 @@ import { EditorStatus, type CursorStatusApi } from './components/EditorStatus';
 import { EditorDialogs, type EditorDialogKind } from './components/EditorDialogs';
 import { CustomShapeEditor, type ReferenciaEditorForma } from './components/CustomShapeEditor';
 import { ShapeLibrary } from './components/ShapeLibrary';
+import { useTelaInteira } from './useTelaInteira';
+import { nivelSeguinte } from '../canvas/zoom';
 
 type PainelDeFormas =
   | { tipo: 'gerenciar' }
@@ -21,6 +23,12 @@ type PainelDeFormas =
   | { tipo: 'editar'; forma: FormaPropria };
 
 export default function App() {
+  const telaDoApp = useRef<HTMLElement>(null);
+  const {
+    ativa: telaInteira,
+    sair: sairDaTelaInteira,
+    alternar: alternarTelaInteira,
+  } = useTelaInteira(telaDoApp);
   const editor = useRef<EditorApi>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [info, setInfo] = useState(initialInfo);
@@ -104,6 +112,12 @@ export default function App() {
         event.preventDefault();
         return;
       }
+      if (event.key === 'F11' || (event.key === 'Escape' && telaInteira)) {
+        event.preventDefault();
+        if (event.key === 'F11') alternarTelaInteira();
+        else sairDaTelaInteira();
+        return;
+      }
       const key = event.key.toLowerCase();
       const mod = event.ctrlKey || event.metaKey;
       if (mod) {
@@ -120,9 +134,13 @@ export default function App() {
           x: () => run(() => editor.current?.copy(true)),
           v: () => run(() => editor.current?.paste()),
           '0': () => editor.current?.fit(),
-          '+': () => state.set({ zoom: Math.min(4, state.zoom + 0.1) }),
-          '=': () => state.set({ zoom: Math.min(4, state.zoom + 0.1) }),
-          '-': () => state.set({ zoom: Math.max(0.1, state.zoom - 0.1) }),
+          r: () => state.set({ ruler: !state.ruler }),
+          g: () => state.set({ grid: !state.grid }),
+          pageup: () => state.set({ zoom: nivelSeguinte(state.zoom, 1) }),
+          pagedown: () => state.set({ zoom: nivelSeguinte(state.zoom, -1) }),
+          '+': () => state.set({ zoom: nivelSeguinte(state.zoom, 1) }),
+          '=': () => state.set({ zoom: nivelSeguinte(state.zoom, 1) }),
+          '-': () => state.set({ zoom: nivelSeguinte(state.zoom, -1) }),
         };
         if (actions[key]) {
           event.preventDefault();
@@ -154,7 +172,7 @@ export default function App() {
     }
     window.addEventListener('keydown', keys);
     return () => window.removeEventListener('keydown', keys);
-  }, [dialog, painelFormas, info.saving, run]);
+  }, [dialog, painelFormas, info.saving, run, telaInteira, alternarTelaInteira, sairDaTelaInteira]);
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -165,7 +183,7 @@ export default function App() {
   const openFile = () => fileInput.current?.click();
 
   return (
-    <main className="app-shell">
+    <main ref={telaDoApp} className="app-shell" data-tela-inteira={telaInteira ? '' : undefined}>
       <EditorChrome
         info={info}
         editor={editor}
@@ -187,6 +205,7 @@ export default function App() {
         onOpen={openFile}
         onPropriedades={() => setDialog('properties')}
         onTransformar={() => setDialog('transform')}
+        alternarTelaInteira={alternarTelaInteira}
         run={run}
       />
 
@@ -218,6 +237,8 @@ export default function App() {
             onMessage={notify}
             onCursor={updateCursor}
             onPreviewSize={mostrarPreviaDoPapel}
+            revisaoMiniatura={info}
+            telaInteira={telaInteira}
           />
           <ToolHint />
         </div>

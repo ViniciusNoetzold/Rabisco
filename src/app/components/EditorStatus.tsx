@@ -4,6 +4,16 @@ import type { TamanhoPapel } from '../../canvas/PaperResizeHandles';
 import type { Point } from '../../layers/types';
 import { useEditor } from '../store';
 import { Icon } from './Primitives';
+import { formatarZoom, indiceDoZoom, nivelSeguinte, NIVEIS_ZOOM } from '../../canvas/zoom';
+
+const numeroEmDisco = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+
+function estimativaEmDisco(width: number, height: number) {
+  const kib = (width * height * 4) / 1024;
+  return kib >= 1024
+    ? `${numeroEmDisco.format(kib / 1024)} MiB`
+    : `${numeroEmDisco.format(kib)} KiB`;
+}
 
 export interface CursorStatusApi {
   setCursor(point: Point | null): void;
@@ -37,6 +47,9 @@ export const EditorStatus = forwardRef<CursorStatusApi, EditorStatusProps>(funct
       <span className="selection-status">
         {info.selection && `${info.selection.width} × ${info.selection.height} px selecionados`}
       </span>
+      <span className="disk-status" title="Estimativa da cópia de recuperação neste navegador">
+        Em disco ≈ {estimativaEmDisco(info.width, info.height)}
+      </span>
       <button
         className="zoom-fit"
         title="Ajustar à janela (Ctrl+0)"
@@ -45,25 +58,26 @@ export const EditorStatus = forwardRef<CursorStatusApi, EditorStatusProps>(funct
       >
         <Icon name="application-resize-full" />
       </button>
-      <span className="zoom-value">{Math.round(state.zoom * 100)}%</span>
+      <span className="zoom-value">{formatarZoom(state.zoom)}</span>
       <div className="zoom-control">
         <button
           aria-label="Diminuir zoom"
-          onClick={() => state.set({ zoom: Math.max(0.1, state.zoom - 0.1) })}
+          onClick={() => state.set({ zoom: nivelSeguinte(state.zoom, -1) })}
         >
           −
         </button>
         <input
           aria-label="Zoom"
           type="range"
-          min="10"
-          max="400"
-          value={Math.round(state.zoom * 100)}
-          onChange={(event) => state.set({ zoom: Number(event.target.value) / 100 })}
+          min="0"
+          max={NIVEIS_ZOOM.length - 1}
+          value={indiceDoZoom(state.zoom)}
+          aria-valuetext={formatarZoom(state.zoom)}
+          onChange={(event) => state.set({ zoom: NIVEIS_ZOOM[Number(event.target.value)] })}
         />
         <button
           aria-label="Aumentar zoom"
-          onClick={() => state.set({ zoom: Math.min(4, state.zoom + 0.1) })}
+          onClick={() => state.set({ zoom: nivelSeguinte(state.zoom, 1) })}
         >
           +
         </button>

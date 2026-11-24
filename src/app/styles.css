@@ -796,43 +796,40 @@ input[type='range']::-webkit-slider-thumb {
   color: #275b83;
   font-weight: 600;
 }
-.ruler {
-  position: sticky;
-  background: #f2f6fa;
-  color: #90a3b3;
-  font-size: 9px;
-  z-index: 2;
-  flex-shrink: 0;
-  overflow: hidden;
+.drawing-canvas:has(~ .grade-de-pixels) {
+  image-rendering: pixelated;
+}
+.disk-status {
   white-space: nowrap;
 }
-.ruler-top {
-  position: absolute;
-  top: 0;
-  left: 22px;
-  right: 0;
-  height: 21px;
-  line-height: 21px;
-  border-bottom: 1px solid #c7d4de;
-  letter-spacing: 2px;
-  background-image: repeating-linear-gradient(90deg, transparent, transparent 9px, #b5c6d4 10px);
-  background-size: 100% 4px;
-  background-repeat: no-repeat;
-  background-position: bottom;
+.app-shell[data-tela-inteira] {
+  border: 0;
 }
-.ruler-side {
-  position: absolute;
-  top: 21px;
-  bottom: 0;
-  left: 0;
-  width: 22px;
-  writing-mode: vertical-rl;
-  padding-top: 10px;
-  border-right: 1px solid #c7d4de;
-  background-image: repeating-linear-gradient(180deg, transparent, transparent 9px, #b5c6d4 10px);
-  background-size: 4px 100%;
-  background-repeat: no-repeat;
-  background-position: right;
+.app-shell[data-tela-inteira]
+  :is(
+    .app-title-bar,
+    .tab-bar,
+    .ribbon,
+    .document-toolbar,
+    .tool-hint,
+    .studio-panel,
+    .app-status,
+    .workspace-hint,
+    .paper-resize-handle,
+    .canvas-grid
+  ) {
+  display: none;
+}
+.app-shell[data-tela-inteira] .document-area {
+  border: 0;
+}
+.app-shell[data-tela-inteira] .workspace {
+  padding: 16px;
+}
+@media (max-width: 720px) {
+  .disk-status {
+    display: none;
+  }
 }
 .tool-hint {
   height: 36px;

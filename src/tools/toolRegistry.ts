@@ -10,6 +10,7 @@ import { lapis } from './pencil';
 import { retangulo } from './rectangle';
 import { selecao, selecaoLaco } from './select';
 import { ferramentaTexto } from './texto';
+import { lupa } from './lupa';
 import type { DefinicaoFerramenta, Tool } from './tool';
 
 export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
@@ -24,6 +25,7 @@ export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
   select: selecao,
   lasso: selecaoLaco,
   text: ferramentaTexto,
+  zoom: lupa,
   eyedropper: contaGotas,
 };
 

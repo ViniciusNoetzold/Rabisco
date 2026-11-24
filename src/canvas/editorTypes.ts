@@ -39,4 +39,6 @@ export interface CanvasCallbacks {
   onMessage(message: string): void;
   onCursor(point: Point | null): void;
   onPreviewSize?(tamanho: { width: number; height: number } | null): void;
+  revisaoMiniatura?: unknown;
+  telaInteira?: boolean;
 }

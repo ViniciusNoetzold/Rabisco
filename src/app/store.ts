@@ -5,6 +5,7 @@ import type { ToolId } from '../layers/types';
 import { obterForma } from '../shapes/catalogo';
 import type { FormaPropria } from '../shapes/presets';
 import { ESTILO_TEXTO_PADRAO, type EstiloTexto } from '../tools/texto';
+import { limitarZoom } from '../canvas/zoom';
 import {
   PARAMETROS_PADRAO,
   type EstiloContorno,
@@ -66,6 +67,7 @@ interface EditorState {
   zoom: number;
   grid: boolean;
   ruler: boolean;
+  miniatura: boolean;
   sidebar: boolean;
   selecaoTransparente: boolean;
   espessuraBorracha: number;
@@ -93,6 +95,7 @@ interface EditorState {
         | 'zoom'
         | 'grid'
         | 'ruler'
+        | 'miniatura'
         | 'sidebar'
         | 'selecaoTransparente'
         | 'estiloTexto'
@@ -131,6 +134,7 @@ export const useEditor = create<EditorState>()(
     zoom: 1,
     grid: false,
     ruler: false,
+    miniatura: false,
     sidebar: true,
     selecaoTransparente: false,
     espessuraBorracha: 8,
@@ -210,9 +214,16 @@ export const useEditor = create<EditorState>()(
       }),
     set: (value) =>
       set((state) => {
-        const { size, espessuraBorracha, toleranciaBorracha, toleranciaBalde, ...outrasOpcoes } =
-          value;
+        const {
+          size,
+          espessuraBorracha,
+          toleranciaBorracha,
+          toleranciaBalde,
+          zoom,
+          ...outrasOpcoes
+        } = value;
         Object.assign(state, outrasOpcoes);
+        if (zoom !== undefined && Number.isFinite(zoom)) state.zoom = limitarZoom(zoom);
         if (size !== undefined && Number.isFinite(size)) {
           state.size = Math.max(1, Math.min(ESPESSURA_MAXIMA, Math.round(size)));
         }

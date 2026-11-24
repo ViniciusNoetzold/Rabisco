@@ -174,7 +174,7 @@ test('controla zoom, grade, régua e créditos sem alterar o desenho', async ({ 
   await page.getByRole('checkbox', { name: 'Linhas de grade', exact: true }).check();
   await page.getByRole('checkbox', { name: 'Régua', exact: true }).check();
   await expect(page.locator('.canvas-grid')).toBeVisible();
-  await expect(page.locator('.ruler-top')).toBeVisible();
+  await expect(page.locator('.canvas-ruler-x')).toBeVisible();
   await page.getByRole('button', { name: '100%', exact: false }).click();
   const initialWidth = await page
     .locator('.drawing-canvas')

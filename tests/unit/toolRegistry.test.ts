@@ -56,6 +56,7 @@ describe('registro de ferramentas', () => {
       'select',
       'lasso',
       'text',
+      'zoom',
       'eyedropper',
     ] as const;
     expect(Object.keys(toolRegistry).sort()).toEqual([...ids].sort());

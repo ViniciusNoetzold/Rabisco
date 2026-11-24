@@ -34,6 +34,7 @@ import { aplicarBorrachaDeCor } from '../tools/pixels';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import { criarFerramentas } from '../tools/toolRegistry';
 import type { DocumentInfo, EditorApi } from './editorTypes';
+import { ZOOM_MIN } from './zoom';
 
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
@@ -62,6 +63,8 @@ export class EditorController implements EditorApi {
   private ultimaForma: ConfiguracaoForma | null = null;
   private copiado: ImageData | null = null;
   private pronto = false;
+  private acompanharAjuste = true;
+  private ajustandoZoom = false;
   private ativo = true;
   private revisao = 0;
   private gravando = false;
@@ -76,6 +79,7 @@ export class EditorController implements EditorApi {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
     this.overlay = previa.getContext('2d')!;
     this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
+      if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
       if (!this.pronto) return;
       const ferramentaAnterior = this.ferramentas[anterior.tool];
       const ferramenta = this.ferramentas[atual.tool];
@@ -143,16 +147,22 @@ export class EditorController implements EditorApi {
   }
 
   ajustarAoRedimensionar() {
-    if (this.pronto && !this.gesto) this.fit();
+    if (this.pronto && !this.gesto && this.acompanharAjuste) this.fit();
   }
 
   fit() {
     const { width, height } = this.workspace.getBoundingClientRect();
     const zoom = Math.max(
-      0.1,
+      ZOOM_MIN,
       Math.min(1, (width - 100) / this.doc.width, (height - 90) / this.doc.height),
     );
-    useEditor.getState().set({ zoom });
+    this.acompanharAjuste = true;
+    this.ajustandoZoom = true;
+    try {
+      useEditor.getState().set({ zoom });
+    } finally {
+      this.ajustandoZoom = false;
+    }
   }
 
   cursor(id: ToolId) {

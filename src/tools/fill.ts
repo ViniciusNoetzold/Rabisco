@@ -5,7 +5,9 @@ export const balde = definirFerramenta(
   { id: 'fill', nome: 'Balde', icone: 'paint-can', atalho: 'F' },
   () => ({
     cursor: () => 'cell',
-    onPointerDown(ctx, { ponto, botao }) {
+    onPointerDown() {},
+    onPointerMove() {},
+    onPointerUp(ctx, { ponto, botao }) {
       ctx.executar({
         tipo: 'Preencher',
         ponto,
@@ -14,7 +16,5 @@ export const balde = definirFerramenta(
         global: ctx.opcoes.preenchimentoGlobal,
       });
     },
-    onPointerMove() {},
-    onPointerUp() {},
   }),
 );

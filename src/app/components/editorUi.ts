@@ -29,5 +29,6 @@ export const hints: Record<ToolId, string> = {
   select: 'Arraste para selecionar. Arraste por dentro para mover.',
   lasso: 'Contorne com o ponteiro. Arraste a seleção ou use as alças.',
   text: 'Clique no papel para digitar. Clique fora da caixa para confirmar.',
+  zoom: 'Clique para ampliar. Use o botão direito para reduzir.',
   eyedropper: 'Encontre uma cor no seu desenho e continue com ela.',
 };

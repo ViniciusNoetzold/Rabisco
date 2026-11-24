@@ -30,12 +30,12 @@ export const contaGotas = definirFerramenta(
 
     return {
       cursor: () => 'copy',
-      onPointerDown(ctx, { ponto, botao }) {
+      onPointerDown() {},
+      onPointerMove() {},
+      onPointerUp(ctx, { ponto, botao }) {
         pixel = null;
         ctx.capturarCor(ponto, botao === 2 ? 2 : 1);
       },
-      onPointerMove() {},
-      onPointerUp() {},
       onHover(_ctx, { ponto }) {
         const x = Math.floor(ponto.x);
         const y = Math.floor(ponto.y);

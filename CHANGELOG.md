@@ -2,6 +2,12 @@
 
 ## 0.2 em desenvolvimento
 
+### Passo 7 — Navegação no papel
+
+- Zoom de 12,5% a 800%, com níveis fixos na barra de status, Ctrl e roda no cursor, pinça, lupa e ajuste à janela.
+- Pan com Espaço, botão do meio, dois dedos, barras de rolagem ou miniatura navegável. Réguas em canvas mostram coordenadas conforme a escala e a posição do cursor.
+- Grade automática por pixel a partir de 400%, modo tela inteira e estimativa do espaço da recuperação local na barra de status.
+
 ### Passo 6 — Seleção, texto e ferramentas de cor
 
 - Laço, seleção invertida, marquise animada, alças para redimensionar, deslocamento pelas setas, duplicação com Ctrl e opção de ignorar a Cor 2.

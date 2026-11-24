@@ -114,7 +114,11 @@ for (const { borda, expandir, reduzir, pixel } of cenarios) {
 
 test('aplica zoom e Shift à prévia e cancela a próxima mudança com Esc', async ({ page }) => {
   await novoPapel(page);
-  await page.getByRole('slider', { name: 'Zoom', exact: true }).fill('50');
+  await page.getByRole('slider', { name: 'Zoom', exact: true }).fill('2');
+  await expect(page.getByRole('slider', { name: 'Zoom', exact: true })).toHaveAttribute(
+    'aria-valuetext',
+    '50%',
+  );
   await expect(page.locator('.zoom-value')).toHaveText('50%');
 
   await previsualizarArraste(page, 'pela direita', [40, 0]);
@@ -155,7 +159,11 @@ test('limita a largura mínima sem cobrir os pixels do papel estreito', async ({
   expect(centroLivre).toBe(true);
 
   // Amplia a coluna para que o clique do mouse atinja seu interior em coordenadas inteiras.
-  await page.getByRole('slider', { name: 'Zoom', exact: true }).fill('200');
+  await page.getByRole('slider', { name: 'Zoom', exact: true }).fill('4');
+  await expect(page.getByRole('slider', { name: 'Zoom', exact: true })).toHaveAttribute(
+    'aria-valuetext',
+    '200%',
+  );
   await expect(page.locator('.zoom-value')).toHaveText('200%');
   const caixa = (await tela.boundingBox())!;
   await page.mouse.click(caixa.x + caixa.width / 2, caixa.y + caixa.height / 2);

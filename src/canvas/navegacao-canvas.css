@@ -1,0 +1,24 @@
+.workspace {
+  touch-action: none;
+}
+
+.workspace[data-pan='pronto'],
+.workspace[data-pan='pronto'] .drawing-canvas {
+  cursor: grab !important;
+}
+
+.workspace[data-pan='ativo'],
+.workspace[data-pan='ativo'] .drawing-canvas {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.lupa-area {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 1px dashed #203145;
+  outline: 1px solid #ffffffd9;
+  background: #71b8e619;
+  pointer-events: none;
+}

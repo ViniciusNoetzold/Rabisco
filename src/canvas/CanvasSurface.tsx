@@ -6,6 +6,10 @@ import { EditorController } from './editorController';
 import type { CanvasCallbacks, EditorApi } from './editorTypes';
 import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
 import { TextOverlay } from './TextOverlay';
+import { Reguas } from './Reguas';
+import { Miniatura } from './Miniatura';
+import { LupaOverlay } from './LupaOverlay';
+import { useNavegacaoCanvas } from './useNavegacaoCanvas';
 
 export type { DocumentInfo, EditorApi } from './editorTypes';
 
@@ -34,6 +38,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const tela = useRef<HTMLCanvasElement>(null);
     const previa = useRef<HTMLCanvasElement>(null);
     const workspace = useRef<HTMLDivElement>(null);
+    const palco = useRef<HTMLDivElement>(null);
     const editor = useRef<EditorController>(null);
     const redimensionando = useRef(false);
     const eventos = useRef(callbacks);
@@ -44,9 +49,18 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const tool = useEditor((estado) => estado.tool);
     const grid = useEditor((estado) => estado.grid);
     const ruler = useEditor((estado) => estado.ruler);
+    const miniatura = useEditor((estado) => estado.miniatura);
     const estiloTexto = useEditor((estado) => estado.estiloTexto);
     const cor1 = useEditor((estado) => estado.color1);
     const cor2 = useEditor((estado) => estado.color2);
+    const navegacao = useNavegacaoCanvas({
+      viewport: workspace,
+      palco,
+      zoom,
+      lupaAtiva: tool === 'zoom',
+      cancelarDesenho: () => editor.current?.cancelarGesto(),
+      bloqueada: () => redimensionando.current,
+    });
 
     useLayoutEffect(() => {
       const instancia = new EditorController(tela.current!, previa.current!, workspace.current!, {
@@ -130,92 +144,103 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     }
 
     const tamanho = { width: dimensoes.width * zoom, height: dimensoes.height * zoom };
+    const propsViewport = {
+      viewport: workspace,
+      tela,
+      zoom,
+      largura: dimensoes.width,
+      altura: dimensoes.height,
+    };
     return (
-      <div
-        ref={workspace}
-        className={`workspace ${ruler ? 'with-rulers' : ''}`}
-        aria-label="Área de trabalho"
-      >
-        {ruler && (
-          <>
-            <div className="ruler ruler-top">
-              0　　　　　100　　　　　200　　　　　300　　　　　400　　　　　500　　　　　600　　　　　700　　　　　800
-            </div>
-            <div className="ruler ruler-side">
-              0　　　　　100　　　　　200　　　　　300　　　　　400　　　　　500
-            </div>
-          </>
-        )}
-        <div className="canvas-stage" style={tamanho}>
-          <canvas
-            ref={tela}
-            className={`drawing-canvas tool-${tool}`}
-            width={dimensoesIniciais.width}
-            height={dimensoesIniciais.height}
-            tabIndex={0}
-            aria-label="Tela de desenho. Use o ponteiro para desenhar e os botões das ferramentas para escolher uma ação."
-            style={tamanho}
-            onContextMenu={(evento) => evento.preventDefault()}
-            onPointerDown={pressionar}
-            onPointerMove={mover}
-            onPointerUp={(evento) => terminar(evento)}
-            onPointerCancel={(evento) => terminar(evento, true)}
-            onLostPointerCapture={(evento) => terminar(evento, true)}
-            onPointerLeave={() => {
-              editor.current?.sairDoPonteiro();
-              eventos.current.onCursor(null);
-            }}
-          />
-          <canvas
-            ref={previa}
-            width={dimensoesIniciais.width}
-            height={dimensoesIniciais.height}
-            className="preview-canvas"
-            style={tamanho}
-            aria-hidden="true"
-          />
-          {grid && (
-            <div
-              className="canvas-grid"
-              style={{ backgroundSize: `${16 * zoom}px ${16 * zoom}px` }}
-            />
-          )}
-          {selecao && (
-            <div
-              className="selection-marquee"
-              style={{
-                left: selecao.x * zoom,
-                top: selecao.y * zoom,
-                width: selecao.width * zoom,
-                height: selecao.height * zoom,
+      <div className="canvas-viewport-frame">
+        <div
+          ref={workspace}
+          className={`workspace ${ruler ? 'with-rulers' : ''}`}
+          aria-label="Área de trabalho"
+          {...navegacao.eventos}
+        >
+          <div ref={palco} className="canvas-stage" style={tamanho}>
+            <canvas
+              ref={tela}
+              className={`drawing-canvas tool-${tool}`}
+              width={dimensoesIniciais.width}
+              height={dimensoesIniciais.height}
+              tabIndex={0}
+              aria-label="Tela de desenho. Use o ponteiro para desenhar e os botões das ferramentas para escolher uma ação."
+              style={tamanho}
+              onContextMenu={(evento) => evento.preventDefault()}
+              onPointerDown={pressionar}
+              onPointerMove={mover}
+              onPointerUp={(evento) => terminar(evento)}
+              onPointerCancel={(evento) => terminar(evento, true)}
+              onLostPointerCapture={(evento) => terminar(evento, true)}
+              onPointerLeave={() => {
+                editor.current?.sairDoPonteiro();
+                eventos.current.onCursor(null);
               }}
             />
-          )}
-          <PaperResizeHandles
-            tamanho={dimensoes}
-            zoom={zoom}
-            aoPrevisualizar={previsualizarPapel}
-            aoAplicar={aplicarPapel}
-            aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
-          />
-          <TextOverlay
-            ativo={tool === 'text'}
-            zoom={zoom}
-            largura={dimensoes.width}
-            altura={dimensoes.height}
-            estilo={estiloTexto}
-            cor1={cor1}
-            cor2={cor2}
-            confirmar={(configuracao) => editor.current?.aplicarTexto(configuracao)}
-          />
+            <canvas
+              ref={previa}
+              width={dimensoesIniciais.width}
+              height={dimensoesIniciais.height}
+              className="preview-canvas"
+              style={tamanho}
+              aria-hidden="true"
+            />
+            {(grid || zoom >= 4) && (
+              <div
+                className={`canvas-grid ${zoom >= 4 ? 'grade-de-pixels' : ''}`}
+                style={{
+                  backgroundSize: `${(zoom >= 4 ? 1 : 16) * zoom}px ${(zoom >= 4 ? 1 : 16) * zoom}px`,
+                }}
+              />
+            )}
+            {selecao && (
+              <div
+                className="selection-marquee"
+                style={{
+                  left: selecao.x * zoom,
+                  top: selecao.y * zoom,
+                  width: selecao.width * zoom,
+                  height: selecao.height * zoom,
+                }}
+              />
+            )}
+            <PaperResizeHandles
+              tamanho={dimensoes}
+              zoom={zoom}
+              aoPrevisualizar={previsualizarPapel}
+              aoAplicar={aplicarPapel}
+              aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
+            />
+            <TextOverlay
+              ativo={tool === 'text'}
+              zoom={zoom}
+              largura={dimensoes.width}
+              altura={dimensoes.height}
+              estilo={estiloTexto}
+              cor1={cor1}
+              cor2={cor2}
+              confirmar={(configuracao) => editor.current?.aplicarTexto(configuracao)}
+            />
+            <LupaOverlay area={navegacao.previaLupa} zoom={zoom} />
+          </div>
+          <div className="workspace-hint">
+            <span className="workspace-default-hint">Um pequeno espaço para grandes ideias.</span>
+            <span className="workspace-shape-hint">Enter confirma · Esc descarta</span>
+            <span>
+              PNG · {dimensoes.width} × {dimensoes.height} px
+            </span>
+          </div>
         </div>
-        <div className="workspace-hint">
-          <span className="workspace-default-hint">Um pequeno espaço para grandes ideias.</span>
-          <span className="workspace-shape-hint">Enter confirma · Esc descarta</span>
-          <span>
-            PNG · {dimensoes.width} × {dimensoes.height} px
-          </span>
-        </div>
+        {ruler && !callbacks.telaInteira && <Reguas {...propsViewport} />}
+        {miniatura && !callbacks.telaInteira && (
+          <Miniatura
+            {...propsViewport}
+            revisao={callbacks.revisaoMiniatura}
+            fechar={() => useEditor.getState().set({ miniatura: false })}
+          />
+        )}
       </div>
     );
   },
