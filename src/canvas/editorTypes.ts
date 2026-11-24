@@ -1,7 +1,12 @@
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
-import type { ComandoCamada, OpcoesTransformacao, OrientacaoImagem } from '../commands/comandos';
+import type {
+  Comando,
+  ComandoCamada,
+  OpcoesTransformacao,
+  OrientacaoImagem,
+} from '../commands/comandos';
 import type { EstruturaDocumento } from '../document/camadas';
 import type { DadosFormaPropria } from '../shapes/presets';
 
@@ -43,7 +48,7 @@ export interface EditorApi {
   girarImagem(orientacao: OrientacaoImagem): void;
   tecla(evento: KeyboardEvent): boolean;
   obterReferenciaForma(): Omit<DadosFormaPropria, 'pasta'> | null;
-  executarCamada(comando: ComandoCamada): boolean;
+  executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>): boolean;
   novaCamada(): boolean;
   ativarCamada(id: string, mascara?: boolean): void;
   miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;

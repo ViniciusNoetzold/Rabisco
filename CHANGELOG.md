@@ -2,6 +2,14 @@
 
 ## 0.3 em desenvolvimento
 
+### Passo 2 — Painel de Camadas
+
+- Seção "Camadas" no painel Meu ateliê, no estilo Aero: lista com a camada de cima primeiro, miniatura (atualizada até 4 vezes por segundo), miniatura da máscara, olho (Alt+clique mostra só esta), cadeado, nome editável com duplo clique ou F2, opacidade e etiqueta de cor. Arrastar uma camada reordena a pilha.
+- Propriedades da camada ativa: opacidade, modo de mesclagem, travar transparência e recortar pela camada de baixo. Ações: nova, duplicar, máscara, mesclar abaixo e excluir (com confirmação; dá para desfazer).
+- Clique na miniatura da máscara: pincéis e borracha passam a pintar na máscara. Shift+clique liga ou desliga a máscara.
+- Atalhos: Ctrl+Shift+N (nova camada), Ctrl+J (duplicar), Ctrl+Shift+M (mesclar abaixo) e Ctrl+[ / Ctrl+] (mover a camada). Ctrl+E e Ctrl+W continuam sendo Propriedades e Redimensionar.
+- Testes E2E: criar, pintar, ocultar, aviso ao pintar em camada oculta, modo de mesclagem, desfazer e refazer a camada inteira, recuperar duas camadas depois de recarregar, mesclar abaixo, e a borracha apagando para transparência numa camada nova. Total: 124 unitários e 56 E2E.
+
 ### Passo 1 — Modelo de camadas e histórico por camada
 
 - O documento passou a ter várias camadas do mesmo tamanho, de baixo para cima, com nome, visibilidade, opacidade, 16 modos de mesclagem, bloqueios (pixels, transparência e posição), etiqueta, grupo, máscara de recorte, máscara em tons de cinza e efeitos (contorno e sombra). Os grupos têm visibilidade, opacidade e modo próprios.

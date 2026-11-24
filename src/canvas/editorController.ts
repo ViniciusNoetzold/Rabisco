@@ -356,7 +356,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   // ---- Camadas ---------------------------------------------------------------------------
 
   /** Comandos do painel de camadas. Confirma antes o que estiver pendente (forma, texto, colagem). */
-  executarCamada(comando: ComandoCamada) {
+  executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>) {
     if (!this.disponivel()) return false;
     this.ferramentas.confirmarPendente();
     return this.executar(comando);

@@ -19,6 +19,7 @@ import type { EditorDialogKind } from './components/EditorDialogs';
 import type { ReferenciaEditorForma } from './components/CustomShapeEditor';
 import { useTelaInteira } from './useTelaInteira';
 import { nivelSeguinte } from '../canvas/zoom';
+import { novoId } from '../document/camadas';
 
 const CustomShapeEditor = lazy(() =>
   import('./components/CustomShapeEditor').then(({ CustomShapeEditor: defaultExport }) => ({
@@ -194,6 +195,37 @@ export default function App() {
         return;
       }
       if (mod) {
+        // Camadas (0.3). Ctrl+E e Ctrl+W continuam sendo Propriedades e Redimensionar.
+        const camadas = info.estrutura.camadas;
+        const posicao = camadas.findIndex((camada) => camada.id === info.estrutura.ativa);
+        const comCamada: Record<string, () => void> = {
+          n: () => editor.current?.novaCamada(),
+          m: () =>
+            editor.current?.executarCamada({ tipo: 'MesclarAbaixo', id: info.estrutura.ativa }),
+        };
+        if (event.shiftKey && comCamada[key]) {
+          event.preventDefault();
+          comCamada[key]();
+          return;
+        }
+        if (!event.shiftKey && key === 'j') {
+          event.preventDefault();
+          editor.current?.executarCamada({
+            tipo: 'DuplicarCamada',
+            id: info.estrutura.ativa,
+            novoId: novoId('camada'),
+          });
+          return;
+        }
+        if ((key === '[' || key === ']') && posicao >= 0) {
+          event.preventDefault();
+          editor.current?.executarCamada({
+            tipo: 'MoverCamada',
+            id: info.estrutura.ativa,
+            posicao: posicao + (key === ']' ? 1 : -1),
+          });
+          return;
+        }
         const actions: Record<string, () => void> = {
           z: () => (event.shiftKey ? editor.current?.redo() : editor.current?.undo()),
           y: () => editor.current?.redo(),
@@ -265,6 +297,7 @@ export default function App() {
     dialog,
     painelFormas,
     info.saving,
+    info.estrutura,
     run,
     telaInteira,
     alternarTelaInteira,

@@ -3,6 +3,7 @@ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import { ESPESSURA_MAXIMA, useEditor } from '../store';
 import { BrushStrokeSample } from './BrushStrokeSample';
 import { Icon } from './Primitives';
+import { CamadasPainel } from './CamadasPainel';
 
 interface StudioPanelProps {
   info: DocumentInfo;
@@ -78,6 +79,7 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
           </button>
         </div>
       </section>
+      <CamadasPainel info={info} editor={editor} />
       <section className="history-panel">
         <div className="section-heading">
           <span>
