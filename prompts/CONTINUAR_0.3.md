@@ -26,7 +26,7 @@ Validação do último envio: 124 testes unitários, 59 fluxos E2E no Edge e bui
 
 ```text
 Você é um engenheiro sênior de editores gráficos web trabalhando no RABISCO, nesta pasta.
-Leia README.md, ROADMAP.md, CHANGELOG.md (seção 0.3), prompts/PROMPT_0.2.1_e_0.3.md e
+Leia docs/IDEIA.md, docs/FERRAMENTAS.md, docs/MELHORIAS.md, README.md, ROADMAP.md, CHANGELOG.md (seção 0.3), prompts/PROMPT_0.2.1_e_0.3.md e
 prompts/CONTINUAR_0.3.md antes de começar. Mesmas regras: um passo por vez, suíte completa
 (`npm test`, `npm run build`, `npm run test:e2e`) no fim de cada passo, commit, `git push`, e
 números reais no CHANGELOG. Dependências novas só com minha aprovação (sugestões, todas MIT:

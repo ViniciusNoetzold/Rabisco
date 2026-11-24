@@ -107,38 +107,40 @@ npm run preview
 
 ## ⌨️ Atalhos principais
 
-| Ferramenta | Tecla | | Ação | Atalho |
-| --- | :---: | --- | --- | --- |
-| Lápis | `P` | | Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` |
-| Pincel | `B` | | Salvar PNG | `Ctrl+S` |
-| Spray | `A` | | Colar (camada nova) | `Ctrl+V` |
-| Borracha | `E` | | Colar na camada atual | `Ctrl+Shift+V` |
-| Balde | `F` | | Copiar mesclado | `Ctrl+Shift+C` |
-| Conta-gotas | `I` | | Nova camada | `Ctrl+Shift+N` |
-| Texto | `T` | | Duplicar camada | `Ctrl+J` |
-| Formas | `U` | | Mesclar abaixo | `Ctrl+Shift+M` |
-| Seleção / laço | `S` / `L` | | Transformação livre | `Ctrl+T` |
-| Lupa | `Z` | | Propriedades da imagem | `Ctrl+E` |
-| Mover camada | `V` | | Redimensionar e inclinar | `Ctrl+W` |
-| Trocar Cor 1/Cor 2 | `X` | | Tela inteira | `F11` |
+| Ferramenta         |   Tecla   |     | Ação                     | Atalho              |
+| ------------------ | :-------: | --- | ------------------------ | ------------------- |
+| Lápis              |    `P`    |     | Desfazer / refazer       | `Ctrl+Z` / `Ctrl+Y` |
+| Pincel             |    `B`    |     | Salvar PNG               | `Ctrl+S`            |
+| Spray              |    `A`    |     | Colar (camada nova)      | `Ctrl+V`            |
+| Borracha           |    `E`    |     | Colar na camada atual    | `Ctrl+Shift+V`      |
+| Balde              |    `F`    |     | Copiar mesclado          | `Ctrl+Shift+C`      |
+| Conta-gotas        |    `I`    |     | Nova camada              | `Ctrl+Shift+N`      |
+| Texto              |    `T`    |     | Duplicar camada          | `Ctrl+J`            |
+| Formas             |    `U`    |     | Mesclar abaixo           | `Ctrl+Shift+M`      |
+| Seleção / laço     | `S` / `L` |     | Transformação livre      | `Ctrl+T`            |
+| Lupa               |    `Z`    |     | Propriedades da imagem   | `Ctrl+E`            |
+| Mover camada       |    `V`    |     | Redimensionar e inclinar | `Ctrl+W`            |
+| Trocar Cor 1/Cor 2 |    `X`    |     | Tela inteira             | `F11`               |
 
 A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](docs/guia-de-uso.md).
 
 ## 🗺️ Roteiro
 
-| Versão | O quê | Situação |
-| --- | --- | :---: |
-| 0.1 | Janela Aero, ferramentas básicas, PNG e autosave | ✅ |
-| 0.2 | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas | ✅ |
-| 0.2.1 | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável | ✅ |
-| **0.3** | **Camadas, máscaras, efeitos, colagem, transformação livre**, formato `.rabisco`, PSD e ORA | 🚧 quase lá |
-| 0.4 | Estabilizador de traço, simetria, formas que se ajeitam sozinhas | 🔜 |
-| 0.5 | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom | 🔜 |
-| 0.6 | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova | 🔜 |
-| 0.7 | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar | 🔜 |
-| 0.8 | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente | 🔜 |
-| 0.9 | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições | 🔜 |
-| 1.0 | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade | 🔜 |
+| Versão  | O quê                                                                                                                  |  Situação   |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | :---------: |
+| 0.1     | Janela Aero, ferramentas básicas, PNG e autosave                                                                       |     ✅      |
+| 0.2     | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas                      |     ✅      |
+| 0.2.1   | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                             |     ✅      |
+| **0.3** | **Camadas, máscaras, efeitos, colagem, transformação livre**, formato `.rabisco`, PSD e ORA                            | 🚧 quase lá |
+| 0.4     | Estabilizador de traço, simetria, formas que se ajeitam sozinhas                                                       |     🔜      |
+| 0.5     | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                           |     🔜      |
+| 0.6     | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova |     🔜      |
+| 0.7     | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                      |     🔜      |
+| 0.8     | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                       |     🔜      |
+| 0.9     | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                       |     🔜      |
+| 1.0     | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade                                                   |     🔜      |
+
+**Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
 Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) e **onde a 0.3 parou** em [prompts/CONTINUAR_0.3.md](prompts/CONTINUAR_0.3.md).
 
@@ -176,7 +178,7 @@ src/
   io/           Abrir, exportar, colar e imprimir imagens
   storage/      IndexedDB: blocos do autosave (com worker de PNG), formas e cores
 tests/          unit/ (Vitest) e e2e/ (Playwright)
-docs/           Guia de uso, desempenho e imagens do README
+docs/           Ideia, ferramentas, melhorias, guia de uso, desempenho e imagens
 prompts/        Prompts de cada etapa e o ponto de continuação
 ```
 
