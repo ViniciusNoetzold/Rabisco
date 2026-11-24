@@ -21,6 +21,7 @@ import {
   contornoRetangular,
   pintarRecorte,
   prepararRecorte,
+  prepararRecorteDaArea,
   type MascaraSelecao,
   type RecorteFlutuante,
 } from '../document/selecao';
@@ -38,7 +39,7 @@ import type { ConfiguracaoTexto } from '../tools/texto';
 import { criarFerramentas } from '../tools/toolRegistry';
 import type { DocumentInfo, EditorApi } from './editorTypes';
 import { ZOOM_MIN } from './zoom';
-import { definirMemoriaDoEspelho, medicaoAtiva, medirOperacao, registrarGravacao } from './medicao';
+import { medicaoAtiva, medirOperacao, registrarGravacao } from './medicao';
 
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
@@ -92,7 +93,6 @@ export class EditorController implements EditorApi {
   ) {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
     this.overlay = previa.getContext('2d')!;
-    if (medicaoAtiva) definirMemoriaDoEspelho(() => this.doc.obterDados().data.byteLength);
     this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
       if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
       if (!this.pronto) return;
@@ -467,8 +467,8 @@ export class EditorController implements EditorApi {
     if (!this.selecao) return;
     const { selecaoTransparente, color2 } = useEditor.getState();
     const area = this.selecao;
-    const recorte = prepararRecorte(
-      this.doc.obterDados(),
+    const recorte = prepararRecorteDaArea(
+      this.doc.lerPixels(area),
       area,
       this.mascaraSelecao,
       selecaoTransparente ? color2 : undefined,
@@ -647,12 +647,13 @@ export class EditorController implements EditorApi {
       if (referencia) return referencia;
     } else if (this.selecao && this.mascaraSelecao) {
       const area = this.selecao;
-      const recorte = prepararRecorte(this.doc.obterDados(), area, this.mascaraSelecao);
+      const recorte = prepararRecorteDaArea(this.doc.lerPixels(area), area, this.mascaraSelecao);
       const pixels = recorte.imagem.getContext('2d')!.getImageData(0, 0, area.width, area.height);
       const referencia = referenciaDaSelecao(pixels, { ...area, x: 0, y: 0 });
       if (referencia) return referencia;
     } else if (this.selecao) {
-      const referencia = referenciaDaSelecao(this.doc.obterDados(), this.selecao);
+      const area = this.selecao;
+      const referencia = referenciaDaSelecao(this.doc.lerPixels(area), { ...area, x: 0, y: 0 });
       if (referencia) return referencia;
     }
     return this.ultimaForma ? referenciaDaForma(this.ultimaForma) : null;
@@ -711,7 +712,7 @@ export class EditorController implements EditorApi {
       iniciarPreviaPincel: (configuracao) => this.iniciarPreviaPincel(configuracao),
       previsualizarMarcasPincel: (marcas) => this.previsualizarMarcasPincel(marcas),
       prepararRecorte: (area, mascara, transparente) =>
-        prepararRecorte(this.doc.obterDados(), area, mascara, transparente),
+        prepararRecorteDaArea(this.doc.lerPixels(area), area, mascara, transparente),
       reposicionarColagem: (destino) => this.reposicionarColagem(destino),
       confirmarColagem: () => this.confirmarColagem(),
       previsualizarSelecao: (origem, destino, recorte) =>
@@ -910,7 +911,7 @@ export class EditorController implements EditorApi {
     let revisao: number;
     do {
       revisao = this.revisao;
-      const { width, height, data } = this.doc.obterDados();
+      const { width, height, data } = this.doc.copiarPixels();
       try {
         await saveDocument({
           id: 'current',

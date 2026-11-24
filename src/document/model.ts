@@ -28,7 +28,11 @@ export function comoImageData(imagem: PixelBuffer): ImageData {
   return new ImageData(dados, width, height);
 }
 
-/** O papel mantém os pixels da camada editável e oferece uma cópia em memória para leitura. */
+/**
+ * O papel guarda os pixels só no canvas de cada camada. Leituras pegam apenas a área pedida;
+ * `copiarPixels()` sem área copia o papel inteiro e deve ser usado só quando a operação
+ * realmente precisa de tudo (balde, transformações, arquivo).
+ */
 export class RabiscoDocument {
   readonly id = Array.from(crypto.getRandomValues(new Uint32Array(4)), (parte) =>
     parte.toString(16).padStart(8, '0'),
@@ -37,7 +41,6 @@ export class RabiscoDocument {
   dpi = DPI_PADRAO;
   readonly layers: Layer<HTMLCanvasElement>[];
   activeLayerId: string;
-  private pixels: PixelBuffer;
 
   constructor(nome = 'Sem título', largura = 1024, altura = 640) {
     validarDimensoes(largura, altura);
@@ -53,17 +56,15 @@ export class RabiscoDocument {
         locked: false,
       },
     ];
-    const dados = new Uint8ClampedArray(largura * altura * 4).fill(255);
-    this.pixels = { width: largura, height: altura, data: dados };
-    this.redesenharCamada();
+    this.preencherPapel(largura, altura, '#ffffff');
   }
 
   get width(): number {
-    return this.pixels.width;
+    return this.activeLayer.canvas.width;
   }
 
   get height(): number {
-    return this.pixels.height;
+    return this.activeLayer.canvas.height;
   }
 
   get activeLayer(): Layer<HTMLCanvasElement> {
@@ -78,49 +79,43 @@ export class RabiscoDocument {
     return contexto;
   }
 
+  /** Cópia dos pixels de uma área da camada ativa. */
   lerPixels(area: Rect = { x: 0, y: 0, width: this.width, height: this.height }): ImageData {
     return this.contextoAtivo().getImageData(area.x, area.y, area.width, area.height);
   }
 
-  /** Visão dos bytes atuais, apenas para leitura. Copie se precisar retê-los após uma edição. */
-  obterDados(): PixelBuffer {
-    return this.pixels;
+  /** Cópia do papel inteiro. Custa largura × altura × 4 bytes: prefira `lerPixels(area)`. */
+  copiarPixels(): ImageData {
+    return this.lerPixels();
   }
 
   aplicarPixels(imagem: PixelBuffer, x = 0, y = 0): void {
-    validarPixels(imagem);
-    const esquerda = Math.trunc(x);
-    const topo = Math.trunc(y);
-    this.contextoAtivo().putImageData(comoImageData(imagem), esquerda, topo);
-    this.registrarPixels(imagem, esquerda, topo);
-  }
-
-  /** Sincroniza só a área que o comando acabou de pintar diretamente na camada. */
-  registrarPixels(imagem: PixelBuffer, x: number, y: number): void {
-    const esquerda = Math.max(0, x);
-    const direita = Math.min(this.width, x + imagem.width);
-    if (direita <= esquerda) return;
-    const larguraEmBytes = (direita - esquerda) * 4;
-    const inferior = Math.min(this.height, y + imagem.height);
-    for (let linha = Math.max(0, y); linha < inferior; linha++) {
-      const origem = ((linha - y) * imagem.width + esquerda - x) * 4;
-      const destino = (linha * this.width + esquerda) * 4;
-      this.pixels.data.set(imagem.data.subarray(origem, origem + larguraEmBytes), destino);
+    if (imagem.data.length !== imagem.width * imagem.height * 4) {
+      throw new Error('Os pixels da imagem não correspondem às dimensões.');
     }
+    this.contextoAtivo().putImageData(comoImageData(imagem), Math.trunc(x), Math.trunc(y));
   }
 
   substituir(nome: string, imagem: PixelBuffer): void {
     validarPixels(imagem);
-    const { width, height, data } = imagem;
-    this.pixels = { width, height, data: new Uint8ClampedArray(data) };
     this.name = nome;
-    this.redesenharCamada();
+    this.redimensionarCamada(imagem.width, imagem.height);
+    this.contextoAtivo().putImageData(comoImageData(imagem), 0, 0);
   }
 
-  private redesenharCamada(): void {
+  /** Papel novo de uma cor só, sem montar um buffer do tamanho do papel. */
+  preencherPapel(largura: number, altura: number, cor: string): void {
+    validarDimensoes(largura, altura);
+    this.redimensionarCamada(largura, altura);
+    const contexto = this.contextoAtivo();
+    contexto.fillStyle = cor;
+    contexto.fillRect(0, 0, largura, altura);
+  }
+
+  private redimensionarCamada(largura: number, altura: number): void {
     const { canvas } = this.activeLayer;
-    if (canvas.width !== this.width) canvas.width = this.width;
-    if (canvas.height !== this.height) canvas.height = this.height;
-    this.contextoAtivo().putImageData(comoImageData(this.pixels), 0, 0);
+    // Atribuir o mesmo tamanho também limpa o canvas, como queremos ao substituir.
+    canvas.width = largura;
+    canvas.height = altura;
   }
 }

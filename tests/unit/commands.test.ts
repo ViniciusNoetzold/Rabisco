@@ -24,8 +24,7 @@ function copiar(imagem: PixelBuffer): PixelBuffer {
 }
 
 function documentoEmMemoria(width = 50, height = 40) {
-  let cache = papel(width, height);
-  let raster = copiar(cache);
+  let raster = papel(width, height);
   let x = 0;
   let y = 0;
   let nome = 'Papel original';
@@ -66,12 +65,12 @@ function documentoEmMemoria(width = 50, height = 40) {
       nome = novoNome;
     },
     get width() {
-      return cache.width;
+      return raster.width;
     },
     get height() {
-      return cache.height;
+      return raster.height;
     },
-    obterDados: () => cache,
+    copiarPixels: vi.fn(() => copiar(raster)),
     contextoAtivo: () => contexto,
     lerPixels: vi.fn((area: Rect) => {
       const dados = papel(area.width, area.height);
@@ -82,17 +81,15 @@ function documentoEmMemoria(width = 50, height = 40) {
       }
       return { ...dados, colorSpace: 'srgb' as const };
     }),
-    registrarPixels: vi.fn((imagem: PixelBuffer, x: number, y: number) => {
-      escreverRecorte(cache, imagem, x, y);
-    }),
     aplicarPixels: vi.fn((imagem: PixelBuffer, x = 0, y = 0) => {
-      escreverRecorte(cache, imagem, x, y);
       escreverRecorte(raster, imagem, x, y);
     }),
     substituir(novoNome: string, imagem: PixelBuffer) {
       nome = novoNome;
-      cache = copiar(imagem);
       raster = copiar(imagem);
+    },
+    preencherPapel(largura: number, altura: number) {
+      raster = papel(largura, altura);
     },
   };
 }
@@ -127,15 +124,17 @@ describe('comandos serializáveis', () => {
     expect(editor.executar(JSON.parse(JSON.stringify(comando)))).toBe(true);
     const area = { x: 7, y: 9, width: 8, height: 8 };
     expect(editor.ultimaAlteracao).toEqual(area);
-    expect(doc.lerPixels).toHaveBeenCalledExactlyOnceWith(area);
+    // Antes e depois do traço: só a área do comando, nunca o papel inteiro.
+    expect(doc.lerPixels.mock.calls).toEqual([[area], [area]]);
+    expect(doc.copiarPixels).not.toHaveBeenCalled();
     expect(editor.historico.entries).toEqual([{ label: 'Pincelada' }]);
     expect(editor.historico.memoryBytes).toBe(8 * area.width * area.height);
-    expect(lerPixel(doc.obterDados(), 10, 12)).toEqual(AZUL);
+    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(AZUL);
     expect(editor.desfazer()).toBe(true);
-    expect(lerPixel(doc.obterDados(), 10, 12)).toEqual(BRANCO);
+    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(BRANCO);
     expect(editor.refazer()).toBe(true);
-    expect(lerPixel(doc.obterDados(), 10, 12)).toEqual(AZUL);
-    expect(doc.lerPixels).toHaveBeenCalledTimes(1);
+    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(AZUL);
+    expect(doc.lerPixels).toHaveBeenCalledTimes(2);
     for (const [recorte, x, y] of doc.aplicarPixels.mock.calls) {
       expect({ x, y, width: recorte.width, height: recorte.height }).toEqual(area);
     }
@@ -169,11 +168,11 @@ describe('comandos serializáveis', () => {
     ).toBe(true);
     expect(editor.ultimaAlteracao).toEqual({ x: 5, y: 8, width: 1, height: 2 });
     expect(editor.historico.memoryBytes).toBe(16);
-    expect(doc.lerPixels).not.toHaveBeenCalled();
-    expect(lerPixel(doc.obterDados(), 5, 9)).toEqual([0, 255, 0, 255]);
-    expect(lerPixel(doc.obterDados(), 6, 9)).toEqual(BRANCO);
+    expect(doc.lerPixels).toHaveBeenCalledExactlyOnceWith({ x: 5, y: 8, width: 1, height: 2 });
+    expect(lerPixel(doc.copiarPixels(), 5, 9)).toEqual([0, 255, 0, 255]);
+    expect(lerPixel(doc.copiarPixels(), 6, 9)).toEqual(BRANCO);
     expect(editor.desfazer()).toBe(true);
-    expect(lerPixel(doc.obterDados(), 5, 8)).toEqual(AZUL);
+    expect(lerPixel(doc.copiarPixels(), 5, 8)).toEqual(AZUL);
   });
 
   it('desfaz e refaz uma troca de imagem restaurando os pixels e as dimensões', () => {
@@ -191,13 +190,13 @@ describe('comandos serializáveis', () => {
     expect([doc.name, doc.width, doc.height]).toEqual(['Logo', 50, 40]);
     expect(editor.refazer()).toBe(true);
     expect([doc.name, doc.width, doc.height]).toEqual(['Logo', 1, 1]);
-    expect(lerPixel(doc.obterDados(), 0, 0)).toEqual(AZUL);
+    expect(lerPixel(doc.copiarPixels(), 0, 0)).toEqual(AZUL);
   });
 
   it('atualiza o nome de uma imagem idêntica sem adicionar histórico de pixels', () => {
     const doc = documentoEmMemoria();
     const editor = new Executador(doc);
-    const imagem = serializarImagem(doc.obterDados());
+    const imagem = serializarImagem(doc.copiarPixels());
     expect(editor.executar({ tipo: 'AbrirImagem', nome: 'Papel renomeado', imagem })).toBe(true);
     expect(doc.name).toBe('Papel renomeado');
     expect(editor.historico.entries).toEqual([]);

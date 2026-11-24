@@ -2,6 +2,12 @@
 
 ## 0.2.1 em desenvolvimento
 
+### Passo 3 — Pixels num lugar só
+
+- O documento deixou de manter uma cópia dos pixels em JavaScript. Cada camada guarda os pixels no próprio canvas, e os comandos leem só a área que alteram. `copiarPixels()` copia o papel inteiro e fica restrito a balde, transformações, arquivos e autosave.
+- Memória JS em repouso depois dos traços: de 72,2 para 11,2 MiB em 4000 × 4000 e de 139,1 para 11,1 MiB em 8192 × 4096.
+- Até o Passo 4, o autosave lê o papel inteiro do canvas a cada gravação. Soltar o pincel em 4000 × 4000 passou de 85 para 210 ms, e o balde de 0,9 para 1,2 s.
+
 ### Passo 2 — Medição do custo do editor
 
 - `npm run perf` mede tempo síncrono dos eventos de desenho e comandos de histórico, tarefas longas e memória em três tamanhos de papel. O [relatório](docs/desempenho.md) explica como reproduzir e interpretar as medidas.

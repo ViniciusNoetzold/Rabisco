@@ -46,3 +46,17 @@ O que os números mostram:
 - **Desfazer e refazer:** o histórico gasta 17 a 48 ms. Meta de 50 ms atingida. O total passa de 100 ms em 4000 × 4000 porque o autosave copia o papel inteiro (Passo 4).
 - **Tarefas acima de 100 ms:** ainda acontecem ao soltar o botão em 4000 × 4000 por causa do autosave, e na primeira pincelada.
 - **Balde:** um preenchimento do papel inteiro leva 0,9 s em 4000 × 4000 e 1,6 s em 8192 × 4096. A varredura roda em JavaScript na thread principal. Pendência: levar o preenchimento para um Web Worker.
+
+### Passo 3 — 24/11/2026 (sem a cópia dos pixels)
+
+| Medida                                     | 1024 × 640 | 4000 × 4000 | 8192 × 4096 |
+| ------------------------------------------ | ---------: | ----------: | ----------: |
+| Heap JS em repouso (MiB) — Passo 2         |       13,7 |        72,2 |       139,1 |
+| Heap JS em repouso (MiB) — Passo 3         |       11,2 |        11,2 |        11,1 |
+| ArrayBuffers (MiB) — Passo 2 → Passo 3     |  6,1 → 3,6 |  64,6 → 3,6 | 131,6 → 3,6 |
+| Pincel, histórico — 3ª pincelada           |        5,4 |        10,9 |        14,4 |
+| Pincel, soltar o botão — 3ª (com autosave) |       13,9 |       210,0 |        14,6 |
+| Desfazer (histórico / total)               | 0,4 / 10,2 | 8,1 / 210,0 | 17,7 / 18,1 |
+| Balde no papel todo                        |         64 |       1.185 |       2.047 |
+
+Sem a cópia, o papel ocupa memória só no canvas. Até o Passo 4 o autosave lê o papel inteiro do canvas a cada edição, o que encarece soltar o botão e desfazer em 4000 × 4000. Pelo mesmo motivo, o teste `fundacao.spec.ts` (uma pincelada não lê o papel inteiro) fica vermelho entre os Passos 3 e 4.

@@ -8,7 +8,12 @@ import {
   sobreporPixels,
 } from '../document/transformacoes';
 import type { PixelBuffer, Rect } from '../layers/types';
-import { apagarRecorte, pintarRecorte, prepararRecorte } from '../document/selecao';
+import {
+  apagarRecorte,
+  pintarRecorte,
+  prepararRecorte,
+  prepararRecorteDaArea,
+} from '../document/selecao';
 import { areaDoTexto, desenharTexto } from '../tools/texto';
 import {
   areaDaForma as areaFormaEditavel,
@@ -50,11 +55,11 @@ type DocumentoEditavel = Pick<
   | 'height'
   | 'name'
   | 'contextoAtivo'
-  | 'obterDados'
+  | 'copiarPixels'
   | 'lerPixels'
-  | 'registrarPixels'
   | 'aplicarPixels'
   | 'substituir'
+  | 'preencherPapel'
 > &
   Partial<Pick<RabiscoDocument, 'dpi'>>;
 
@@ -115,7 +120,8 @@ export class Executador {
         return this.pintar(comando, 'Texto', area, (ctx) => desenharTexto(ctx, configuracao));
       }
       case 'Preencher': {
-        const dados = this.doc.obterDados();
+        // O balde pode alcançar qualquer ponto do papel: precisa dos pixels inteiros.
+        const dados = this.doc.copiarPixels();
         const plano = planejarPreenchimento(
           dados,
           comando.ponto.x,
@@ -149,7 +155,12 @@ export class Executador {
         if (!origem || destino.width < 1 || destino.height < 1) return false;
         const redimensionou = origem.width !== destino.width || origem.height !== destino.height;
         if (!redimensionou && origem.x === destino.x && origem.y === destino.y) return false;
-        const recorte = prepararRecorte(this.doc.obterDados(), origem, mascara, corTransparente);
+        const recorte = prepararRecorteDaArea(
+          this.doc.lerPixels(origem),
+          origem,
+          mascara,
+          corTransparente,
+        );
         const rotulo = duplicar
           ? 'Duplicar seleção'
           : redimensionou
@@ -181,7 +192,7 @@ export class Executador {
         const recorte = prepararRecorte(imagem, origem, undefined, comando.corTransparente);
         if (papel) {
           const depois = redimensionarPapel(
-            this.doc.obterDados(),
+            this.doc.copiarPixels(),
             papel.largura,
             papel.altura,
             papel.fundo,
@@ -208,12 +219,12 @@ export class Executador {
           (!comando.mascara && area.width === this.doc.width && area.height === this.doc.height)
         )
           return false;
-        const dados = this.doc.obterDados();
+        const dados = this.doc.lerPixels(area);
         const recorte = comando.mascara
-          ? prepararRecorte(dados, area, comando.mascara)
+          ? prepararRecorteDaArea(dados, area, comando.mascara)
               .imagem.getContext('2d')!
               .getImageData(0, 0, area.width, area.height)
-          : recortarPixels(dados, area);
+          : dados;
         return this.substituir(comando, 'Cortar para seleção', this.doc.name, recorte);
       }
       case 'AbrirImagem':
@@ -228,16 +239,15 @@ export class Executador {
         // Novo desenho inicia uma sessão de edição independente, como na versão 0.1.
         const { largura, altura, nome } = comando;
         validarDimensoes(largura, altura);
-        const data = new Uint8ClampedArray(largura * altura * 4);
-        data.fill(255);
-        this.doc.substituir(nome.trim() || 'Sem título', { width: largura, height: altura, data });
+        this.doc.preencherPapel(largura, altura, '#ffffff');
+        this.doc.name = nome.trim() || 'Sem título';
         this.doc.dpi = DPI_PADRAO;
         this.historico.clear();
         return true;
       }
       case 'RedimensionarPapel': {
         const { largura, altura, fundo, dpi } = comando;
-        const antes = this.doc.obterDados();
+        const antes = this.doc.copiarPixels();
         const depois =
           largura === antes.width && altura === antes.height
             ? antes
@@ -309,7 +319,7 @@ export class Executador {
   ): boolean {
     const area = limitarArea(limites, this.doc);
     if (!area) return false;
-    const before = recortarPixels(this.doc.obterDados(), area);
+    const before = this.doc.lerPixels(area);
     let after: PixelBuffer;
     try {
       pintarNaCamada(this.doc.contextoAtivo());
@@ -319,12 +329,11 @@ export class Executador {
       throw erro;
     }
     if (pixelsIguais(before, after)) return false;
-    this.doc.registrarPixels(after, area.x, area.y);
     return this.registrar(comando, label, area, before, after);
   }
 
   private escrever(comando: Comando, label: string, area: Rect, after: PixelBuffer): boolean {
-    const before = recortarPixels(this.doc.obterDados(), area);
+    const before = this.doc.lerPixels(area);
     if (pixelsIguais(before, after)) return false;
     this.doc.aplicarPixels(after, area.x, area.y);
     return this.registrar(comando, label, area, before, after);
@@ -335,7 +344,7 @@ export class Executador {
     label: string,
     operacao: (imagem: PixelBuffer) => PixelBuffer,
   ): boolean {
-    const papel = this.doc.obterDados();
+    const papel = this.doc.copiarPixels();
     if (!comando.area) return this.substituir(comando, label, this.doc.name, operacao(papel));
 
     const origem = limitarArea(comando.area, papel);
@@ -365,7 +374,7 @@ export class Executador {
     dpi = this.doc.dpi ?? DPI_PADRAO,
   ): boolean {
     if (!dpiValido(dpi)) throw new Error(`Use uma resolução de 1 a ${DPI_MAXIMO} DPI.`);
-    const before = this.doc.obterDados();
+    const before = this.doc.copiarPixels();
     const dpiAnterior = this.doc.dpi ?? DPI_PADRAO;
     const alteracaoDpi = dpiAnterior === dpi ? undefined : { antes: dpiAnterior, depois: dpi };
     if (pixelsIguais(before, after)) {

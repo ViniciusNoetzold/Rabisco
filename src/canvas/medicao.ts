@@ -33,7 +33,6 @@ export const medicaoAtiva =
   new URLSearchParams(window.location.search).get('medir') === '1';
 
 let sessao: SessaoMedida | null = null;
-let lerBytesDoEspelho: (() => number) | null = null;
 
 function recolherTarefasLongas(entradas: PerformanceEntry[]) {
   if (!sessao) return;
@@ -71,10 +70,6 @@ export function medirOperacao<T>(nome: OperacaoMedida, executar: () => T): T {
   }
 }
 
-export function definirMemoriaDoEspelho(medir: () => number): void {
-  if (medicaoAtiva) lerBytesDoEspelho = medir;
-}
-
 export function registrarGravacao(gravacao: GravacaoMedida): void {
   sessao?.gravacoes.push(gravacao);
 }
@@ -97,7 +92,8 @@ const medidor = {
       heapUsado: memoria?.usedJSHeapSize ?? null,
       heapAlocado: memoria?.totalJSHeapSize ?? null,
       limiteHeap: memoria?.jsHeapSizeLimit ?? null,
-      bytesEspelho: lerBytesDoEspelho?.() ?? null,
+      // A 0.2.1 removeu a cópia dos pixels em JS: o papel fica só no canvas da camada.
+      bytesEspelho: 0,
     };
   },
 };

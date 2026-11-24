@@ -121,7 +121,7 @@ describe('histórico de transformações', () => {
       },
       name: 'Teste',
       dpi: 96,
-      obterDados: () => pixels,
+      copiarPixels: () => pixels,
       substituir(_nome: string, imagem: PixelBuffer) {
         pixels = imagem;
       },
@@ -131,7 +131,7 @@ describe('histórico de transformações', () => {
       lerPixels() {
         throw new Error('O executor deve reutilizar os pixels em memória.');
       },
-      registrarPixels() {
+      preencherPapel() {
         throw new Error('O executor deve aplicar as novas dimensões.');
       },
       aplicarPixels() {

@@ -69,7 +69,16 @@ export function prepararRecorte(
   mascara?: MascaraSelecao,
   corTransparente?: string,
 ): RecorteFlutuante {
-  const recorte = recortarPixels(papel, area);
+  return prepararRecorteDaArea(recortarPixels(papel, area), area, mascara, corTransparente);
+}
+
+/** Igual a `prepararRecorte`, mas recebe só os pixels da área (lidos direto da camada). */
+export function prepararRecorteDaArea(
+  recorte: PixelBuffer,
+  area: Rect,
+  mascara?: MascaraSelecao,
+  corTransparente?: string,
+): RecorteFlutuante {
   const imagem = superficie(area.width, area.height);
   let corte: CanvasRenderingContext2D | null = null;
   if (corTransparente || mascara) {
