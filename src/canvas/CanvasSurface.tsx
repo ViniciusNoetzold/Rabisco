@@ -187,7 +187,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
           <div ref={palco} className="canvas-stage" style={tamanho}>
             <canvas
               ref={tela}
-              className={`drawing-canvas tool-${tool}`}
+              className={`drawing-canvas tool-${tool} ${zoom >= 1 ? 'zoom-nitido' : ''}`}
               width={dimensoesIniciais.width}
               height={dimensoesIniciais.height}
               tabIndex={0}

@@ -149,6 +149,15 @@ export default function App() {
     document.title = `${info.name} — Rabisco`;
   }, [info.name]);
   useEffect(() => {
+    // Abaixo de 1100 px o painel do ateliê fecha para dar espaço ao papel. Só reage quando a
+    // janela cruza o limite, então quem reabrir o painel numa janela estreita é respeitado.
+    const estreita = window.matchMedia('(max-width: 1099px)');
+    const aplicar = () => useEditor.getState().set({ sidebar: !estreita.matches });
+    if (estreita.matches) aplicar();
+    estreita.addEventListener('change', aplicar);
+    return () => estreita.removeEventListener('change', aplicar);
+  }, []);
+  useEffect(() => {
     setTab((atual) => (ferramenta === 'text' ? 'Texto' : atual === 'Texto' ? 'Início' : atual));
   }, [ferramenta]);
   useEffect(() => {

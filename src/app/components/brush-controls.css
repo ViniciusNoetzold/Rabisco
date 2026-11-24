@@ -117,7 +117,7 @@
 }
 
 .spray-controls {
-  width: 78px;
+  width: 134px;
   margin-left: 2px;
 }
 
@@ -134,9 +134,11 @@
 }
 
 .spray-density {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  /* Rótulo e lista na mesma linha: tamanhos, densidade e gotas cabem na altura do grupo. */
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 4px;
   color: #465e71;
   font-size: 11px;
 }

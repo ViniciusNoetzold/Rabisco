@@ -79,6 +79,7 @@ export const pincel = definirFerramenta(
           cor: corDoBotao(ctx, botao),
           espessura: ctx.opcoes.espessura,
           semente: crypto.getRandomValues(new Uint32Array(1))[0],
+          ...(ctx.opcoes.pincel === 'spray' && ctx.opcoes.gotasSpray === 2 ? { gota: 2 } : {}),
         };
         const traco: Traco = { configuracao, marcas: [], ponto };
         ctx.selecionar(null);

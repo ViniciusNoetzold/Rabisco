@@ -53,6 +53,8 @@ interface EditorState {
   estiloTexto: EstiloTexto;
   pincel: TipoPincel;
   densidadeSpray: DensidadeSpray;
+  /** Gotas do aerógrafo: finas (1 px, como no paint clássico) ou médias (2 px). */
+  gotasSpray: 1 | 2;
   color1: string;
   color2: string;
   colorTarget: 1 | 2;
@@ -90,6 +92,7 @@ interface EditorState {
         | 'colorTarget'
         | 'size'
         | 'densidadeSpray'
+        | 'gotasSpray'
         | 'contornoForma'
         | 'preenchimentoForma'
         | 'zoom'
@@ -120,6 +123,7 @@ export const useEditor = create<EditorState>()(
     estiloTexto: { ...ESTILO_TEXTO_PADRAO },
     pincel: 'redondo',
     densidadeSpray: 'media',
+    gotasSpray: 1,
     color1: '#3083c5',
     color2: '#ffffff',
     colorTarget: 1,

@@ -41,7 +41,13 @@ export function TextTools({
 
   return (
     <>
-      <RibbonGroup title="Fonte" className="text-tools-group">
+      <RibbonGroup
+        title="Fonte"
+        className="text-tools-group"
+        chave="fonte"
+        prioridade={2}
+        icone="document"
+      >
         <div className="text-tools" data-opcoes-texto>
           <div className="text-tools-font">
             <label>
@@ -106,7 +112,13 @@ export function TextTools({
           </div>
         </div>
       </RibbonGroup>
-      <RibbonGroup title="Fundo" className="text-tools-group">
+      <RibbonGroup
+        title="Fundo"
+        className="text-tools-group"
+        chave="fundo"
+        prioridade={1}
+        icone="color"
+      >
         <div className="text-tools text-background-options" data-opcoes-texto>
           <button
             type="button"

@@ -1,12 +1,14 @@
+/* Quatro ações de 18 px cabem nos 74 px do grupo sem invadir o rótulo "Imagem". */
 .ribbon-stack.image-actions {
   height: 74px;
-  gap: 2px;
+  gap: 0;
+  justify-content: flex-start;
 }
 
 .ribbon .image-actions button {
-  min-height: 22px;
-  height: 22px;
-  padding-block: 1px;
+  min-height: 18px;
+  height: 18px;
+  padding-block: 0;
 }
 
 .orientation-menu {

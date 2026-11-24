@@ -2,6 +2,15 @@
 
 ## 0.2.1 em desenvolvimento
 
+### Passo 6 — Interface em qualquer largura
+
+- Quando falta espaço, os grupos do ribbon se recolhem em botões grandes com ícone, nome e seta, como no paint do Windows 7. Um clique abre o grupo num painel suspenso, e Esc ou um clique fora fecha. A ordem de recolher é Espessura, Formas, Pincéis, Imagem, Área de transferência e Ferramentas. Cores nunca recolhe: se ainda faltar espaço, a paleta passa a mostrar 7 × 2 cores. O ribbon não rola mais na horizontal.
+- Em 1440 px todos os grupos ficam abertos: as amostras de cor têm 17 px abaixo de 1600 px, e o grupo Imagem mostra "Propriedades", "Redimensionar" e "Seleção" (o nome completo continua na dica e para leitores de tela). As sete ferramentas ocupam duas linhas, e as ações do grupo Imagem não invadem mais o rótulo.
+- O título da janela encurta com reticências e não passa mais por baixo do botão Sobre. O painel "Meu ateliê" fecha sozinho abaixo de 1100 px e respeita quem o reabre.
+- Arrastar alças, réguas e botões não seleciona mais o texto da página.
+- Spray: opção de gotas finas (1 px, como no paint clássico) ou médias (2 px). A partir de 100% de zoom, os pixels do papel aparecem nítidos.
+- Testes: layout em 800, 1024, 1366 e 1920 px (sem rolagem, nenhum botão sobre o rótulo do grupo, título longe do botão Sobre, nas abas Início e Exibir e com balde, borracha e spray), imagens de referência do topo da janela, painel de grupo recolhido, fechamento do painel do ateliê, seleção de texto ao arrastar e 5 testes unitários do recolhimento e das gotas. Total: 124 unitários e 53 E2E.
+
 ### Passo 5 — Editor em módulos
 
 - O `EditorController` passou de 999 para 364 linhas e virou o coordenador. O que sobrou nele é o histórico e as chamadas de uma linha que a interface `EditorApi` exige. O trabalho especializado foi para `src/canvas/controle/`:

@@ -47,6 +47,7 @@ export interface ToolCtx {
     preenchimentoGlobal: boolean;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
+    gotasSpray: 1 | 2;
     forma: IdForma;
     definicaoForma?: ConfiguracaoForma['definicao'];
     contornoForma: EstiloContorno;

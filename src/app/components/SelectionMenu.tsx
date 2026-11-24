@@ -47,6 +47,8 @@ export function SelectionMenu({
   return (
     <>
       <button
+        aria-label="Opções de seleção"
+        title="Opções de seleção"
         ref={botao}
         type="button"
         aria-expanded={aberto}
@@ -60,7 +62,7 @@ export function SelectionMenu({
           );
         }}
       >
-        Opções de seleção
+        Seleção
       </button>
       {posicao &&
         createPortal(

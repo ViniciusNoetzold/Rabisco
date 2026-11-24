@@ -16,6 +16,7 @@ export function opcoesDaFerramenta(estado: EstadoEditor): ToolCtx['opcoes'] {
     preenchimentoGlobal: estado.preenchimentoGlobal,
     pincel: estado.pincel,
     densidadeSpray: estado.densidadeSpray,
+    gotasSpray: estado.gotasSpray,
     forma: formaPropria ? `propria:${formaPropria.id}` : estado.forma,
     definicaoForma: formaPropria
       ? { nome: formaPropria.nome, path: formaPropria.path, fechada: formaPropria.fechada }

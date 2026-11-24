@@ -78,6 +78,7 @@ export function StrokeThickness({ borracha = false }: { borracha?: boolean }) {
 export function SprayControls() {
   const espessura = useEditor((estado) => estado.size);
   const densidade = useEditor((estado) => estado.densidadeSpray);
+  const gotas = useEditor((estado) => estado.gotasSpray);
   const set = useEditor((estado) => estado.set);
 
   return (
@@ -107,6 +108,18 @@ export function SprayControls() {
           <option value="baixa">Baixa</option>
           <option value="media">Média</option>
           <option value="alta">Alta</option>
+        </select>
+      </label>
+      <label className="spray-density">
+        Gotas
+        <select
+          aria-label="Gotas do spray"
+          title="Finas: 1 px, como no paint clássico. Médias: 2 px."
+          value={gotas}
+          onChange={(evento) => set({ gotasSpray: evento.target.value === '2' ? 2 : 1 })}
+        >
+          <option value="1">Finas</option>
+          <option value="2">Médias</option>
         </select>
       </label>
     </div>

@@ -57,7 +57,7 @@ export function mesclagemDoPincel(tipo: TipoPincel): 'source-over' | 'multiply' 
 
 export function margemDoPincel(configuracao: ConfiguracaoPincel): number {
   // Inclui o desvio das cerdas, das partículas e o antisserrilhamento.
-  return configuracao.espessura * 0.72 + 2;
+  return configuracao.espessura * 0.72 + 2 + (configuracao.gota ?? 1) - 1;
 }
 
 function oval(ctx: Contexto2D, ponto: Point, raioX: number, raioY = raioX, angulo = 0) {
@@ -201,7 +201,9 @@ export function criarPintorPincel(ctx: Contexto2D, configuracao: ConfiguracaoPin
       case 'spray': {
         const pontos = gerarPontosSpray(marca, diametro, marca.quantidade ?? 1, aleatorio);
         ctx.globalAlpha = 0.62 + pressao * 0.38;
-        for (const ponto of pontos) ctx.fillRect(Math.floor(ponto.x), Math.floor(ponto.y), 1, 1);
+        const gota = configuracao.gota ?? 1;
+        for (const ponto of pontos)
+          ctx.fillRect(Math.floor(ponto.x), Math.floor(ponto.y), gota, gota);
         break;
       }
       case 'oleo': {

@@ -20,6 +20,8 @@ export interface ConfiguracaoPincel {
   cor: string;
   espessura: number;
   semente: number;
+  /** Lado de cada gota do aerógrafo, em px. Comandos antigos não têm o campo: 1 px. */
+  gota?: 1 | 2;
 }
 
 export interface MarcaPincel extends Point {
