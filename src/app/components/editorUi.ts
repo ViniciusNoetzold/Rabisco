@@ -33,4 +33,5 @@ export const hints: Record<ToolId, string> = {
   text: 'Clique no papel para digitar. Clique fora da caixa para confirmar.',
   zoom: 'Clique para ampliar. Use o botão direito para reduzir.',
   eyedropper: 'Encontre uma cor no seu desenho e continue com ela.',
+  move: 'Arraste para mover a camada ativa inteira. Setas não mudam nada aqui.',
 };

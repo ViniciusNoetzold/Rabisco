@@ -187,6 +187,7 @@ export function Ribbon({
                     {botaoFerramenta('eraser')}
                     {botaoFerramenta('text')}
                     {botaoFerramenta('zoom')}
+                    {botaoFerramenta('move')}
                   </div>
                 </RibbonGroup>
                 <RibbonGroup

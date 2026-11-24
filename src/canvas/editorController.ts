@@ -4,7 +4,8 @@ import {
   type OpcoesTransformacao,
   type OrientacaoImagem,
 } from '../commands/comandos';
-import type { ComandoCamada } from '../commands/comandos';
+import { serializarImagem, type ComandoCamada } from '../commands/comandos';
+import { redimensionarEInclinar } from '../document/transformacoes';
 import { Executador } from '../commands/executador';
 import { chaveDoAlvo, novoId } from '../document/camadas';
 import { RabiscoDocument } from '../document/model';
@@ -339,10 +340,10 @@ export class EditorController implements EditorApi, NucleoEditor {
     return true;
   }
 
-  colarImagem(pixels: PixelBuffer, aumentar = false) {
+  colarImagem(pixels: PixelBuffer, aumentar = false, nomeCamada?: string) {
     if (!this.disponivel()) return;
     this.ferramentas.confirmarPendente();
-    this.colagem.colarImagem(pixels, aumentar);
+    this.colagem.colarImagem(pixels, aumentar, nomeCamada);
   }
 
   obterReferenciaForma(): ReturnType<EditorApi['obterReferenciaForma']> {
@@ -369,6 +370,38 @@ export class EditorController implements EditorApi, NucleoEditor {
       id: novoId('camada'),
       nome: `Camada ${total}`,
     });
+  }
+
+  /**
+   * Imagem de fora como camada nova, centralizada. Maior que o papel: é reduzida para caber,
+   * mantendo a proporção (a original não é cortada).
+   */
+  importarComoCamada(pixels: PixelBuffer, nome: string) {
+    if (!this.disponivel()) return false;
+    let imagem = pixels;
+    const escala = Math.min(1, this.doc.width / pixels.width, this.doc.height / pixels.height);
+    if (escala < 1) {
+      imagem = redimensionarEInclinar(
+        pixels,
+        Math.max(1, Math.round(pixels.width * escala)),
+        Math.max(1, Math.round(pixels.height * escala)),
+        0,
+        0,
+      );
+      this.avisar('A imagem era maior que o papel e foi reduzida para caber, numa camada nova.');
+    }
+    const id = novoId('camada');
+    const mudou = this.executarCamada({
+      tipo: 'NovaCamada',
+      id,
+      nome,
+      imagem: serializarImagem(imagem),
+      x: Math.round((this.doc.width - imagem.width) / 2),
+      y: Math.round((this.doc.height - imagem.height) / 2),
+    });
+    if (mudou && escala === 1)
+      this.avisar(`"${nome}" entrou numa camada nova. Use Mover (V) para posicionar.`);
+    return mudou;
   }
 
   /** Troca a camada ativa (não entra no histórico). Com `mascara`, passa a pintar na máscara. */

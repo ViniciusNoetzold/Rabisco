@@ -37,6 +37,8 @@ export type ToolOptionsSchema = readonly {
 export interface ToolCtx {
   readonly largura: number;
   readonly altura: number;
+  /** Camada onde as ferramentas pintam (comandos de camada precisam do identificador). */
+  readonly camadaAtiva: string;
   readonly opcoes: {
     cor1: string;
     cor2: string;

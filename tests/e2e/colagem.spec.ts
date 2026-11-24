@@ -82,7 +82,8 @@ test(
     const tela = await abrirEditor(page);
     const png = await imagemPng(page, 28, 22, '#e24b4b');
     const previa = page.locator(PREVIA);
-    const historico = page.locator('.history-list').getByText('Colar seleção', { exact: true });
+    // Desde a 0.3 a imagem de fora vira uma camada nova ao confirmar.
+    const historico = page.locator('.history-list').getByText('Nova camada', { exact: true });
     await tela.focus();
     await transferir(page, png, 'paste');
     await expect(previa).toBeVisible();

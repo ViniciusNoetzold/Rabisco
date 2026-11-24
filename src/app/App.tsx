@@ -67,6 +67,7 @@ export default function App() {
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
   const [colagemMaior, definirColagemMaior] = useState<PixelBuffer | null>(null);
   const sequenciaColagem = useRef(0);
+  const colarNaCamadaAtual = useRef(false);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
   const corDeFundo = useEditor((estado) => estado.color2);
@@ -112,20 +113,28 @@ export default function App() {
   }, []);
   useEffect(() => run(atualizarFormas), [atualizarFormas, run]);
 
-  const prepararColagem = useCallback(async (arquivo: File, verificarCopia = false) => {
-    const versao = ++sequenciaColagem.current;
-    const { abrirImagem } = await import('../io/imagens');
-    const { width, height, pixels } = await abrirImagem(arquivo);
-    if (versao !== sequenciaColagem.current) return;
-    const dados = { width, height, data: pixels };
-    if (verificarCopia && (await editor.current?.colarCopiaIgual(dados))) return;
-    if (versao !== sequenciaColagem.current) return;
-    const papel = papelAtual.current;
-    if (width > papel.width || height > papel.height) {
-      definirColagemMaior(dados);
-      setDialog('fit-paste');
-    } else editor.current?.colarImagem(dados);
-  }, []);
+  const prepararColagem = useCallback(
+    async (arquivo: File, verificarCopia = false, novaCamada = false) => {
+      const versao = ++sequenciaColagem.current;
+      const { abrirImagem } = await import('../io/imagens');
+      const { width, height, pixels } = await abrirImagem(arquivo);
+      if (versao !== sequenciaColagem.current) return;
+      const dados = { width, height, data: pixels };
+      if (verificarCopia && (await editor.current?.colarCopiaIgual(dados))) return;
+      if (versao !== sequenciaColagem.current) return;
+      // Colagens (0.3): a imagem de fora flutua para ser posicionada e, ao confirmar, vira uma
+      // camada nova com o nome do arquivo. Ctrl+Shift+V cola na camada atual.
+      const nomeCamada = novaCamada
+        ? (arquivo.name.replace(/\.[^.]+$/, '').trim() || 'Imagem colada').slice(0, 60)
+        : undefined;
+      const papel = papelAtual.current;
+      if (width > papel.width || height > papel.height) {
+        definirColagemMaior(dados);
+        setDialog('fit-paste');
+      } else editor.current?.colarImagem(dados, false, nomeCamada);
+    },
+    [],
+  );
 
   const colar = useCallback(async () => {
     const versao = ++sequenciaColagem.current;
@@ -203,6 +212,7 @@ export default function App() {
           m: () =>
             editor.current?.executarCamada({ tipo: 'MesclarAbaixo', id: info.estrutura.ativa }),
         };
+        if (event.shiftKey && key === 'v') colarNaCamadaAtual.current = true;
         if (event.shiftKey && comCamada[key]) {
           event.preventDefault();
           comCamada[key]();
@@ -284,7 +294,10 @@ export default function App() {
       sequenciaColagem.current++;
       const arquivo = imagemDaTransferencia(evento.clipboardData);
       evento.preventDefault();
-      if (arquivo) run(() => prepararColagem(arquivo, true));
+      // Ctrl+V: imagem de fora entra numa camada nova. Ctrl+Shift+V: na camada atual.
+      const naAtual = colarNaCamadaAtual.current;
+      colarNaCamadaAtual.current = false;
+      if (arquivo) run(() => prepararColagem(arquivo, true, !naAtual));
       else run(() => editor.current?.paste());
     }
     window.addEventListener('keydown', keys);
@@ -326,9 +339,28 @@ export default function App() {
       }}
       onDrop={(evento) => {
         if (evento.dataTransfer.types.includes('Files')) evento.preventDefault();
-        const arquivo = imagemDaTransferencia(evento.dataTransfer);
-        if (arquivo && !dialog && !painelFormas && info.saving !== 'loading')
-          run(() => prepararColagem(arquivo));
+        if (dialog || painelFormas || info.saving === 'loading') return;
+        // Várias imagens soltas de uma vez: uma camada para cada, na ordem em que vieram.
+        const arquivos = Array.from(evento.dataTransfer.files).filter((item) =>
+          item.type.startsWith('image/'),
+        );
+        if (arquivos.length > 1)
+          run(async () => {
+            // Várias de uma vez: cada uma direto numa camada própria, centralizada.
+            const { abrirImagem } = await import('../io/imagens');
+            for (const item of arquivos) {
+              const { width, height, pixels } = await abrirImagem(item);
+              const nome = item.name.replace(/\.[^.]+$/, '').trim() || 'Imagem';
+              editor.current?.importarComoCamada(
+                { width, height, data: pixels },
+                nome.slice(0, 60),
+              );
+            }
+          });
+        else {
+          const arquivo = imagemDaTransferencia(evento.dataTransfer);
+          if (arquivo) run(() => prepararColagem(arquivo, false, true));
+        }
       }}
     >
       <EditorChrome

@@ -2,6 +2,12 @@
 
 ## 0.3 em desenvolvimento
 
+### Passo 5 (parcial) — Colagem em camadas e ferramenta Mover
+
+- Imagem colada de fora (Ctrl+V) ou arrastada para a janela flutua para ser posicionada e, ao confirmar, vira uma camada nova com o nome do arquivo. Ctrl+Shift+V cola na camada atual, como antes. Várias imagens soltas de uma vez viram uma camada cada, centralizadas; as maiores que o papel são reduzidas para caber.
+- Ferramenta Mover (V): arrasta a camada ativa inteira, com a máscara, num único item do histórico. Respeita o bloqueio de pixels e o de posição.
+- Falta deste passo: transformação livre (escalar, girar, distorcer, perspectiva), guias de encaixe e o modo "adesivo" com um clique.
+
 ### Passo 2 — Painel de Camadas
 
 - Seção "Camadas" no painel Meu ateliê, no estilo Aero: lista com a camada de cima primeiro, miniatura (atualizada até 4 vezes por segundo), miniatura da máscara, olho (Alt+clique mostra só esta), cadeado, nome editável com duplo clique ou F2, opacidade e etiqueta de cor. Arrastar uma camada reordena a pilha.

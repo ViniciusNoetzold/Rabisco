@@ -58,6 +58,7 @@ describe('registro de ferramentas', () => {
       'text',
       'zoom',
       'eyedropper',
+      'move',
     ] as const;
     expect(Object.keys(toolRegistry).sort()).toEqual([...ids].sort());
     expect(new Set(ids.map((id) => toolRegistry[id].atalho)).size).toBe(ids.length);

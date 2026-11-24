@@ -104,3 +104,50 @@ test('a borracha apaga para transparência numa camada nova e pinta Cor 2 no pap
   // O papel branco de baixo aparece: a camada ficou transparente ali.
   await expect.poll(() => pixel(page, 250, 300)).toEqual(BRANCO);
 });
+
+test('imagem arrastada flutua e vira camada nova ao confirmar; Mover (V) desloca a camada', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  const lista = page.getByRole('listbox', { name: 'Lista de camadas' });
+  await page.evaluate(() => {
+    const tela = document.createElement('canvas');
+    tela.width = 40;
+    tela.height = 30;
+    const contexto = tela.getContext('2d')!;
+    contexto.fillStyle = '#e24b4b';
+    contexto.fillRect(0, 0, 40, 30);
+    return new Promise<void>((resolver) =>
+      tela.toBlob((blob) => {
+        const dados = new DataTransfer();
+        dados.items.add(new File([blob!], 'Foto da praia.png', { type: 'image/png' }));
+        document
+          .querySelector('.workspace')!
+          .dispatchEvent(
+            new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dados }),
+          );
+        resolver();
+      }, 'image/png'),
+    );
+  });
+  await expect(page.locator('[data-colagem-pendente]')).toHaveCount(1);
+  await page.keyboard.press('Enter');
+  await expect(lista.getByRole('option')).toHaveCount(2);
+  await expect(lista.getByRole('option', { selected: true })).toContainText('Foto da praia');
+  // A colagem entra a 24 px do canto: o pixel (30, 30) fica vermelho.
+  await expect.poll(() => pixel(page, 30, 30)).toEqual([226, 75, 75, 255]);
+
+  await page.locator('.drawing-canvas').focus();
+  await page.keyboard.press('v');
+  const de = await pontoNaTela(page, 30, 30);
+  const ate = await pontoNaTela(page, 230, 130);
+  await page.mouse.move(de.x, de.y);
+  await page.mouse.down();
+  await page.mouse.move(ate.x, ate.y, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => pixel(page, 30, 30)).toEqual(BRANCO);
+  await expect.poll(() => pixel(page, 230, 130)).toEqual([226, 75, 75, 255]);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 30, 30)).toEqual([226, 75, 75, 255]);
+});

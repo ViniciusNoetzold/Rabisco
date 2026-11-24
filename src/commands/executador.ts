@@ -449,6 +449,30 @@ export class Executador {
         this.limparGruposVazios(estrutura);
         return mudarEstrutura('Mover camada', estrutura);
       }
+      case 'DeslocarCamada': {
+        const camada = doc.camada(comando.id);
+        if (!camada || (!comando.dx && !comando.dy)) return null;
+        if (camada.locked || camada.bloqueioPosicao) {
+          this.motivoRecusa = 'bloqueada';
+          return null;
+        }
+        const alvos = this.alvosDa(comando.id);
+        return this.alterarDocumento(comando, 'Mover camada', alvos, () => {
+          for (const alvo of alvos) {
+            // O que sai do papel é perdido; a máscara anda junto com os pixels.
+            const copia = document.createElement('canvas');
+            copia.width = doc.width;
+            copia.height = doc.height;
+            copia.getContext('2d')!.drawImage(doc.canvasDo(alvo), 0, 0);
+            const contexto = doc.contexto(alvo);
+            if (alvo.mascara) {
+              contexto.fillStyle = '#ffffff';
+              contexto.fillRect(0, 0, doc.width, doc.height);
+            } else contexto.clearRect(0, 0, doc.width, doc.height);
+            contexto.drawImage(copia, comando.dx, comando.dy);
+          }
+        });
+      }
       case 'MesclarAbaixo': {
         const posicao = indice(comando.id);
         if (posicao <= 0) {

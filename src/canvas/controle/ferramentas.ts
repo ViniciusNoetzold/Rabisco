@@ -181,6 +181,7 @@ export class ControleFerramentas {
     return {
       largura: doc.width,
       altura: doc.height,
+      camadaAtiva: doc.activeLayerId,
       opcoes: opcoesDaFerramenta(estado),
       selecao: selecao.area,
       mascaraSelecao: selecao.mascara,

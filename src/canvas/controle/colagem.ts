@@ -1,7 +1,9 @@
 import { useEditor } from '../../app/store';
 import { serializarImagem } from '../../commands/comandos';
 import { limitarArea } from '../../commands/desenho';
+import { novoId } from '../../document/camadas';
 import { validarDimensoes } from '../../document/dimensoes';
+import { redimensionarEInclinar } from '../../document/transformacoes';
 import {
   prepararRecorte,
   prepararRecorteDaArea,
@@ -19,6 +21,8 @@ interface ColagemFlutuante {
   recorte: RecorteFlutuante;
   corTransparente?: string;
   papel?: { largura: number; altura: number; fundo: string };
+  /** Ao confirmar, a imagem vira uma camada nova com este nome (colagem de fora). */
+  nomeCamada?: string;
 }
 
 /**
@@ -108,7 +112,7 @@ export class ControleColagem {
   }
 
   /** Imagem de fora (Ctrl+V, arquivo, arrastar): fica flutuando até ser confirmada. */
-  colarImagem(pixels: PixelBuffer, aumentar: boolean) {
+  colarImagem(pixels: PixelBuffer, aumentar: boolean, nomeCamada?: string) {
     const { doc } = this.nucleo;
     const { color2, selecaoTransparente, setTool } = useEditor.getState();
     const largura = Math.max(pixels.width, doc.width);
@@ -127,7 +131,7 @@ export class ControleColagem {
     const corTransparente = selecaoTransparente ? color2 : undefined;
     const recorte = prepararRecorte(pixels, { ...destino, x: 0, y: 0 }, undefined, corTransparente);
     setTool('select');
-    this.flutuante = { pixels, destino, papel, recorte, corTransparente };
+    this.flutuante = { pixels, destino, papel, recorte, corTransparente, nomeCamada };
     this.mostrar();
     this.selecao.selecionar(destino);
     this.nucleo.avisar('Arraste a imagem para posicionar. Enter confirma, Esc descarta.');
@@ -175,8 +179,27 @@ export class ControleColagem {
   confirmar() {
     const colagem = this.flutuante;
     if (!colagem) return;
-    const { pixels, destino, papel, corTransparente } = colagem;
+    const { pixels, destino, papel, corTransparente, nomeCamada, recorte } = colagem;
     this.limpar();
+    if (nomeCamada && !papel) {
+      // Já com a Cor 2 transparente (se pedido) e no tamanho em que foi posicionada.
+      const { width, height } = recorte.imagem;
+      const base = recorte.imagem.getContext('2d')!.getImageData(0, 0, width, height);
+      const ajustada =
+        destino.width === width && destino.height === height
+          ? base
+          : redimensionarEInclinar(base, destino.width, destino.height, 0, 0);
+      this.nucleo.executar({
+        tipo: 'NovaCamada',
+        id: novoId('camada'),
+        nome: nomeCamada,
+        imagem: serializarImagem(ajustada),
+        x: destino.x,
+        y: destino.y,
+      });
+      this.selecao.selecionar(limitarArea(destino, this.nucleo.doc));
+      return;
+    }
     const mudou = this.nucleo.executar({
       tipo: 'ColarImagem',
       x: destino.x,

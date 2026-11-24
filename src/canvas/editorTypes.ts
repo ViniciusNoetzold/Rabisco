@@ -40,7 +40,7 @@ export interface EditorApi {
   crop(): void;
   copy(cut?: boolean): Promise<void>;
   paste(): Promise<void>;
-  colarImagem(pixels: PixelBuffer, aumentar?: boolean): void;
+  colarImagem(pixels: PixelBuffer, aumentar?: boolean, nomeCamada?: string): void;
   colarCopiaIgual(pixels: PixelBuffer): Promise<boolean>;
   fit(): void;
   redimensionarPapel(largura: number, altura: number, fundo?: string, dpi?: number): void;
@@ -50,6 +50,7 @@ export interface EditorApi {
   obterReferenciaForma(): Omit<DadosFormaPropria, 'pasta'> | null;
   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>): boolean;
   novaCamada(): boolean;
+  importarComoCamada(pixels: PixelBuffer, nome: string): boolean;
   ativarCamada(id: string, mascara?: boolean): void;
   miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;
 }

@@ -25,7 +25,8 @@ export type ToolId =
   | 'lasso'
   | 'text'
   | 'zoom'
-  | 'eyedropper';
+  | 'eyedropper'
+  | 'move';
 
 /** Forma mínima de ImageData, também utilizável em testes e workers. */
 export interface PixelBuffer {

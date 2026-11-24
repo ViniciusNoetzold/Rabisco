@@ -131,6 +131,7 @@ export type ComandoCamada =
   | { tipo: 'AlterarCamada'; id: string; propriedades: AlteracaoCamada }
   | { tipo: 'MoverCamada'; id: string; posicao: number; grupo?: string | null }
   | { tipo: 'MesclarAbaixo'; id: string }
+  | { tipo: 'DeslocarCamada'; id: string; dx: number; dy: number }
   | { tipo: 'MesclarVisiveis'; novoId: string }
   | { tipo: 'AchatarImagem' }
   | { tipo: 'AgruparCamadas'; ids: string[]; grupoId: string; nome: string }

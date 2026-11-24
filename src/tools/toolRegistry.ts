@@ -11,6 +11,7 @@ import { retangulo } from './rectangle';
 import { selecao, selecaoLaco } from './select';
 import { ferramentaTexto } from './texto';
 import { lupa } from './lupa';
+import { mover } from './mover';
 import type { DefinicaoFerramenta, Tool } from './tool';
 
 export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
@@ -27,6 +28,7 @@ export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
   text: ferramentaTexto,
   zoom: lupa,
   eyedropper: contaGotas,
+  move: mover,
 };
 
 export function criarFerramentas(): Record<ToolId, Tool> {
