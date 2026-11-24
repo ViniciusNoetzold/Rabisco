@@ -1973,3 +1973,17 @@ input[type='range']::-webkit-slider-thumb {
 .efeito-mascara button {
   font-size: 11px;
 }
+
+/* O 7.css pinta opções de listbox de azul; no painel de camadas só a ativa se destaca. */
+.camadas-lista li.camada-item[role='option'] {
+  background: #fff;
+  color: #253a4c;
+}
+.camadas-lista li.camada-item[role='option']:hover {
+  background: #f1f7fc;
+}
+.camadas-lista li.camada-item.selecionada[role='option'] {
+  background: linear-gradient(#e6f2fb, #cfe4f5);
+  color: #14324a;
+  font-weight: 600;
+}

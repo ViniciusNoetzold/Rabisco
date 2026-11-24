@@ -1,73 +1,157 @@
-# Rabisco
+<div align="center">
 
-Editor de desenho local em português, com interface inspirada nos editores gráficos da era Aero. A versão 0.2 foi concluída e validada em 24 de novembro de 2026. O [roteiro](ROADMAP.md) acompanha as próximas versões.
+<img src="public/favicon.svg" width="72" alt="" />
 
-## Executar
+# rabisco.
 
-Requer Node.js 20.19+ ou 22.12+ e npm.
+**O paint de sempre, com uma IA no pincel.**
+
+Um editor de desenho no navegador com a simplicidade e a cara do paint da era Windows 7,
+mais camadas, colagens e, em breve, uma IA que gera imagens com as próprias ferramentas do app
+e ensina a desenhar.
+
+![Versão](https://img.shields.io/badge/versão-0.3_em_andamento-3083c5)
+![Testes](https://img.shields.io/badge/testes-124_unitários_·_59_E2E-70a54a)
+![Local-first](https://img.shields.io/badge/seus_desenhos-ficam_no_seu_dispositivo-f6c94d)
+![Idioma](https://img.shields.io/badge/interface-português_do_Brasil-e24b4b)
+
+<img src="docs/imagens/rabisco-camadas.png" alt="O Rabisco com um desenho de casa, sol e grama em três camadas, a casa como adesivo e o painel de Camadas aberto" width="900" />
+
+</div>
+
+---
+
+## ✨ O que já dá para fazer
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🖌️ O paint clássico, mais fácil
+
+- Lápis, borracha, balde, conta-gotas, lupa e texto
+- **9 pincéis**: redondo, duas caligrafias, aerógrafo (spray que continua borrifando parado), óleo, giz de cera, marcador, lápis natural e aquarela, com pressão de caneta
+- **37 formas** (setas, estrelas, balões, coração, polígonos de N lados…) que continuam editáveis até confirmar
+- **Crie suas próprias formas** e guarde como predefinição
+- Seleção retangular e laço, seleção transparente, Cor 1/Cor 2 no botão esquerdo e direito
+
+</td>
+<td width="50%" valign="top">
+
+### 🗂️ Camadas e colagens
+
+- Camadas com opacidade, **16 modos de mesclagem**, bloqueios, máscaras e recorte
+- **Contorno e sombra** que dá para editar depois, e o botão **✨ Virar adesivo**
+- Cole ou arraste imagens: cada uma vira uma camada
+- **Mover** e **transformação livre** (escalar e girar)
+- Desfazer e refazer para tudo, inclusive criar, mesclar e excluir camadas
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 📐 Papel e arquivos
+
+- Papel de até 8192 px, que cresce pelas alças, como no paint
+- Girar, inverter, redimensionar e inclinar
+- Abre PNG, JPEG, BMP, GIF, WebP e ICO; salva PNG, JPEG, BMP, GIF e WebP
+- Imprimir, réguas, grade, zoom de 12,5% a 800% e tela inteira
+
+</td>
+<td valign="top">
+
+### 💾 Local e rápido
+
+- **Autosave** em blocos: grava só o que mudou, sem travar
+- Funciona sem internet depois de carregado; nada sai do seu computador
+- Ribbon que se adapta a qualquer largura, de 800 px a 1920 px
+- Abre com 186 KB de JavaScript (o React fica num arquivo próprio, em cache)
+
+</td>
+</tr>
+</table>
+
+<div align="center">
+<img src="docs/imagens/rabisco-janela-estreita.png" alt="O Rabisco numa janela estreita, com os grupos do ribbon recolhidos em botões" width="520" />
+<br /><sub>Em janela estreita, os grupos do ribbon se recolhem em botões, como no paint do Windows 7.</sub>
+</div>
+
+## 🚀 Começar
+
+Requer **Node.js 20.19+ ou 22.12+**.
 
 ```powershell
+git clone https://github.com/ViniciusNoetzold/Rabisco.git
+cd Rabisco
 npm install
 npm run dev
 ```
 
-Abra o endereço local exibido pelo Vite. Para gerar e servir a distribuição:
+Abra o endereço que o Vite mostrar (normalmente `http://localhost:5173`).
+
+**Ver de outro aparelho na mesma rede** (celular, tablet, outro PC):
+
+```powershell
+npm run dev -- --host 0.0.0.0
+```
+
+Use o endereço **Network** que aparece no terminal. Na primeira vez, o Windows pode pedir para liberar o Node.js no firewall.
+
+**Versão de produção:**
 
 ```powershell
 npm run build
 npm run preview
 ```
 
-Para acompanhar mudanças em um servidor estático que já serve `dist/`, execute `npm run preview:rede:atualizar` em outro terminal. O observador publica cada build concluído. A aba já aberta pode precisar de uma primeira atualização para habilitar a recarga automática. Cada recarga recupera o último desenho salvo no navegador. O histórico da sessão recomeça.
+## ⌨️ Atalhos principais
 
-## Usar
+| Ferramenta | Tecla | | Ação | Atalho |
+| --- | :---: | --- | --- | --- |
+| Lápis | `P` | | Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` |
+| Pincel | `B` | | Salvar PNG | `Ctrl+S` |
+| Spray | `A` | | Colar (camada nova) | `Ctrl+V` |
+| Borracha | `E` | | Colar na camada atual | `Ctrl+Shift+V` |
+| Balde | `F` | | Copiar mesclado | `Ctrl+Shift+C` |
+| Conta-gotas | `I` | | Nova camada | `Ctrl+Shift+N` |
+| Texto | `T` | | Duplicar camada | `Ctrl+J` |
+| Formas | `U` | | Mesclar abaixo | `Ctrl+Shift+M` |
+| Seleção / laço | `S` / `L` | | Transformação livre | `Ctrl+T` |
+| Lupa | `Z` | | Propriedades da imagem | `Ctrl+E` |
+| Mover camada | `V` | | Redimensionar e inclinar | `Ctrl+W` |
+| Trocar Cor 1/Cor 2 | `X` | | Tela inteira | `F11` |
 
-- Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.
-- Abra **Pincéis** para escolher entre redondo, duas caligrafias, aerógrafo, óleo, giz de cera, marcador, lápis natural e aquarela. Ajuste a espessura entre 1 e 100 px pelo campo numérico ou pelas teclas `[` e `]`.
-- Pressione `A` para usar o **Aerógrafo / Spray**. Escolha o tamanho e a densidade e mantenha o botão do mouse pressionado para acumular tinta. A pressão da caneta muda a espessura ou a opacidade, conforme o pincel.
-- Abra **Mais formas** para escolher entre formas básicas, setas, estrelas, balões e símbolos. Arraste para desenhar. Use as oito alças para ajustar o tamanho, a alça externa para girar e o interior da área para mover. Altere contorno (Cor 1), preenchimento (Cor 2) ou espessura enquanto a forma está selecionada. `Enter` confirma, `Esc` descarta. Um clique fora da forma no papel ou a troca de ferramenta também confirma.
-- Em **Mais formas → Criar forma…**, ajuste um modelo paramétrico, desenhe um contorno com pontos ou use a forma ativa, a última forma ou a silhueta aproximada da seleção no papel. Salve com um nome, uma pasta e estilo opcional. Para rever a geometria de uma predefinição salva, abra seus pontos e curvas no editor.
-- Em **Gerenciar formas**, renomeie, duplique, edite, exclua, reordene ou marque suas favoritas. As favoritas aparecem primeiro na galeria. Exporte e importe a biblioteca em arquivos `.rabisco-formas.json` para levá-la a outro navegador. A biblioteca local comporta 100 formas e a importação aceita arquivos de até 1 MiB.
-- Para desenhar uma **Curva**, arraste a linha inicial e depois indique até dois pontos de controle. No **Polígono livre**, clique nos vértices e feche com um clique no primeiro ponto ou com duplo clique. Use `Shift` para restringir o ângulo.
-- Clique na paleta para escolher a cor ativa. Cor 1 usa o botão esquerdo; Cor 2 usa o direito. A tecla `X` troca as duas cores.
-- Arraste no papel para desenhar ou selecionar. Use `Shift` para restringir formas.
-- Em **Opções de seleção**, escolha o laço (`L`), selecione tudo, inverta, exclua ou ative **Seleção transparente** para ignorar a Cor 2. Arraste por dentro da seleção para movê-la e pelas alças para redimensioná-la. `Shift` mantém a proporção ao redimensionar. `Ctrl` e arraste duplica. As setas movem 1 px, ou 10 px com `Shift`.
-- Pressione `T` para digitar no papel. A aba **Texto** reúne fontes do sistema e Selawik, tamanho, estilos e fundo. Arraste a caixa pela alça e clique fora para confirmar. `Esc` abandona o rascunho.
-- A borracha (`E`) mostra o contorno da área apagada. O botão esquerdo usa a Cor 2 e o direito substitui apenas a Cor 1 pela Cor 2. O balde (`F`) tem ajuste de tolerância e modo de preencher toda a imagem. O conta-gotas (`I`) usa o botão esquerdo para Cor 1 e o direito para Cor 2.
-- Use `Ctrl` e a roda para aproximar no ponto do cursor, a pinça no touchpad ou tela sensível ao toque e a lupa (`Z`) com clique esquerdo para ampliar e direito para reduzir. A barra de status oferece níveis de 12,5% a 800%. A grade por pixel aparece a partir de 400%.
-- Para deslocar o papel, segure `Espaço` e arraste, use o botão do meio, dois dedos ou a miniatura da aba **Exibir**. Alterne réguas com `Ctrl+R`, grade com `Ctrl+G` e tela inteira com `F11`. Pressione `Esc` para voltar da tela inteira.
-- Arraste a alça da direita, da base ou do canto para aumentar ou cortar o papel. A área nova recebe a Cor 2. Use `Shift` para manter a proporção e `Esc` para cancelar.
-- Abra **Propriedades da imagem** (`Ctrl+E`) para definir o tamanho em pixels, centímetros ou polegadas e ajustar a resolução (96 DPI por padrão). O diálogo mostra a memória ocupada pelos pixels e permite escolher a cor da área nova.
-- Abra **Redimensionar e inclinar** (`Ctrl+W`) para reamostrar em pixels ou porcentagem e inclinar até 89° em cada eixo. Use **Girar** para girar 90° ou 180° ou inverter em um dos eixos. Essas operações se aplicam à seleção quando ela está ativa, ou à imagem inteira.
-- Em **Arquivo**, abra PNG, JPEG, BMP, GIF (primeiro quadro), WebP ou ICO. Use `Ctrl+S` para salvar PNG. Em **Salvar como** (`Ctrl+Shift+S`), escolha PNG, JPEG, BMP de 24 bits, GIF ou WebP. JPEG e WebP têm controle de qualidade. O diálogo indica perdas de transparência ou cores.
-- Use `Ctrl+V`, **Colar** ou **Colar de…** para inserir uma imagem. Você também pode arrastar um arquivo para a janela. Reposicione a imagem pela seleção e confirme com `Enter`. Quando a imagem for maior que o papel, escolha se deseja ampliar o papel.
-- Em **Editar cores**, use o espectro, HSL, RGB ou hexadecimal. Salve até 16 cores personalizadas neste navegador.
-- Pressione `Ctrl+P` para imprimir. Escolha orientação, ajuste à página e centralização. A aba de ajuda **Uma ajudinha?** lista os atalhos.
-- O trabalho é salvo automaticamente neste navegador, em IndexedDB. Aguarde a indicação de salvamento antes de fechar a aba. O tamanho e a resolução também são guardados no autosave e no PNG.
+A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](docs/guia-de-uso.md).
 
-Os arquivos e desenhos permanecem no dispositivo. Nesta versão não há chamadas de IA, serviços de nuvem ou telemetria.
+## 🗺️ Roteiro
 
-## Verificar
+| Versão | O quê | Situação |
+| --- | --- | :---: |
+| 0.1 | Janela Aero, ferramentas básicas, PNG e autosave | ✅ |
+| 0.2 | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas | ✅ |
+| 0.2.1 | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável | ✅ |
+| **0.3** | **Camadas, máscaras, efeitos, colagem, transformação livre**, formato `.rabisco`, PSD e ORA | 🚧 quase lá |
+| 0.4 | Estabilizador de traço, simetria, formas que se ajeitam sozinhas | 🔜 |
+| 0.5 | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom | 🔜 |
+| 0.6 | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova | 🔜 |
+| 0.7 | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar | 🔜 |
+| 0.8 | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente | 🔜 |
+| 0.9 | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições | 🔜 |
+| 1.0 | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade | 🔜 |
 
-```powershell
-npm test
-npm run build
-npm run test:e2e
-npm run test:e2e:estavel
-```
+Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) e **onde a 0.3 parou** em [prompts/CONTINUAR_0.3.md](prompts/CONTINUAR_0.3.md).
 
-O último comando executa três rodadas completas no Edge e encerra ao encontrar uma falha.
-
-Para medir o desempenho (pincel, spray, balde, desfazer, memória e autosave em três tamanhos de papel), rode sem outras suítes em andamento:
+## 🧪 Testes e desempenho
 
 ```powershell
-npm run perf -- --rotulo=meu-ensaio
+npm test                    # 124 testes unitários (Vitest)
+npm run test:e2e            # 59 fluxos no navegador (Playwright + Edge)
+npm run test:e2e:estavel    # a suíte E2E três vezes seguidas
+npm run perf -- --rotulo=x  # mede pincel, spray, balde, desfazer, memória e autosave
 ```
 
-A metodologia e os resultados de cada versão estão em [docs/desempenho.md](docs/desempenho.md).
-
-Os testes de navegador usam Playwright com o Edge instalado no Windows, como nesta validação.
-Para usar o Chromium fornecido pelo Playwright em outra máquina:
+Os testes de navegador usam o Edge do Windows. Em outra máquina:
 
 ```powershell
 npx playwright install chromium
@@ -75,60 +159,35 @@ $env:PLAYWRIGHT_CHANNEL = 'chromium'
 npm run test:e2e
 ```
 
-### Roteiro manual de 10 minutos
+Os resultados medidos de cada versão estão em [docs/desempenho.md](docs/desempenho.md). As imagens deste README são geradas pelo próprio app, com `node scripts/capturas.mjs`.
 
-1. Trace com o pincel, desfaça e refaça. Confira a edição única no histórico.
-2. Aumente o papel pela alça do canto com `Shift`. Confira a Cor 2 na área nova e desfaça.
-3. Altere o DPI em **Propriedades da imagem**, gire a folha e teste **Redimensionar e inclinar**.
-4. Teste um pincel texturizado e mantenha o aerógrafo pressionado por um segundo.
-5. Desenhe uma estrela da galeria. Mova, redimensione e gire antes de apertar `Enter`.
-6. Salve uma estrela própria de sete pontas. Recarregue, desenhe com ela e exporte a biblioteca.
-7. Contorne parte de um desenho com o laço. Mova a seleção com as setas e duplique com `Ctrl` e arraste.
-8. Ative **Seleção transparente** e mova uma região com fundo da Cor 2 sobre outra tinta.
-9. Digite “Café” e “Ação” em duas linhas. Mova a caixa, formate e clique fora.
-10. Passe a borracha sobre duas cores. Confira o contorno, mude a espessura e apague pela Cor 1 com o botão direito.
-11. Ajuste a tolerância do balde, preencha áreas separadas e capture uma cor com o conta-gotas.
-12. Faça zoom com `Ctrl` e a roda. Use `Espaço` e arraste, ative a régua e mova a miniatura. Entre e saia da tela inteira.
-13. Cole uma imagem maior que o papel. Escolha **Sim**, mova a prévia e confirme a colagem.
-14. Salve uma cor personalizada. Exporte um arquivo JPEG ou GIF, abra-o e confira o desenho recuperado.
-15. Abra a impressão em paisagem e verifique a prévia. Feche-a, aguarde o autosave e recarregue o editor.
-
-Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no Edge. O ensaio usa papéis de três tamanhos. A metodologia e os resultados ficam em [Desempenho do Rabisco](docs/desempenho.md).
-
-## Organização
+## 🏗️ Como é por dentro
 
 ```text
 src/
-  app/        Interface, estado, diálogos e atalhos
-  canvas/     Superfície, coordenadas e o coordenador do editor
-    controle/ Tela e prévias, ferramentas, seleção, colagem, papel, autosave e arquivos
-  commands/   Comandos serializáveis, execução e histórico por área
-  document/   Documento, camada ativa e composição da tela
-  io/         Arquivos de imagem, área de transferência e impressão
-  layers/     Tipos do documento
-  storage/    Persistência local em IndexedDB
-  tools/      Ferramentas, registro e operações de pixels
-tests/
-  unit/       Testes do núcleo
-  e2e/        Fluxos no navegador
-public/
-  fonts/      Selawik e licença OFL
-  icons/      Subconjunto Fugue e licença CC BY 3.0
+  app/          Interface: janela, ribbon adaptável, painéis, diálogos e atalhos (React)
+  canvas/       Coordenador do editor e superfície de desenho
+    controle/   Tela e prévias, ferramentas, seleção, colagem, papel, autosave e arquivos
+  commands/     Comandos em JSON, execução e histórico (pixels por área + estrutura das camadas)
+  document/     Documento com camadas, compositor (modos, máscaras, efeitos) e transformações
+  brushes/      Motor de pincéis por carimbo e aerógrafo
+  shapes/       Catálogo de formas, editor de formas próprias e renderização
+  tools/        Uma ferramenta por arquivo e o registro com os atalhos
+  io/           Abrir, exportar, colar e imprimir imagens
+  storage/      IndexedDB: blocos do autosave (com worker de PNG), formas e cores
+tests/          unit/ (Vitest) e e2e/ (Playwright)
+docs/           Guia de uso, desempenho e imagens do README
+prompts/        Prompts de cada etapa e o ponto de continuação
 ```
 
-O documento tem uma camada raster editável, composta em uma tela separada. O registro fornece as ferramentas e seus atalhos. Cada edição confirmada executa um comando JSON e grava os pixels da área afetada no histórico. O autosave reutiliza o buffer de pixels do documento.
+Toda edição vira um **comando JSON** (por exemplo `{ "tipo": "NovaCamada", ... }`). É isso que dá o desfazer preciso, e é a mesma porta que a IA da versão 0.8 vai usar para desenhar com as ferramentas do app.
 
-## Limites desta entrega
+Feito com **TypeScript, React, Vite, Zustand, Immer, Dexie e 7.css**.
 
-- Imagens de 1 a 8192 px por lado, com até 40 milhões de pixels. A importação PNG aceita arquivos de até 20 MiB. JPEG, GIF, WebP e ICO aceitam até 64 MiB. O limite do BMP considera o tamanho do bitmap sem compressão.
-- O histórico guarda os pixels da área afetada e descarta comandos antigos ao atingir 128 MiB. Quando uma única edição ultrapassa esse orçamento, ela permanece disponível para desfazer.
-- O autosave guarda o último documento neste navegador, em blocos de 256 × 256 px: grava só o que mudou, 800 ms depois da última edição, e na hora quando a aba é ocultada ou fechada. Limpar os dados do site também remove desenho, formas próprias e cores personalizadas.
-- A primeira pincelada depois de criar ou abrir um papel grande tem um atraso único (127 ms em 4000 × 4000), e o balde no papel inteiro leva cerca de 1 s em 4000 × 4000. Os dois estão registrados como pendências em [docs/desempenho.md](docs/desempenho.md).
-- A leitura e a escrita diretas na área de transferência do sistema exigem HTTPS ou localhost e permissão do navegador. Na prévia HTTP da rede, use `Ctrl+V`, **Colar de…** ou arraste o arquivo. O botão **Colar** também usa a cópia interna.
-- Instalação PWA, camadas múltiplas, IA, efeitos e Tauri estão no roteiro. A área de texto é editável até a confirmação, quando vira pixels no papel.
+## 🙏 Créditos e licença
 
-## Créditos e licença
+- Interface inspirada na era Aero com o [7.css](https://github.com/khang-nd/7.css) (MIT). O Rabisco não usa ícones, fontes nem marcas da Microsoft.
+- Ícones [Fugue](https://p.yusukekamiyamane.com/) de Yusuke Kamiyamane (CC BY 3.0) e fonte [Selawik](https://github.com/microsoft/Selawik) (OFL).
+- O logotipo do Rabisco é original. Todos os créditos estão em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) e na tela **Sobre** do app.
 
-Veja [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) e a tela **Sobre**. Selawik é uma fonte livre sob OFL; os ícones Fugue são de Yusuke Kamiyamane, sob CC BY 3.0. O logotipo do Rabisco é original.
-
-A licença do código do projeto será escolhida pela pessoa responsável. Nenhuma licença de código foi presumida nesta entrega.
+A licença do código do Rabisco ainda será escolhida pela pessoa responsável pelo projeto.
