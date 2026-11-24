@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
+import { isolarAreaDeTransferencia } from './fixtures/clipboard';
 
 // Erros de execução e recursos quebrados devem falhar mesmo se o fluxo aparente funcionar.
 const test = base.extend<{ browserErrors: string[] }>({
@@ -118,33 +119,41 @@ test('apaga uma seleção retangular e recupera seus pixels com o atalho', async
   expect(restoredPixel).toEqual(originalPixel);
 });
 
-test('copia, cola, move e corta uma seleção sem perder os pixels originais', async ({ page }) => {
-  await ready(page);
-  await page.getByRole('button', { name: 'Retângulo', exact: true }).click();
-  await page.getByRole('button', { name: 'Selecionar Cor 2', exact: true }).click();
-  await page.getByRole('button', { name: 'Usar cor #3083c5', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Preenchimento', exact: true }).selectOption('solid');
-  await drag(page, [100, 100], [180, 150]);
-  await page.keyboard.press('Enter');
-  expect(await pixel(page, 140, 120)).toEqual(BLUE);
-  await page.getByRole('button', { name: 'Selecionar (S)', exact: true }).click();
-  await drag(page, [90, 90], [190, 160]);
-  await page.getByRole('button', { name: 'Copiar', exact: true }).click();
-  await page.getByRole('button', { name: 'Colar', exact: true }).click();
-  expect(await pixel(page, 74, 54)).toEqual(BLUE);
-  await drag(page, [60, 50], [260, 240]);
-  await expect.poll(() => pixel(page, 274, 244)).toEqual(BLUE);
-  expect(await pixel(page, 74, 54)).toEqual([0, 0, 0, 0]);
-  expect(await pixel(page, 140, 120)).toEqual(BLUE);
-  const dimensions = (await page.locator('.selection-status').innerText()).match(/(\d+) × (\d+)/)!;
-  await page.getByRole('button', { name: 'Cortar', exact: true }).click();
-  await expect(page.locator('.drawing-canvas')).toHaveAttribute('width', dimensions[1]);
-  await expect(page.locator('.drawing-canvas')).toHaveAttribute('height', dimensions[2]);
-  expect(await pixel(page, 50, 30)).toEqual(BLUE);
-  await page.getByRole('button', { name: 'Desfazer (Ctrl+Z)', exact: true }).click();
-  await expect(page.locator('.drawing-canvas')).toHaveAttribute('width', '1024');
-  expect(await pixel(page, 140, 120)).toEqual(BLUE);
-});
+test(
+  'copia, cola, move e corta uma seleção sem perder os pixels originais',
+  { tag: '@colagem' },
+  async ({ context, page }) => {
+    await isolarAreaDeTransferencia(context);
+    await ready(page);
+    await page.getByRole('button', { name: 'Retângulo', exact: true }).click();
+    await page.getByRole('button', { name: 'Selecionar Cor 2', exact: true }).click();
+    await page.getByRole('button', { name: 'Usar cor #3083c5', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Preenchimento', exact: true }).selectOption('solid');
+    await drag(page, [100, 100], [180, 150]);
+    await page.keyboard.press('Enter');
+    expect(await pixel(page, 140, 120)).toEqual(BLUE);
+    await page.getByRole('button', { name: 'Selecionar (S)', exact: true }).click();
+    await drag(page, [90, 90], [190, 160]);
+    await page.getByRole('button', { name: 'Copiar', exact: true }).click();
+    await expect(page.getByText('Seleção copiada como PNG.', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Colar', exact: true }).click();
+    await expect.poll(() => pixel(page, 74, 54)).toEqual(BLUE);
+    await drag(page, [60, 50], [260, 240]);
+    await expect.poll(() => pixel(page, 274, 244)).toEqual(BLUE);
+    expect(await pixel(page, 74, 54)).toEqual([0, 0, 0, 0]);
+    expect(await pixel(page, 140, 120)).toEqual(BLUE);
+    const dimensions = (await page.locator('.selection-status').innerText()).match(
+      /(\d+) × (\d+)/,
+    )!;
+    await page.getByRole('button', { name: 'Cortar', exact: true }).click();
+    await expect(page.locator('.drawing-canvas')).toHaveAttribute('width', dimensions[1]);
+    await expect(page.locator('.drawing-canvas')).toHaveAttribute('height', dimensions[2]);
+    expect(await pixel(page, 50, 30)).toEqual(BLUE);
+    await page.getByRole('button', { name: 'Desfazer (Ctrl+Z)', exact: true }).click();
+    await expect(page.locator('.drawing-canvas')).toHaveAttribute('width', '1024');
+    expect(await pixel(page, 140, 120)).toEqual(BLUE);
+  },
+);
 
 test('cria documento com dimensões próprias e mantém o diálogo utilizável por teclado', async ({
   page,

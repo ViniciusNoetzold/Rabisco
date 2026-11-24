@@ -1,8 +1,16 @@
 # Histórico de alterações
 
+## 0.2.1 em desenvolvimento
+
+### Passo 1 — Testes reproduzíveis
+
+- Os quatro fluxos com área de transferência usam um projeto Playwright de um worker e uma área de transferência por contexto. Os demais fluxos rodam em paralelo.
+- O teste de cores aguarda a abertura do diálogo, a leitura das vagas e a confirmação da gravação no IndexedDB.
+- Validação de 24/11/2026 com 110 testes unitários, build de produção e três rodadas completas de 45 testes no Edge sem retentativas.
+
 ## 0.2.0 — 2026-11-24
 
-Os oito passos da paridade clássica foram concluídos. O build de produção, os 110 testes unitários e os 45 fluxos no Edge passaram.
+Os oito passos da paridade clássica foram concluídos. A revisão encontrou instabilidade na repetição da suíte de lançamento. A validação repetida foi refeita no Passo 1 da 0.2.1.
 
 ### Passo 8 — Arquivos, colagem, cores e impressão
 

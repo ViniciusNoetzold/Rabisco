@@ -1,9 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const colagem = /@colagem\b/;
+const edge = {
+  ...devices['Desktop Edge'],
+  channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge',
+  viewport: { width: 1440, height: 1000 },
+};
+
 export default defineConfig({
   testDir: './tests/e2e',
   outputDir: './output/playwright',
   fullyParallel: true,
+  // Limita a pressão no servidor Vite enquanto os módulos sob demanda são preparados.
+  workers: 3,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
@@ -21,11 +30,15 @@ export default defineConfig({
   projects: [
     {
       name: 'edge',
-      use: {
-        ...devices['Desktop Edge'],
-        channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge',
-        viewport: { width: 1440, height: 1000 },
-      },
+      grepInvert: colagem,
+      use: edge,
+    },
+    {
+      name: 'edge-colagem',
+      grep: colagem,
+      fullyParallel: false,
+      workers: 1,
+      use: edge,
     },
   ],
   webServer: {

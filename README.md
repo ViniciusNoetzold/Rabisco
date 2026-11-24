@@ -53,7 +53,10 @@ Os arquivos e desenhos permanecem no dispositivo. Nesta versão não há chamada
 npm test
 npm run build
 npm run test:e2e
+npm run test:e2e:estavel
 ```
+
+O último comando executa três rodadas completas no Edge e encerra ao encontrar uma falha.
 
 Os testes de navegador usam Playwright com o Edge instalado no Windows, como nesta validação.
 Para usar o Chromium fornecido pelo Playwright em outra máquina:
