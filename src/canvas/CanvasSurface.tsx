@@ -18,7 +18,7 @@ function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
     ponto: {
       x: Math.max(0, Math.min(tela.width - 1, (evento.clientX - caixa.left) / zoom)),
       y: Math.max(0, Math.min(tela.height - 1, (evento.clientY - caixa.top) / zoom)),
-      pressure: evento.pressure,
+      pressure: evento.pointerType === 'pen' ? evento.pressure : undefined,
     },
     botao: evento.button,
     shift: evento.shiftKey,
@@ -60,7 +60,15 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
         if (!redimensionando.current) instancia.ajustarAoRedimensionar();
       });
       observador.observe(workspace.current!);
+      const perderFoco = () => instancia.cancelarGesto();
+      const mudarVisibilidade = () => {
+        if (document.hidden) perderFoco();
+      };
+      window.addEventListener('blur', perderFoco);
+      document.addEventListener('visibilitychange', mudarVisibilidade);
       return () => {
+        window.removeEventListener('blur', perderFoco);
+        document.removeEventListener('visibilitychange', mudarVisibilidade);
         instancia.encerrar();
         observador.disconnect();
         editor.current = null;
@@ -105,7 +113,10 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     }
 
     function terminar(evento: EventoPonteiro<HTMLCanvasElement>, cancelar = false) {
-      editor.current?.terminarGesto(evento.pointerId, traduzirEvento(evento), cancelar);
+      editor.current?.terminarGesto(
+        evento.pointerId,
+        cancelar ? undefined : traduzirEvento(evento),
+      );
       if (evento.currentTarget.hasPointerCapture(evento.pointerId)) {
         evento.currentTarget.releasePointerCapture(evento.pointerId);
       }

@@ -1,4 +1,5 @@
 import { validarDimensoes } from '../document/dimensoes';
+import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 
 export { validarDimensoes } from '../document/dimensoes';
@@ -23,6 +24,12 @@ export interface ComandoTraco extends EstiloTraco {
   pontos: Point[];
 }
 
+export interface ComandoPincel {
+  tipo: 'Pincelar';
+  configuracao: ConfiguracaoPincel;
+  marcas: MarcaPincel[];
+}
+
 export interface ComandoForma {
   tipo: 'DesenharForma';
   forma: 'line' | 'rectangle' | 'ellipse';
@@ -43,6 +50,7 @@ export interface ImagemSerializada {
 
 export type Comando =
   | ComandoTraco
+  | ComandoPincel
   | ComandoForma
   | { tipo: 'Preencher'; ponto: Point; cor: string; tolerancia: number }
   | { tipo: 'ApagarSelecao'; area: Rect }

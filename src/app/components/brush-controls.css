@@ -1,0 +1,148 @@
+.ribbon .brush-gallery-trigger {
+  width: 82px;
+  gap: 7px;
+}
+
+.brush-gallery-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.15;
+}
+
+.brush-gallery-caption .chevron {
+  flex-shrink: 0;
+}
+
+.brush-gallery-menu {
+  position: fixed;
+  z-index: 24;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: min(368px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #7aabce;
+  border-radius: 4px;
+  background: #f7fbfe;
+  box-shadow: 2px 5px 14px #304d7040;
+}
+
+.brush-gallery-menu button {
+  min-height: 68px;
+  padding: 4px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #294d69;
+  background: #fff;
+  box-shadow: none;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.brush-gallery-menu button[aria-checked='true'] {
+  border-color: #dbac58;
+  background: linear-gradient(#ffebc0, #fff7e8);
+  font-weight: 600;
+}
+
+.brush-gallery-menu button:is(:hover, :focus-visible) {
+  border-color: #79a9cc;
+  background: #e8f4fc;
+  outline-offset: -2px;
+}
+
+.brush-stroke-sample {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.stroke-thickness,
+.spray-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding-top: 3px;
+}
+
+.stroke-thickness {
+  width: 100%;
+}
+
+.stroke-size-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.ribbon .stroke-size-presets button {
+  min-width: 0;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-color: #d4e0ea;
+}
+
+.stroke-size-presets button > span {
+  width: 100%;
+  border-radius: 1px;
+  background: #344f64;
+}
+
+.stroke-size-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.stroke-size-field input {
+  width: 46px;
+  height: 23px;
+  padding: 2px 3px;
+}
+
+.spray-controls {
+  width: 78px;
+  margin-left: 2px;
+}
+
+.spray-size-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+}
+
+.ribbon .spray-size-presets button {
+  min-width: 0;
+  padding: 2px 3px;
+  border-color: #d4e0ea;
+}
+
+.spray-density {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #465e71;
+  font-size: 11px;
+}
+
+.spray-density select {
+  width: 100%;
+  height: 21px;
+  font: inherit;
+}

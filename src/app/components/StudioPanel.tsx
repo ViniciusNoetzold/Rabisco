@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
-import { useEditor } from '../store';
+import { ESPESSURA_MAXIMA, useEditor } from '../store';
+import { BrushStrokeSample } from './BrushStrokeSample';
 import { Icon } from './Primitives';
 
 interface StudioPanelProps {
@@ -29,22 +30,34 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
           Seu traço <span>{state.tool === 'pencil' ? 1 : state.size} px</span>
         </div>
         <div className="stroke-preview">
-          <svg viewBox="0 0 190 65" aria-label="Prévia do traço">
-            <path
-              d="M12 46C35 49 37 12 61 20S87 60 111 36s35-29 65-12"
-              fill="none"
-              stroke={state.tool === 'eraser' ? '#b7c4d1' : state.color1}
-              strokeWidth={state.tool === 'pencil' ? 1 : Math.min(state.size, 22)}
-              strokeLinecap="round"
+          {state.tool === 'brush' ? (
+            <BrushStrokeSample
+              tipo={state.pincel}
+              cor={state.color1}
+              espessura={Math.min(state.size, 26)}
+              largura={190}
+              altura={65}
+              pontosPorMarca={{ baixa: 4, media: 8, alta: 13 }[state.densidadeSpray]}
+              rotulo="Prévia do traço"
             />
-          </svg>
+          ) : (
+            <svg viewBox="0 0 190 65" aria-label="Prévia do traço">
+              <path
+                d="M12 46C35 49 37 12 61 20S87 60 111 36s35-29 65-12"
+                fill="none"
+                stroke={state.tool === 'eraser' ? '#b7c4d1' : state.color1}
+                strokeWidth={state.tool === 'pencil' ? 1 : Math.min(state.size, 22)}
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
         </div>
         <label className="thickness-range">
           <span>Fino</span>
           <input
             type="range"
             min="1"
-            max="48"
+            max={ESPESSURA_MAXIMA}
             value={state.size}
             aria-label="Ajustar espessura"
             onChange={(event) => state.set({ size: Number(event.target.value) })}

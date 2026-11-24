@@ -9,6 +9,7 @@
     "prebuild": "npm run licenses",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "preview:rede:atualizar": "node scripts/preview-rede.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

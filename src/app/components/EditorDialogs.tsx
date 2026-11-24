@@ -220,6 +220,8 @@ export function EditorDialogs({
             <div className="shortcut-list">
               {[
                 ['B / P', 'Pincel / lápis'],
+                ['A', 'Aerógrafo / spray'],
+                ['[ / ]', 'Diminuir / aumentar espessura'],
                 ['E / F', 'Borracha / balde'],
                 ['S / I', 'Seleção / conta-gotas'],
                 ['L / R / O', 'Linha / retângulo / elipse'],

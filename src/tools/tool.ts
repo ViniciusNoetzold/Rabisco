@@ -1,4 +1,10 @@
 import type { Comando, EstiloTraco } from '../commands/comandos';
+import type {
+  ConfiguracaoPincel,
+  DensidadeSpray,
+  MarcaPincel,
+  TipoPincel,
+} from '../brushes/catalogo';
 import type { Point, Rect, ToolId } from '../layers/types';
 
 export type { EstiloTraco } from '../commands/comandos';
@@ -22,6 +28,8 @@ export interface ToolCtx {
     cor2: string;
     espessura: number;
     preenchida: boolean;
+    pincel: TipoPincel;
+    densidadeSpray: DensidadeSpray;
   };
   readonly selecao: Rect | null;
   executar(comando: Comando): boolean;
@@ -29,6 +37,8 @@ export interface ToolCtx {
   capturarCor(ponto: Point): void;
   lerPixels(area: Rect): ImageData;
   previsualizarTraco(de: Point, ate: Point, estilo: EstiloTraco): void;
+  iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
+  previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
   previsualizarSelecao(origem: Rect, destino: Rect, imagem: ImageData): void;
   limparPrevia(): void;
 }
@@ -71,5 +81,5 @@ export const opcaoEspessura = {
   tipo: 'numero',
   rotulo: 'Espessura do traço',
   min: 1,
-  max: 48,
+  max: 100,
 } as const;

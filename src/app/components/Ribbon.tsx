@@ -3,8 +3,10 @@ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
 import { toolRegistry } from '../../tools/toolRegistry';
 import { PALETTE, useEditor } from '../store';
+import { BrushGallery } from './BrushGallery';
 import { OrientationMenu } from './OrientationMenu';
 import { Icon, ShapeIcon, RibbonGroup, type RunAction } from './Primitives';
+import { SprayControls, StrokeThickness } from './StrokeThickness';
 
 interface RibbonProps {
   tab: string;
@@ -27,10 +29,6 @@ export function Ribbon({
 }: RibbonProps) {
   const state = useEditor();
   const carregando = info.saving === 'loading';
-  // O slider aceita valores intermediários; mantenha o select coerente com eles.
-  const sizeOptions = Array.from(new Set([1, 2, 3, 6, 10, 16, 24, 48, state.size])).sort(
-    (a, b) => a - b,
-  );
   function botaoFerramenta(id: ToolId) {
     const { nome, atalho, icone } = toolRegistry[id];
     const rotulo = atalho ? `${nome} (${atalho})` : nome;
@@ -139,14 +137,9 @@ export function Ribbon({
               </button>
             </div>
           </RibbonGroup>
-          <RibbonGroup title="Pincel" className="brush-group">
-            <button
-              className={`ribbon-large brush-choice ${state.tool === 'brush' ? 'selected' : ''}`}
-              onClick={() => state.setTool('brush')}
-            >
-              <Icon name={toolRegistry.brush.icone} className="large-icon" />
-              <span>{toolRegistry.brush.nome}</span>
-            </button>
+          <RibbonGroup title="Pincéis" className="brush-group">
+            <BrushGallery carregando={carregando} />
+            {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
           </RibbonGroup>
           <RibbonGroup title="Formas" className="shapes-group">
             <div className="shape-options">
@@ -173,20 +166,7 @@ export function Ribbon({
             </label>
           </RibbonGroup>
           <RibbonGroup title="Espessura" className="size-group">
-            <label className="size-select">
-              <span className="stroke-sample" style={{ height: Math.min(state.size, 14) }} />
-              <select
-                aria-label="Espessura do traço"
-                value={state.size}
-                onChange={(event) => state.set({ size: Number(event.target.value) })}
-              >
-                {sizeOptions.map((size) => (
-                  <option key={size} value={size}>
-                    {size} px
-                  </option>
-                ))}
-              </select>
-            </label>
+            <StrokeThickness />
           </RibbonGroup>
           <RibbonGroup title="Cores" className="colors-group">
             <div className="color-targets">

@@ -2,6 +2,13 @@
 
 ## 0.2 em desenvolvimento
 
+### Passo 3 — Pincéis clássicos e spray
+
+- Galeria com nove pincéis e miniaturas desenhadas pelo motor do editor. A reamostragem aplica carimbos em intervalos proporcionais à espessura e interpola as curvas do traço.
+- O aerógrafo continua pintando enquanto o botão está pressionado. Tem três tamanhos rápidos, três densidades e atalho `A`. Cada gesto grava a semente e confirma uma única edição.
+- A pressão da caneta altera o resultado dos pincéis. O marcador aplica a transparência uma vez por traço, inclusive onde o caminho se cruza.
+- A espessura aceita de 1 a 100 px, com quatro opções clássicas. A prévia na rede atualiza a página quando um novo build está pronto.
+
 ### Passo 2 — Tamanho e orientação do papel
 
 - As três alças do papel aumentam ou cortam o canvas e mostram o tamanho previsto. `Shift` mantém a proporção, `Esc` cancela e a área nova recebe a Cor 2.

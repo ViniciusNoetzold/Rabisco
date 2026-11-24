@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
 import type { ToolId } from '../layers/types';
+
+export const ESPESSURA_MAXIMA = 100;
 
 export const PALETTE = [
   '#252a34',
@@ -35,6 +38,8 @@ export const PALETTE = [
 
 interface EditorState {
   tool: ToolId;
+  pincel: TipoPincel;
+  densidadeSpray: DensidadeSpray;
   color1: string;
   color2: string;
   colorTarget: 1 | 2;
@@ -45,11 +50,15 @@ interface EditorState {
   ruler: boolean;
   sidebar: boolean;
   setTool: (tool: ToolId) => void;
+  setPincel: (tipo: TipoPincel) => void;
   setColor: (color: string) => void;
   swapColors: () => void;
   set: (
     value: Partial<
-      Pick<EditorState, 'colorTarget' | 'size' | 'filled' | 'zoom' | 'grid' | 'ruler' | 'sidebar'>
+      Pick<
+        EditorState,
+        'colorTarget' | 'size' | 'densidadeSpray' | 'filled' | 'zoom' | 'grid' | 'ruler' | 'sidebar'
+      >
     >,
   ) => void;
 }
@@ -58,6 +67,8 @@ interface EditorState {
 export const useEditor = create<EditorState>()(
   immer((set) => ({
     tool: 'brush',
+    pincel: 'redondo',
+    densidadeSpray: 'media',
     color1: '#3083c5',
     color2: '#ffffff',
     colorTarget: 1,
@@ -71,6 +82,12 @@ export const useEditor = create<EditorState>()(
       set((state) => {
         state.tool = tool;
       }),
+    setPincel: (tipo) =>
+      set((state) => {
+        if (tipo === 'spray' && state.pincel !== 'spray' && state.size < 16) state.size = 32;
+        state.pincel = tipo;
+        state.tool = 'brush';
+      }),
     setColor: (color) =>
       set((state) => {
         if (state.colorTarget === 1) state.color1 = color;
@@ -82,7 +99,11 @@ export const useEditor = create<EditorState>()(
       }),
     set: (value) =>
       set((state) => {
-        Object.assign(state, value);
+        const { size, ...outrasOpcoes } = value;
+        Object.assign(state, outrasOpcoes);
+        if (size !== undefined && Number.isFinite(size)) {
+          state.size = Math.max(1, Math.min(ESPESSURA_MAXIMA, Math.round(size)));
+        }
       }),
   })),
 );

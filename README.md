@@ -18,9 +18,13 @@ npm run build
 npm run preview
 ```
 
+Para acompanhar mudanças em um servidor estático que já serve `dist/`, execute `npm run preview:rede:atualizar` em outro terminal. O observador publica cada build concluído. A aba já aberta pode precisar de uma primeira atualização para habilitar a recarga automática. Cada recarga recupera o último desenho salvo no navegador. O histórico da sessão recomeça.
+
 ## Usar
 
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.
+- Abra **Pincéis** para escolher entre redondo, duas caligrafias, aerógrafo, óleo, giz de cera, marcador, lápis natural e aquarela. Ajuste a espessura entre 1 e 100 px pelo campo numérico ou pelas teclas `[` e `]`.
+- Pressione `A` para usar o **Aerógrafo / Spray**. Escolha o tamanho e a densidade e mantenha o botão do mouse pressionado para acumular tinta. A pressão da caneta muda a espessura ou a opacidade, conforme o pincel.
 - Clique na paleta para escolher a cor ativa. Cor 1 usa o botão esquerdo; Cor 2 usa o direito. A tecla `X` troca as duas cores.
 - Arraste no papel para desenhar ou selecionar. Use `Shift` para restringir formas.
 - Arraste a alça da direita, da base ou do canto para aumentar ou cortar o papel. A área nova recebe a Cor 2. Use `Shift` para manter a proporção e `Esc` para cancelar.

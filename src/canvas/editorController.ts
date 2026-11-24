@@ -1,4 +1,11 @@
 import { useEditor } from '../app/store';
+import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
+import {
+  criarPintorPincel,
+  margemDoPincel,
+  mesclagemDoPincel,
+  opacidadeDoPincel,
+} from '../brushes/motor';
 import {
   serializarImagem,
   type Comando,
@@ -31,6 +38,11 @@ export class EditorController implements EditorApi {
   private readonly overlay: CanvasRenderingContext2D;
   private gesto: { ponteiro: number; ferramenta: Tool } | null = null;
   private areaPrevia: Rect | null = null;
+  private previaPincel: {
+    pintor: ReturnType<typeof criarPintorPincel>;
+    margem: number;
+    area: Rect | null;
+  } | null = null;
   private selecao: Rect | null = null;
   private copiado: ImageData | null = null;
   private pronto = false;
@@ -78,6 +90,7 @@ export class EditorController implements EditorApi {
 
   encerrar() {
     this.ativo = false;
+    this.cancelarGesto();
   }
 
   ajustarAoRedimensionar() {
@@ -117,17 +130,31 @@ export class EditorController implements EditorApi {
     }
   }
 
-  terminarGesto(ponteiro: number, evento: EventoFerramenta, cancelar: boolean) {
+  terminarGesto(ponteiro: number, evento?: EventoFerramenta) {
     if (this.gesto?.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
     this.gesto = null;
-    this.limparOverlay();
-    if (cancelar) ferramenta.onCancel?.(this.contexto());
-    else ferramenta.onPointerUp(this.contexto(), evento);
-    this.limparPrevia();
+    try {
+      if (evento) ferramenta.onPointerUp(this.contexto(), evento);
+      else ferramenta.onCancel?.(this.contexto());
+    } finally {
+      if (ferramenta.overlay) this.limparOverlay();
+      this.limparPrevia();
+    }
+  }
+
+  cancelarGesto() {
+    if (!this.gesto) return;
+    const { ponteiro } = this.gesto;
+    this.terminarGesto(ponteiro);
+    if (this.tela.hasPointerCapture(ponteiro)) this.tela.releasePointerCapture(ponteiro);
   }
 
   tecla(evento: KeyboardEvent) {
+    if (evento.key === 'Escape' && this.gesto?.ferramenta.id === 'brush') {
+      this.cancelarGesto();
+      return true;
+    }
     const ferramenta = this.gesto?.ferramenta ?? this.ferramentas[useEditor.getState().tool];
     return ferramenta.onKeyDown?.(this.contexto(), evento) ?? false;
   }
@@ -276,17 +303,26 @@ export class EditorController implements EditorApi {
   }
 
   private contexto(): ToolCtx {
-    const { color1, color2, size, filled } = useEditor.getState();
+    const { color1, color2, size, filled, pincel, densidadeSpray } = useEditor.getState();
     return {
       largura: this.doc.width,
       altura: this.doc.height,
-      opcoes: { cor1: color1, cor2: color2, espessura: size, preenchida: filled },
+      opcoes: {
+        cor1: color1,
+        cor2: color2,
+        espessura: size,
+        preenchida: filled,
+        pincel,
+        densidadeSpray,
+      },
       selecao: this.selecao,
       executar: (comando) => this.executar(comando),
       selecionar: (area) => this.selecionar(area),
       capturarCor: (ponto) => this.capturarCor(ponto),
       lerPixels: (area) => this.doc.lerPixels(area),
       previsualizarTraco: (de, ate, estilo) => this.previsualizarTraco(de, ate, estilo),
+      iniciarPreviaPincel: (configuracao) => this.iniciarPreviaPincel(configuracao),
+      previsualizarMarcasPincel: (marcas) => this.previsualizarMarcasPincel(marcas),
       previsualizarSelecao: (origem, destino, imagem) =>
         this.previsualizarSelecao(origem, destino, imagem),
       limparPrevia: () => this.limparPrevia(),
@@ -319,6 +355,40 @@ export class EditorController implements EditorApi {
     this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, area) : area;
   }
 
+  private iniciarPreviaPincel(configuracao: ConfiguracaoPincel) {
+    this.previaPincel = {
+      pintor: criarPintorPincel(this.overlay, configuracao),
+      margem: margemDoPincel(configuracao),
+      area: null,
+    };
+    // O marcador mistura a tinta uma vez por gesto, mesmo onde os carimbos se cruzam.
+    const style = this.overlay.canvas.style;
+    style.opacity = String(opacidadeDoPincel(configuracao.tipo));
+    if (mesclagemDoPincel(configuracao.tipo) === 'multiply') style.mixBlendMode = 'multiply';
+  }
+
+  private previsualizarMarcasPincel(marcas: readonly MarcaPincel[]) {
+    const previa = this.previaPincel;
+    if (!previa || marcas.length === 0) return;
+    let esquerda = marcas[0].x;
+    let topo = marcas[0].y;
+    let direita = esquerda;
+    let base = topo;
+    for (const { x, y } of marcas) {
+      esquerda = Math.min(esquerda, x);
+      topo = Math.min(topo, y);
+      direita = Math.max(direita, x);
+      base = Math.max(base, y);
+    }
+    previa.area = unirAreas(previa.area, {
+      x: esquerda - previa.margem,
+      y: topo - previa.margem,
+      width: direita - esquerda + 2 * previa.margem,
+      height: base - topo + 2 * previa.margem,
+    });
+    previa.pintor.pintar(marcas);
+  }
+
   private previsualizarSelecao(origem: Rect, destino: Rect, imagem: ImageData) {
     this.limparPrevia();
     this.grafico.clearRect(origem.x, origem.y, origem.width, origem.height);
@@ -327,6 +397,13 @@ export class EditorController implements EditorApi {
   }
 
   private limparPrevia() {
+    if (this.previaPincel) {
+      const area = this.previaPincel.area && limitarArea(this.previaPincel.area, this.doc);
+      if (area) this.overlay.clearRect(area.x, area.y, area.width, area.height);
+      this.overlay.canvas.style.removeProperty('opacity');
+      this.overlay.canvas.style.removeProperty('mix-blend-mode');
+      this.previaPincel = null;
+    }
     if (!this.areaPrevia) return;
     this.compor(this.areaPrevia);
     this.areaPrevia = null;

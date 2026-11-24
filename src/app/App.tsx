@@ -99,6 +99,11 @@ export default function App() {
         event.preventDefault();
         editor.current?.deleteSelection();
       }
+      if (key === 'a' && !event.altKey) {
+        event.preventDefault();
+        state.setPincel('spray');
+        return;
+      }
       const ferramenta = Object.values(toolRegistry).find(
         ({ atalho }) => atalho?.toLowerCase() === key,
       );
@@ -107,8 +112,10 @@ export default function App() {
         state.setTool(ferramenta.id);
       }
       if (key === 'x') state.swapColors();
-      if (key === '[') state.set({ size: Math.max(1, state.size - 1) });
-      if (key === ']') state.set({ size: Math.min(48, state.size + 1) });
+      if (key === '[' || key === ']') {
+        event.preventDefault();
+        state.set({ size: state.size + (key === '[' ? -1 : 1) });
+      }
     }
     window.addEventListener('keydown', keys);
     return () => window.removeEventListener('keydown', keys);

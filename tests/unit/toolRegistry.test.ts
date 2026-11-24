@@ -7,19 +7,28 @@ function ponteiro(x: number, y: number, botao = 0, shift = false): EventoFerrame
   return { ponto: { x, y }, botao, shift };
 }
 
-function contexto(selecao: Rect | null = null) {
+function contexto(selecao: Rect | null = null, pincel: ToolCtx['opcoes']['pincel'] = 'redondo') {
   const executar = vi.fn<ToolCtx['executar']>(() => true);
   const imagem = { width: 5, height: 4, data: new Uint8ClampedArray(80) } as ImageData;
   const ctx = {
     largura: 30,
     altura: 30,
-    opcoes: { cor1: '#3083c5', cor2: '#ff0000', espessura: 6, preenchida: true },
+    opcoes: {
+      cor1: '#3083c5',
+      cor2: '#ff0000',
+      espessura: 6,
+      preenchida: true,
+      pincel,
+      densidadeSpray: 'media',
+    },
     selecao,
     executar,
     selecionar: vi.fn<ToolCtx['selecionar']>(),
     capturarCor: vi.fn<ToolCtx['capturarCor']>(),
     lerPixels: vi.fn<ToolCtx['lerPixels']>(() => imagem),
     previsualizarTraco: vi.fn<ToolCtx['previsualizarTraco']>(),
+    iniciarPreviaPincel: vi.fn<ToolCtx['iniciarPreviaPincel']>(),
+    previsualizarMarcasPincel: vi.fn<ToolCtx['previsualizarMarcasPincel']>(),
     previsualizarSelecao: vi.fn<ToolCtx['previsualizarSelecao']>(),
     limparPrevia: vi.fn<ToolCtx['limparPrevia']>(),
   } satisfies ToolCtx;
@@ -60,17 +69,50 @@ describe('registro de ferramentas', () => {
     primeiro.onPointerDown(ctx, inicio);
     segundo.onPointerMove(ctx, movimento);
     segundo.onPointerUp(ctx, movimento);
-    expect(ctx.previsualizarTraco).toHaveBeenCalledTimes(1);
+    expect(ctx.previsualizarMarcasPincel).toHaveBeenCalledTimes(1);
     expect(ctx.executar).not.toHaveBeenCalled();
     primeiro.onPointerMove(ctx, movimento);
     primeiro.onPointerUp(ctx, movimento);
-    expect(ctx.executar).toHaveBeenCalledExactlyOnceWith({
-      tipo: 'TracarPincel',
-      ferramenta: 'brush',
-      pontos: [inicio.ponto, movimento.ponto],
-      cor: '#ff0000',
-      espessura: 6,
+    expect(ctx.executar).toHaveBeenCalledOnce();
+    const [comando] = ctx.executar.mock.calls[0];
+    expect(comando).toMatchObject({
+      tipo: 'Pincelar',
+      configuracao: { tipo: 'redondo', cor: '#ff0000', espessura: 6, semente: expect.any(Number) },
     });
+    if (comando.tipo !== 'Pincelar') throw new Error('O gesto precisa gerar uma pincelada.');
+    expect(comando.marcas[0]).toMatchObject(inicio.ponto);
+    expect(comando.marcas.at(-1)).toMatchObject(movimento.ponto);
+    expect(comando.marcas).toEqual(
+      ctx.previsualizarMarcasPincel.mock.calls.flatMap(([marcas]) => marcas),
+    );
+  });
+
+  it('cancela o próximo quadro do spray sem confirmar o gesto', () => {
+    const { ctx } = contexto(null, 'spray');
+    const ferramenta = criarFerramentas().brush;
+    const quadros = new Map<number, FrameRequestCallback>();
+    let id = 0;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      quadros.set(++id, callback);
+      return id;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (quadro: number) => quadros.delete(quadro));
+    try {
+      const inicio = ponteiro(2, 3);
+      ferramenta.onPointerDown(ctx, inicio);
+      const callback = quadros.get(1)!;
+      quadros.delete(1);
+      callback(performance.now() + 50);
+      expect(ctx.previsualizarMarcasPincel).toHaveBeenCalledTimes(2);
+      expect(quadros.size).toBe(1);
+      ferramenta.onCancel?.(ctx);
+      expect(quadros.size).toBe(0);
+      ferramenta.onPointerUp(ctx, inicio);
+      expect(ctx.limparPrevia).toHaveBeenCalledOnce();
+      expect(ctx.executar).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('cancela a prévia de um traço sem criar comando', () => {

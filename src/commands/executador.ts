@@ -19,6 +19,7 @@ import {
   unirAreas,
 } from './desenho';
 import { type EntradaComando, HistoricoComandos, recortarPixels } from './history';
+import { areaDaPincelada, desenharPincelada, nomeDaPincelada } from './pincelada';
 
 const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
 const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
@@ -74,6 +75,14 @@ export class Executador {
     switch (comando.tipo) {
       case 'TracarPincel':
         return this.tracar(comando);
+      case 'Pincelar': {
+        const limites = areaDaPincelada(comando);
+        const area = limites && limitarArea(limites, this.doc);
+        if (!area) return false;
+        return this.pintar(comando, nomeDaPincelada(comando), area, (ctx) =>
+          desenharPincelada(ctx, comando, area),
+        );
+      }
       case 'DesenharForma':
         return this.pintar(comando, NOMES_FORMA[comando.forma], areaDaForma(comando), (ctx) =>
           desenharForma(ctx, comando),
