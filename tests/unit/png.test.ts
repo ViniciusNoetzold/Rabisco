@@ -52,12 +52,23 @@ describe('validação de PNG antes da decodificação', () => {
   it.each([
     [0, 10],
     [10, 0],
-    [4097, 2],
-    [2, 4097],
-    [4001, 4000],
+    [8193, 2],
+    [2, 8193],
+    [8001, 5000],
   ])('recusa dimensões %i × %i antes de alocar um bitmap', async (width, height) => {
-    await expect(openPng(imageFile(pngHeader(width, height)))).rejects.toThrow('4096 px');
+    await expect(openPng(imageFile(pngHeader(width, height)))).rejects.toThrow('8192 px');
     expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('aceita o novo limite de lado e o limite de área antes de decodificar', async () => {
+    decode.mockRejectedValue(new Error('Fixture sem pixels'));
+    await expect(openPng(imageFile(pngHeader(8192, 1)))).rejects.toThrow(
+      'arquivo pode estar danificado',
+    );
+    await expect(openPng(imageFile(pngHeader(8000, 5000)))).rejects.toThrow(
+      'arquivo pode estar danificado',
+    );
+    expect(decode).toHaveBeenCalledTimes(2);
   });
 
   it('explica o erro quando o decodificador encontra um PNG corrompido', async () => {

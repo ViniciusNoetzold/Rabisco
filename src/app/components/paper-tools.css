@@ -1,0 +1,123 @@
+.ribbon-stack.image-actions {
+  height: 74px;
+  gap: 2px;
+}
+
+.ribbon .image-actions button {
+  min-height: 22px;
+  height: 22px;
+  padding-block: 1px;
+}
+
+.orientation-menu {
+  position: fixed;
+  z-index: 24;
+  width: 224px;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  border: 1px solid #7aabce;
+  border-radius: 4px;
+  background: #f7fbfe;
+  box-shadow: 2px 5px 14px #304d7040;
+}
+
+.orientation-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 4px 8px;
+  text-align: left;
+  color: #294d69;
+  background: transparent;
+  box-shadow: none;
+}
+
+.orientation-menu button:is(:hover, :focus-visible) {
+  border-color: #a5c8e3;
+  background: #e0effb;
+  outline-offset: -2px;
+}
+
+.orientation-menu .orientation-icon-vertical {
+  transform: rotate(90deg);
+}
+
+.paper-dialog .field {
+  margin-top: 12px;
+}
+
+.paper-dialog select {
+  width: 100%;
+  min-width: 0;
+  height: 33px;
+}
+
+.paper-form-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 13px;
+}
+
+.paper-dialog .paper-memory {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px 8px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid #c8dbe8;
+  border-radius: 3px;
+  color: #405c71;
+  background: #eaf3f9;
+}
+
+.paper-memory strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-color-row,
+.paper-color-row label,
+.paper-keep-ratio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paper-color-row {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.paper-color-row input[type='color'] {
+  width: 35px;
+  height: 25px;
+  padding: 1px 3px;
+}
+
+.paper-dialog .paper-help {
+  margin: 13px 0 8px;
+  color: #536e84;
+}
+
+.paper-section {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 0 10px 9px;
+  border: 1px solid #c8d9e6;
+  border-radius: 4px;
+}
+
+.paper-section legend {
+  padding: 0 4px;
+  font-weight: 600;
+  color: #315978;
+}
+
+.paper-keep-ratio {
+  margin-top: 9px;
+}

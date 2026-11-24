@@ -4,6 +4,7 @@ import { useEditor } from '../app/store';
 import type { Rect } from '../layers/types';
 import { EditorController } from './editorController';
 import type { CanvasCallbacks, EditorApi } from './editorTypes';
+import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
 
 export type { DocumentInfo, EditorApi } from './editorTypes';
 
@@ -30,6 +31,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const previa = useRef<HTMLCanvasElement>(null);
     const workspace = useRef<HTMLDivElement>(null);
     const editor = useRef<EditorController>(null);
+    const redimensionando = useRef(false);
     const eventos = useRef(callbacks);
     eventos.current = callbacks;
     const [dimensoes, definirDimensoes] = useState(dimensoesIniciais);
@@ -54,7 +56,9 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
       });
       editor.current = instancia;
       void instancia.iniciar();
-      const observador = new ResizeObserver(() => instancia.ajustarAoRedimensionar());
+      const observador = new ResizeObserver(() => {
+        if (!redimensionando.current) instancia.ajustarAoRedimensionar();
+      });
       observador.observe(workspace.current!);
       return () => {
         instancia.encerrar();
@@ -69,11 +73,29 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     }, [tool]);
 
     function pressionar(evento: EventoPonteiro<HTMLCanvasElement>) {
-      if (!editor.current?.iniciarGesto(evento.pointerId, traduzirEvento(evento), evento.altKey))
+      if (
+        redimensionando.current ||
+        !editor.current?.iniciarGesto(evento.pointerId, traduzirEvento(evento), evento.altKey)
+      )
         return;
       evento.preventDefault();
       evento.currentTarget.focus();
       evento.currentTarget.setPointerCapture(evento.pointerId);
+    }
+
+    function previsualizarPapel(proposta: TamanhoPapel | null) {
+      redimensionando.current = proposta !== null;
+      eventos.current.onPreviewSize?.(proposta);
+    }
+
+    function aplicarPapel(proposta: TamanhoPapel) {
+      try {
+        editor.current?.redimensionarPapel(proposta.width, proposta.height);
+      } catch (erro) {
+        eventos.current.onMessage(
+          erro instanceof Error ? erro.message : 'Não foi possível redimensionar o papel.',
+        );
+      }
     }
 
     function mover(evento: EventoPonteiro<HTMLCanvasElement>) {
@@ -148,7 +170,13 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
               }}
             />
           )}
-          <i className="canvas-grip" aria-hidden="true" />
+          <PaperResizeHandles
+            tamanho={dimensoes}
+            zoom={zoom}
+            aoPrevisualizar={previsualizarPapel}
+            aoAplicar={aplicarPapel}
+            aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
+          />
         </div>
         <div className="workspace-hint">
           <span>Um pequeno espaço para grandes ideias.</span>

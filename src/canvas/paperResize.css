@@ -1,0 +1,92 @@
+.canvas-stage button.paper-resize-handle {
+  --alvo-de-alca: 24px;
+  --folga-de-alca: 1px;
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--alvo-de-alca);
+  height: var(--alvo-de-alca);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  box-shadow: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.paper-resize-handle::before {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #60809a;
+  border-radius: 1px;
+  background: linear-gradient(#fff, #c7dfef);
+  box-shadow: 0 1px 2px #28425935;
+  content: '';
+}
+
+.paper-resize-handle:hover::before,
+.paper-resize-handle:active::before {
+  border-color: #20649b;
+  background: #bce4ff;
+}
+
+.paper-resize-handle--direita {
+  left: calc(100% + var(--folga-de-alca));
+  top: 50%;
+  cursor: ew-resize;
+  margin-top: calc(var(--alvo-de-alca) / -2);
+}
+.paper-resize-handle--base {
+  left: 50%;
+  top: calc(100% + var(--folga-de-alca));
+  cursor: ns-resize;
+  margin-left: calc(var(--alvo-de-alca) / -2);
+}
+.paper-resize-handle--canto {
+  left: calc(100% + var(--folga-de-alca));
+  top: calc(100% + var(--folga-de-alca));
+  cursor: nwse-resize;
+}
+
+/* A folga impede que o arredondamento de pixels da alça cubra a borda do papel. */
+.paper-resize-handle--direita::before,
+.paper-resize-handle--canto::before {
+  justify-self: start;
+}
+.paper-resize-handle--base::before,
+.paper-resize-handle--canto::before {
+  align-self: start;
+}
+
+.paper-resize-preview {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  outline: 1px dashed #195f98;
+  outline-offset: -1px;
+  background-color: #68b6ea14;
+  pointer-events: none;
+}
+
+.paper-resize-preview[data-limited] {
+  outline-color: #9c5718;
+}
+.image-dimensions[data-preview] {
+  color: #185e96;
+  font-weight: 600;
+}
+
+@media (forced-colors: active) {
+  .paper-resize-handle::before {
+    border-color: ButtonText;
+    background: ButtonFace;
+  }
+  .paper-resize-preview {
+    outline-color: Highlight;
+  }
+}

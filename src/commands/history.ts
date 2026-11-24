@@ -11,6 +11,8 @@ interface DadosHistorico {
 export interface EntradaComando extends DadosHistorico {
   comando: Comando;
   camada: string;
+  dpi?: { antes: number; depois: number };
+  apenasDpi?: boolean;
 }
 
 function clone(image: PixelBuffer): PixelBuffer {
@@ -33,7 +35,10 @@ class PilhaHistorico<Entrada extends DadosHistorico> {
   private bytes = 0;
   private readonly maxBytes: number;
 
-  constructor(maxBytes = 128 * 1024 * 1024) {
+  constructor(
+    maxBytes = 128 * 1024 * 1024,
+    private readonly manterUltima = false,
+  ) {
     this.maxBytes = Math.max(0, maxBytes);
   }
 
@@ -55,7 +60,8 @@ class PilhaHistorico<Entrada extends DadosHistorico> {
     this.redoStack = [];
     this.undoStack.push(entrada);
     this.bytes += this.custo(entrada);
-    while (this.bytes > this.maxBytes && this.undoStack.length) {
+    const minimo = this.manterUltima ? 1 : 0;
+    while (this.bytes > this.maxBytes && this.undoStack.length > minimo) {
       this.bytes -= this.custo(this.undoStack.shift()!);
     }
   }
@@ -87,6 +93,11 @@ class PilhaHistorico<Entrada extends DadosHistorico> {
 
 /** O executor entrega a área e os pixels próprios do comando, sem varrer o papel. */
 export class HistoricoComandos extends PilhaHistorico<EntradaComando> {
+  constructor(maxBytes?: number) {
+    // Uma transformação de papel grande precisa continuar reversível.
+    super(maxBytes, true);
+  }
+
   registrarComando(entrada: EntradaComando): void {
     this.registrar(entrada);
   }

@@ -1,4 +1,5 @@
 import type { PixelBuffer, Rect } from '../layers/types';
+import { DPI_PADRAO, validarDimensoes } from './dimensoes';
 
 type CanvasDaCamada = OffscreenCanvas | HTMLCanvasElement;
 
@@ -11,17 +12,6 @@ export interface Layer<Superficie extends CanvasDaCamada = CanvasDaCamada> {
   locked: boolean;
 }
 
-function validarDimensoes(largura: number, altura: number): void {
-  if (
-    !Number.isSafeInteger(largura) ||
-    !Number.isSafeInteger(altura) ||
-    largura < 1 ||
-    altura < 1
-  ) {
-    throw new Error('As dimensões da imagem precisam ser inteiras e positivas.');
-  }
-}
-
 function validarPixels(imagem: PixelBuffer): void {
   validarDimensoes(imagem.width, imagem.height);
   if (imagem.data.length !== imagem.width * imagem.height * 4) {
@@ -29,7 +19,7 @@ function validarPixels(imagem: PixelBuffer): void {
   }
 }
 
-function comoImageData(imagem: PixelBuffer): ImageData {
+export function comoImageData(imagem: PixelBuffer): ImageData {
   const { data, width, height } = imagem;
   const dados =
     data.buffer instanceof ArrayBuffer
@@ -44,6 +34,7 @@ export class RabiscoDocument {
     parte.toString(16).padStart(8, '0'),
   ).join('');
   name: string;
+  dpi = DPI_PADRAO;
   readonly layers: Layer<HTMLCanvasElement>[];
   activeLayerId: string;
   private pixels: PixelBuffer;

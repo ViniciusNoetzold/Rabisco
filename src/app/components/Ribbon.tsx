@@ -3,6 +3,7 @@ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
 import { toolRegistry } from '../../tools/toolRegistry';
 import { PALETTE, useEditor } from '../store';
+import { OrientationMenu } from './OrientationMenu';
 import { Icon, ShapeIcon, RibbonGroup, type RunAction } from './Primitives';
 
 interface RibbonProps {
@@ -10,11 +11,22 @@ interface RibbonProps {
   editor: RefObject<EditorApi | null>;
   info: DocumentInfo;
   onOpen(): void;
+  onPropriedades(): void;
+  onTransformar(): void;
   run: RunAction;
 }
 
-export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
+export function Ribbon({
+  tab,
+  editor,
+  info,
+  onOpen,
+  onPropriedades,
+  onTransformar,
+  run,
+}: RibbonProps) {
   const state = useEditor();
+  const carregando = info.saving === 'loading';
   // O slider aceita valores intermediários; mantenha o select coerente com eles.
   const sizeOptions = Array.from(new Set([1, 2, 3, 6, 10, 16, 24, 48, state.size])).sort(
     (a, b) => a - b,
@@ -84,6 +96,30 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
                 <Icon name="folder-open" />
                 Abrir
               </button>
+            </div>
+            <div className="ribbon-stack image-actions">
+              <button
+                type="button"
+                disabled={carregando}
+                title="Propriedades da imagem (Ctrl+E)"
+                onClick={onPropriedades}
+              >
+                <Icon name="information" />
+                Propriedades da imagem
+              </button>
+              <button
+                type="button"
+                disabled={carregando}
+                title="Redimensionar e inclinar (Ctrl+W)"
+                onClick={onTransformar}
+              >
+                <Icon name="application-resize-full" />
+                Redimensionar e inclinar
+              </button>
+              <OrientationMenu
+                desabilitado={carregando}
+                aplicar={(orientacao) => run(() => editor.current?.girarImagem(orientacao))}
+              />
             </div>
           </RibbonGroup>
           <RibbonGroup title="Ferramentas" className="tools-group">

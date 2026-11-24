@@ -23,8 +23,11 @@ npm run preview
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.
 - Clique na paleta para escolher a cor ativa. Cor 1 usa o botão esquerdo; Cor 2 usa o direito. A tecla `X` troca as duas cores.
 - Arraste no papel para desenhar ou selecionar. Use `Shift` para restringir formas.
+- Arraste a alça da direita, da base ou do canto para aumentar ou cortar o papel. A área nova recebe a Cor 2. Use `Shift` para manter a proporção e `Esc` para cancelar.
+- Abra **Propriedades da imagem** (`Ctrl+E`) para definir o tamanho em pixels, centímetros ou polegadas e ajustar a resolução (96 DPI por padrão). O diálogo mostra a memória ocupada pelos pixels e permite escolher a cor da área nova.
+- Abra **Redimensionar e inclinar** (`Ctrl+W`) para reamostrar em pixels ou porcentagem e inclinar até 89° em cada eixo. Use **Girar** para girar 90° ou 180° ou inverter em um dos eixos. Essas operações se aplicam à seleção quando ela está ativa, ou à imagem inteira.
 - Use **Arquivo** para criar um desenho, abrir um PNG e salvar uma cópia em PNG.
-- O trabalho é salvo automaticamente neste navegador, em IndexedDB. Aguarde a indicação de salvamento antes de fechar a aba.
+- O trabalho é salvo automaticamente neste navegador, em IndexedDB. Aguarde a indicação de salvamento antes de fechar a aba. O tamanho e a resolução também são guardados no autosave e no PNG.
 
 Os arquivos e desenhos permanecem no dispositivo. Nesta versão não há chamadas de IA, serviços de nuvem ou telemetria.
 
@@ -53,6 +56,8 @@ Verificação manual recomendada:
 4. Salve PNG, abra esse arquivo e confira o resultado.
 5. Desenhe novamente, aguarde o salvamento automático e recarregue a página.
 6. Navegue pelas ferramentas usando o teclado e confira o foco visível.
+7. Aumente o papel pela alça do canto, confira a Cor 2 na área nova e desfaça a edição.
+8. Em **Propriedades da imagem**, altere o tamanho e a resolução. Faça uma seleção e experimente **Redimensionar e inclinar** e **Girar**. Recarregue após o autosave e confira as dimensões e o DPI.
 
 ## Organização
 
@@ -78,8 +83,8 @@ O documento tem uma camada raster editável, composta em uma tela separada. O re
 
 ## Limites desta entrega
 
-- Importação PNG com até 20 MiB, dimensões de até 4096 × 4096 e limite de aproximadamente 16 milhões de pixels.
-- Histórico com orçamento de 128 MiB, guardando retângulos alterados; comandos antigos são descartados quando esse orçamento é atingido.
+- Imagens de 1 a 8192 px por lado, com até 40 milhões de pixels. A importação PNG aceita arquivos de até 20 MiB.
+- O histórico guarda os pixels da área afetada e descarta comandos antigos ao atingir 128 MiB. Quando uma única edição ultrapassa esse orçamento, ela permanece disponível para desfazer.
 - O autosave é uma recuperação local do último documento, não um backup. Limpar dados do navegador também remove o trabalho salvo.
 - Depois de carregado, desenhar, salvar PNG e recuperar dados locais dispensam conexão. Instalação PWA e abertura offline garantida após fechar o navegador ficam para a versão 1.0.
 - Camadas múltiplas, texto, IA, efeitos e Tauri ainda não fazem parte do MVP. O alvo de desempenho de 4000 × 4000 com 20 camadas será medido nas etapas do motor e de performance; não é uma garantia desta versão.

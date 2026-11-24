@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 
 export interface DocumentSnapshot {
   id: 'current';
@@ -7,10 +8,9 @@ export interface DocumentSnapshot {
   height: number;
   pixels: Uint8ClampedArray;
   updatedAt: number;
+  /** Registros da versão 0.1 podem omitir a resolução. */
+  dpi?: number;
 }
-
-const MAX_SIDE = 4096;
-const MAX_PIXELS = 16_000_000;
 
 class DocumentDatabase extends Dexie {
   documents!: Table<DocumentSnapshot, 'current'>;
@@ -28,13 +28,8 @@ function validateSnapshot(snapshot: DocumentSnapshot): void {
   const { width, height, pixels } = snapshot;
   if (
     snapshot.id !== 'current' ||
-    !Number.isInteger(width) ||
-    !Number.isInteger(height) ||
-    width < 1 ||
-    height < 1 ||
-    width > MAX_SIDE ||
-    height > MAX_SIDE ||
-    width * height > MAX_PIXELS ||
+    !dimensoesValidas(width, height) ||
+    (snapshot.dpi !== undefined && !dpiValido(snapshot.dpi)) ||
     !(pixels instanceof Uint8ClampedArray) ||
     pixels.length !== width * height * 4 ||
     typeof snapshot.name !== 'string' ||

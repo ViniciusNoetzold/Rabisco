@@ -105,7 +105,7 @@ describe('comandos serializáveis', () => {
     const restaurado = JSON.parse(JSON.stringify(comando)) as typeof comando;
     expect(restaurado).toEqual(comando);
     expect(desserializarImagem(restaurado.imagem)).toEqual(imagem);
-    expect(() => desserializarImagem({ ...restaurado.imagem, largura: 4097 })).toThrow('dimensões');
+    expect(() => desserializarImagem({ ...restaurado.imagem, largura: 8193 })).toThrow('dimensões');
     expect(() => desserializarImagem({ ...restaurado.imagem, rgba: 'cAAA' })).toThrow(
       'pixels inválidos',
     );

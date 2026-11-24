@@ -18,11 +18,17 @@ export default function App() {
   const cursorStatus = useRef<CursorStatusApi>(null);
   const [tab, setTab] = useState('Início');
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+  const corDeFundo = useEditor((estado) => estado.color2);
   const [message, setMessage] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // O movimento do cursor atualiza apenas a barra de status, sem renderizar o ribbon.
   const updateCursor = useCallback(
     (point: Point | null) => cursorStatus.current?.setCursor(point),
+    [],
+  );
+  const mostrarPreviaDoPapel = useCallback(
+    (tamanho: { width: number; height: number } | null) =>
+      cursorStatus.current?.setPaperPreview(tamanho),
     [],
   );
   const notify = useCallback((text: string) => {
@@ -72,6 +78,8 @@ export default function App() {
           s: () => run(() => editor.current?.save()),
           o: () => fileInput.current?.click(),
           n: () => setDialog('new'),
+          e: () => setDialog('properties'),
+          w: () => setDialog('transform'),
           a: () => editor.current?.selectAll(),
           c: () => run(() => editor.current?.copy()),
           x: () => run(() => editor.current?.copy(true)),
@@ -125,7 +133,15 @@ export default function App() {
         onOpen={openFile}
         run={run}
       />
-      <Ribbon tab={tab} editor={editor} info={info} onOpen={openFile} run={run} />
+      <Ribbon
+        tab={tab}
+        editor={editor}
+        info={info}
+        onOpen={openFile}
+        onPropriedades={() => setDialog('properties')}
+        onTransformar={() => setDialog('transform')}
+        run={run}
+      />
 
       <div className="workbench">
         <div className="document-area">
@@ -154,6 +170,7 @@ export default function App() {
             onChange={setInfo}
             onMessage={notify}
             onCursor={updateCursor}
+            onPreviewSize={mostrarPreviaDoPapel}
           />
           <ToolHint />
         </div>
@@ -183,8 +200,14 @@ export default function App() {
       )}
       <EditorDialogs
         dialog={dialog}
+        info={info}
+        corDeFundo={corDeFundo}
         onClose={() => setDialog(null)}
         onNew={(name, width, height) => editor.current?.newDocument(name, width, height)}
+        onPropriedades={(largura, altura, fundo, dpi) =>
+          editor.current?.redimensionarPapel(largura, altura, fundo, dpi)
+        }
+        onTransformar={(opcoes) => editor.current?.transformarImagem(opcoes)}
       />
     </main>
   );

@@ -1,13 +1,14 @@
-export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+import { DPI_PADRAO, MENSAGEM_DIMENSOES, dimensoesValidas } from '../document/dimensoes';
+import { gravarDpiPng, lerDpiPng } from './pngResolution';
 
-const MAX_SIDE = 4096;
-const MAX_PIXELS = 16_000_000;
+export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 export interface OpenedPng {
   name: string;
   width: number;
   height: number;
+  dpi: number;
   pixels: Uint8ClampedArray;
 }
 
@@ -29,9 +30,7 @@ async function readPngDimensions(file: File): Promise<{ width: number; height: n
   }
   const width = view.getUint32(16);
   const height = view.getUint32(20);
-  if (!width || !height || width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_PIXELS) {
-    throw new Error('Use uma imagem de até 4096 px por lado e 16 milhões de pixels.');
-  }
+  if (!dimensoesValidas(width, height)) throw new Error(MENSAGEM_DIMENSOES);
   return { width, height };
 }
 
@@ -47,6 +46,7 @@ export async function openPng(file: File): Promise<OpenedPng> {
     if (bitmap.width !== width || bitmap.height !== height) {
       throw new Error('As dimensões deste PNG são inconsistentes.');
     }
+    const dpi = await lerDpiPng(file);
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -57,7 +57,8 @@ export async function openPng(file: File): Promise<OpenedPng> {
       name: file.name.replace(/\.png$/i, '') || 'Sem título',
       width,
       height,
-      pixels: new Uint8ClampedArray(context.getImageData(0, 0, width, height).data),
+      dpi,
+      pixels: context.getImageData(0, 0, width, height).data,
     };
   } finally {
     bitmap.close();
@@ -65,14 +66,18 @@ export async function openPng(file: File): Promise<OpenedPng> {
 }
 
 /** A exportação usa Blob, evitando o custo de uma segunda cópia em base64. */
-export async function exportPng(canvas: HTMLCanvasElement, name: string): Promise<void> {
+export async function exportPng(
+  canvas: HTMLCanvasElement,
+  name: string,
+  dpi = DPI_PADRAO,
+): Promise<void> {
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => {
       if (result) resolve(result);
       else reject(new Error('Não foi possível gerar o PNG. Tente salvar novamente.'));
     }, 'image/png');
   });
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(await gravarDpiPng(blob, dpi));
   const link = document.createElement('a');
   link.href = url;
   const safeName = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim() || 'Meu rabisco';

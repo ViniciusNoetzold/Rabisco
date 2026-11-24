@@ -1,8 +1,14 @@
 import { useEditor } from '../app/store';
-import { serializarImagem, type Comando } from '../commands/comandos';
-import { areaDoSegmento, desenharSegmento, unirAreas } from '../commands/desenho';
+import {
+  serializarImagem,
+  type Comando,
+  type OpcoesTransformacao,
+  type OrientacaoImagem,
+} from '../commands/comandos';
+import { areaDoSegmento, desenharSegmento, limitarArea, unirAreas } from '../commands/desenho';
 import { Executador } from '../commands/executador';
 import { comporDocumento } from '../document/compositor';
+import { DPI_PADRAO } from '../document/dimensoes';
 import { RabiscoDocument } from '../document/model';
 import { exportPng, openPng } from '../io/png';
 import type { Point, Rect, ToolId } from '../layers/types';
@@ -55,6 +61,7 @@ export class EditorController implements EditorApi {
           height: salvo.height,
           data: salvo.pixels,
         });
+        this.doc.dpi = salvo.dpi ?? DPI_PADRAO;
         this.compor();
         this.fit();
         this.eventos.avisar('Seu último rabisco foi recuperado. Continue de onde parou.');
@@ -138,18 +145,19 @@ export class EditorController implements EditorApi {
     // Uma prévia de gesto pertence à tela, não ao documento salvo.
     const tela = this.areaPrevia ? document.createElement('canvas') : this.tela;
     if (tela !== this.tela) comporDocumento(this.doc, tela);
-    await exportPng(tela, this.doc.name);
+    await exportPng(tela, this.doc.name, this.doc.dpi);
     this.eventos.avisar('PNG exportado. Seu rabisco está pronto para levar.');
   }
 
   async open(arquivo: File) {
     const imagem = await openPng(arquivo);
     if (!this.disponivel()) return;
-    const { name, width, height, pixels } = imagem;
+    const { name, width, height, pixels, dpi } = imagem;
     this.selecao = null;
     this.executar({
       tipo: 'AbrirImagem',
       nome: name,
+      dpi,
       imagem: serializarImagem({ width, height, data: pixels }),
     });
     this.fit();
@@ -161,6 +169,49 @@ export class EditorController implements EditorApi {
     this.selecao = null;
     this.executar({ tipo: 'NovoDocumento', nome: nome.trim() || 'Sem título', largura, altura });
     this.fit();
+  }
+
+  redimensionarPapel(
+    largura: number,
+    altura: number,
+    fundo = useEditor.getState().color2,
+    dpi?: number,
+  ) {
+    if (!this.disponivel()) return;
+    this.executar({ tipo: 'RedimensionarPapel', largura, altura, fundo, dpi }, () => {
+      if (this.selecao) this.selecao = limitarArea(this.selecao, this.doc);
+    });
+  }
+
+  transformarImagem(opcoes: OpcoesTransformacao) {
+    if (!this.disponivel()) return;
+    this.executarTransformacao({
+      tipo: 'RedimensionarInclinar',
+      ...opcoes,
+      area: this.selecao ?? undefined,
+    });
+  }
+
+  girarImagem(orientacao: OrientacaoImagem) {
+    if (!this.disponivel()) return;
+    const area = this.selecao ?? undefined;
+    if (orientacao === 'horizontal' || orientacao === 'vertical') {
+      this.executarTransformacao({ tipo: 'Inverter', eixo: orientacao, area });
+    } else {
+      const graus = { direita: 90, esquerda: -90, '180': 180 } as const;
+      this.executarTransformacao({ tipo: 'Girar', graus: graus[orientacao], area });
+    }
+  }
+
+  private executarTransformacao(
+    comando: Extract<Comando, { tipo: 'RedimensionarInclinar' | 'Girar' | 'Inverter' }>,
+  ) {
+    const mudou = this.executar(comando, () => {
+      this.selecao = this.comandos.ultimaSelecaoTransformada;
+    });
+    if (!mudou && this.comandos.ultimaSelecaoTransformada) {
+      this.selecionar(this.comandos.ultimaSelecaoTransformada);
+    }
   }
 
   selectAll() {
@@ -297,10 +348,11 @@ export class EditorController implements EditorApi {
     }
   }
 
-  private executar(comando: Comando) {
+  private executar(comando: Comando, aposExecutar?: () => void) {
     // As prévias não entram no histórico. O comando rasteriza uma única vez na camada.
     this.limparPrevia();
     if (!this.comandos.executar(comando)) return false;
+    aposExecutar?.();
     this.edicaoAplicada();
     return true;
   }
@@ -331,6 +383,7 @@ export class EditorController implements EditorApi {
           name: this.doc.name,
           width,
           height,
+          dpi: this.doc.dpi,
           pixels: data,
           updatedAt: Date.now(),
         });
@@ -349,12 +402,13 @@ export class EditorController implements EditorApi {
 
   private notificar() {
     if (!this.ativo) return;
-    const { name, width, height } = this.doc;
+    const { name, width, height, dpi } = this.doc;
     const { canUndo, canRedo, entries } = this.comandos.historico;
     this.eventos.mudar({
       name,
       width,
       height,
+      dpi,
       canUndo,
       canRedo,
       history: entries,

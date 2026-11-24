@@ -1,6 +1,14 @@
+import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
 import type { RabiscoDocument } from '../document/model';
+import {
+  girarPixels,
+  inverterPixels,
+  redimensionarEInclinar,
+  redimensionarPapel,
+  sobreporPixels,
+} from '../document/transformacoes';
 import type { PixelBuffer, Rect } from '../layers/types';
-import { aplicarPreenchimento, planejarPreenchimento } from '../tools/pixels';
+import { aplicarPreenchimento, clearRectPixels, planejarPreenchimento } from '../tools/pixels';
 import { type Comando, type ComandoTraco, desserializarImagem, validarDimensoes } from './comandos';
 import {
   areaDaForma,
@@ -14,6 +22,12 @@ import { type EntradaComando, HistoricoComandos, recortarPixels } from './histor
 
 const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
 const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
+const NOMES_ROTACAO = {
+  90: 'Girar 90° à direita',
+  [-90]: 'Girar 90° à esquerda',
+  180: 'Girar 180°',
+};
+const SEM_PIXELS = { width: 0, height: 0, data: new Uint8ClampedArray(0) };
 
 type DocumentoEditavel = Pick<
   RabiscoDocument,
@@ -28,11 +42,19 @@ type DocumentoEditavel = Pick<
   | 'registrarPixels'
   | 'aplicarPixels'
   | 'substituir'
+> &
+  Partial<Pick<RabiscoDocument, 'dpi'>>;
+
+type ComandoTransformacao = Extract<
+  Comando,
+  { tipo: 'RedimensionarInclinar' | 'Girar' | 'Inverter' }
 >;
 
 function pixelsIguais(a: PixelBuffer, b: PixelBuffer): boolean {
   return (
-    a.width === b.width && a.height === b.height && a.data.every((byte, i) => byte === b.data[i])
+    a.width === b.width &&
+    a.height === b.height &&
+    (a.data === b.data || a.data.every((byte, i) => byte === b.data[i]))
   );
 }
 
@@ -40,11 +62,13 @@ function pixelsIguais(a: PixelBuffer, b: PixelBuffer): boolean {
 export class Executador {
   readonly historico = new HistoricoComandos();
   ultimaAlteracao: Rect | null = null;
+  ultimaSelecaoTransformada: Rect | null = null;
 
   constructor(private readonly doc: DocumentoEditavel) {}
 
   executar(comando: Comando): boolean {
     this.ultimaAlteracao = null;
+    this.ultimaSelecaoTransformada = null;
     if (this.doc.activeLayer.locked) return false;
 
     switch (comando.tipo) {
@@ -115,6 +139,7 @@ export class Executador {
           'Abrir PNG',
           comando.nome,
           desserializarImagem(comando.imagem),
+          comando.dpi ?? DPI_PADRAO,
         );
       case 'NovoDocumento': {
         // Novo desenho inicia uma sessão de edição independente, como na versão 0.1.
@@ -123,9 +148,39 @@ export class Executador {
         const data = new Uint8ClampedArray(largura * altura * 4);
         data.fill(255);
         this.doc.substituir(nome.trim() || 'Sem título', { width: largura, height: altura, data });
+        this.doc.dpi = DPI_PADRAO;
         this.historico.clear();
         return true;
       }
+      case 'RedimensionarPapel': {
+        const { largura, altura, fundo, dpi } = comando;
+        const antes = this.doc.obterDados();
+        const depois =
+          largura === antes.width && altura === antes.height
+            ? antes
+            : redimensionarPapel(antes, largura, altura, fundo);
+        return this.substituir(comando, 'Redimensionar papel', this.doc.name, depois, dpi);
+      }
+      case 'RedimensionarInclinar':
+        return this.transformar(comando, 'Redimensionar e inclinar', (imagem) =>
+          redimensionarEInclinar(
+            imagem,
+            comando.largura,
+            comando.altura,
+            comando.inclinacaoHorizontal,
+            comando.inclinacaoVertical,
+          ),
+        );
+      case 'Girar':
+        return this.transformar(comando, NOMES_ROTACAO[comando.graus], (imagem) =>
+          girarPixels(imagem, comando.graus),
+        );
+      case 'Inverter':
+        return this.transformar(
+          comando,
+          comando.eixo === 'horizontal' ? 'Inverter horizontalmente' : 'Inverter verticalmente',
+          (imagem) => inverterPixels(imagem, comando.eixo),
+        );
     }
   }
 
@@ -185,15 +240,54 @@ export class Executador {
     return this.registrar(comando, label, area, before, after);
   }
 
-  private substituir(comando: Comando, label: string, nome: string, after: PixelBuffer): boolean {
+  private transformar(
+    comando: ComandoTransformacao,
+    label: string,
+    operacao: (imagem: PixelBuffer) => PixelBuffer,
+  ): boolean {
+    const papel = this.doc.obterDados();
+    if (!comando.area) return this.substituir(comando, label, this.doc.name, operacao(papel));
+
+    const origem = limitarArea(comando.area, papel);
+    if (!origem) return false;
+    const recorte = recortarPixels(papel, origem);
+    const imagem = operacao(recorte);
+    if (imagem === recorte) return false;
+    const destino = {
+      x: origem.x,
+      y: origem.y,
+      width: Math.min(imagem.width, papel.width - origem.x),
+      height: Math.min(imagem.height, papel.height - origem.y),
+    };
+    const afetada = unirAreas(origem, destino);
+    const depois = recortarPixels(papel, afetada);
+    clearRectPixels(depois, { ...origem, x: 0, y: 0 });
+    sobreporPixels(imagem, depois, 0, 0);
+    this.ultimaSelecaoTransformada = destino;
+    return this.escrever(comando, label, afetada, depois);
+  }
+
+  private substituir(
+    comando: Comando,
+    label: string,
+    nome: string,
+    after: PixelBuffer,
+    dpi = this.doc.dpi ?? DPI_PADRAO,
+  ): boolean {
+    if (!dpiValido(dpi)) throw new Error(`Use uma resolução de 1 a ${DPI_MAXIMO} DPI.`);
     const before = this.doc.obterDados();
+    const dpiAnterior = this.doc.dpi ?? DPI_PADRAO;
+    const alteracaoDpi = dpiAnterior === dpi ? undefined : { antes: dpiAnterior, depois: dpi };
     if (pixelsIguais(before, after)) {
-      if (nome === this.doc.name) return false;
+      const nomeMudou = nome !== this.doc.name;
       this.doc.name = nome;
-      return true;
+      if (!alteracaoDpi) return nomeMudou;
+      this.doc.dpi = dpi;
+      return this.registrar(comando, label, null, SEM_PIXELS, SEM_PIXELS, alteracaoDpi, true);
     }
     this.doc.substituir(nome, after);
-    return this.registrar(comando, label, null, before, after);
+    this.doc.dpi = dpi;
+    return this.registrar(comando, label, null, before, after, alteracaoDpi);
   }
 
   private registrar(
@@ -202,6 +296,8 @@ export class Executador {
     rect: Rect | null,
     before: PixelBuffer,
     after: PixelBuffer,
+    dpi?: EntradaComando['dpi'],
+    apenasDpi?: boolean,
   ): boolean {
     this.ultimaAlteracao = rect;
     this.historico.registrarComando({
@@ -211,15 +307,19 @@ export class Executador {
       before,
       after,
       camada: this.doc.activeLayerId,
+      dpi,
+      apenasDpi,
     });
     return true;
   }
 
   private restaurar(entrada: EntradaComando | null, lado: 'before' | 'after'): boolean {
     this.ultimaAlteracao = entrada?.rect ?? null;
+    this.ultimaSelecaoTransformada = null;
     if (!entrada) return false;
     if (entrada.rect) this.doc.aplicarPixels(entrada[lado], entrada.rect.x, entrada.rect.y);
-    else this.doc.substituir(this.doc.name, entrada[lado]);
+    else if (!entrada.apenasDpi) this.doc.substituir(this.doc.name, entrada[lado]);
+    if (entrada.dpi) this.doc.dpi = lado === 'before' ? entrada.dpi.antes : entrada.dpi.depois;
     return true;
   }
 }

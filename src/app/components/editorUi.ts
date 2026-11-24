@@ -1,6 +1,7 @@
 import type { DocumentInfo } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
 import { toolRegistry } from '../../tools/toolRegistry';
+import { DPI_PADRAO } from '../../document/dimensoes';
 
 export function nomeDaFerramenta(id: ToolId) {
   return toolRegistry[id].nome;
@@ -9,6 +10,7 @@ export const initialInfo: DocumentInfo = {
   name: 'Sem título',
   width: 1024,
   height: 640,
+  dpi: DPI_PADRAO,
   canUndo: false,
   canRedo: false,
   history: [],

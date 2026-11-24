@@ -48,10 +48,21 @@ describe('autossalvamento local', () => {
 
   it('rejeita dimensões e pixels incompatíveis sem sobrescrever o trabalho', async () => {
     await saveDocument(makeSnapshot());
-    await expect(saveDocument({ ...makeSnapshot(), width: 4097 })).rejects.toThrow('dimensões');
+    await expect(saveDocument({ ...makeSnapshot(), width: 8193 })).rejects.toThrow('dimensões');
     await expect(
       saveDocument({ ...makeSnapshot(), pixels: new Uint8ClampedArray(4) }),
     ).rejects.toThrow('incompleto');
     expect((await loadDocument())?.width).toBe(2);
+  });
+
+  it('recupera uma imagem mais larga que o limite anterior junto da resolução', async () => {
+    const snapshot = {
+      ...makeSnapshot(),
+      width: 8192,
+      pixels: new Uint8ClampedArray(8192 * 4),
+      dpi: 300,
+    };
+    await saveDocument(snapshot);
+    expect(await loadDocument()).toEqual(snapshot);
   });
 });
