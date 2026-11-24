@@ -1,6 +1,6 @@
 # Rabisco
 
-Editor de desenho local em português, com interface inspirada nos editores gráficos da era Aero. Esta entrega implementa a etapa **MVP 0.1** do roteiro em [ROADMAP.md](ROADMAP.md).
+Editor de desenho local em português, com interface inspirada nos editores gráficos da era Aero. O MVP 0.1 está concluído. O [roteiro](ROADMAP.md) acompanha os passos da versão 0.2.
 
 ## Executar
 
@@ -59,12 +59,13 @@ Verificação manual recomendada:
 ```text
 src/
   app/        Interface, estado, diálogos e atalhos
-  canvas/     Superfície de desenho e coordenadas
-  commands/   Histórico desfazer/refazer
+  canvas/     Superfície, coordenadas e controle dos gestos
+  commands/   Comandos serializáveis, execução e histórico por área
+  document/   Documento, camada ativa e composição da tela
   io/         Importação e exportação PNG
   layers/     Tipos do documento
   storage/    Persistência local em IndexedDB
-  tools/      Operações de pixels
+  tools/      Ferramentas, registro e operações de pixels
 tests/
   unit/       Testes do núcleo
   e2e/        Fluxos no navegador
@@ -73,7 +74,7 @@ public/
   icons/      Subconjunto Fugue e licença CC BY 3.0
 ```
 
-O documento raster tem uma superfície nesta etapa. A interface e os comandos estão separados das operações de pixels para permitir evolução do motor nas próximas versões.
+O documento tem uma camada raster editável, composta em uma tela separada. O registro fornece as ferramentas e seus atalhos. Cada edição confirmada executa um comando JSON e grava os pixels da área afetada no histórico. O autosave reutiliza o buffer de pixels do documento.
 
 ## Limites desta entrega
 

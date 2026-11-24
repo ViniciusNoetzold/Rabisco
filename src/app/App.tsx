@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
 import { useEditor } from './store';
-import type { Point, ToolId } from '../layers/types';
+import type { Point } from '../layers/types';
+import { toolRegistry } from '../tools/toolRegistry';
 import { Icon } from './components/Primitives';
 import { initialInfo } from './components/editorUi';
 import { EditorChrome, ToolHint } from './components/EditorChrome';
@@ -58,6 +59,10 @@ export default function App() {
         info.saving === 'loading'
       )
         return;
+      if (editor.current?.tecla(event)) {
+        event.preventDefault();
+        return;
+      }
       const key = event.key.toLowerCase();
       const mod = event.ctrlKey || event.metaKey;
       if (mod) {
@@ -86,20 +91,12 @@ export default function App() {
         event.preventDefault();
         editor.current?.deleteSelection();
       }
-      const tools: Record<string, ToolId> = {
-        b: 'brush',
-        p: 'pencil',
-        e: 'eraser',
-        f: 'fill',
-        s: 'select',
-        i: 'eyedropper',
-        l: 'line',
-        r: 'rectangle',
-        o: 'ellipse',
-      };
-      if (tools[key]) {
+      const ferramenta = Object.values(toolRegistry).find(
+        ({ atalho }) => atalho?.toLowerCase() === key,
+      );
+      if (ferramenta) {
         event.preventDefault();
-        state.setTool(tools[key]);
+        state.setTool(ferramenta.id);
       }
       if (key === 'x') state.swapColors();
       if (key === '[') state.set({ size: Math.max(1, state.size - 1) });

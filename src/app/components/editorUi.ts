@@ -1,17 +1,10 @@
 import type { DocumentInfo } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
+import { toolRegistry } from '../../tools/toolRegistry';
 
-export const TOOL_NAMES: Record<ToolId, string> = {
-  pencil: 'Lápis',
-  brush: 'Pincel',
-  eraser: 'Borracha',
-  fill: 'Balde',
-  line: 'Linha',
-  rectangle: 'Retângulo',
-  ellipse: 'Elipse',
-  select: 'Seleção',
-  eyedropper: 'Conta-gotas',
-};
+export function nomeDaFerramenta(id: ToolId) {
+  return toolRegistry[id].nome;
+}
 export const initialInfo: DocumentInfo = {
   name: 'Sem título',
   width: 1024,

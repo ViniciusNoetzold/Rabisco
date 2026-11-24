@@ -1,18 +1,23 @@
 import type { PixelBuffer, Rect } from '../layers/types';
+import type { Comando } from './comandos';
 
-interface HistoryEntry {
+interface DadosHistorico {
   label: string;
   before: PixelBuffer;
   after: PixelBuffer;
   rect: Rect | null;
-  bytes: number;
+}
+
+export interface EntradaComando extends DadosHistorico {
+  comando: Comando;
+  camada: string;
 }
 
 function clone(image: PixelBuffer): PixelBuffer {
   return { width: image.width, height: image.height, data: new Uint8ClampedArray(image.data) };
 }
 
-function extract(image: PixelBuffer, rect: Rect): PixelBuffer {
+export function recortarPixels(image: PixelBuffer, rect: Rect): PixelBuffer {
   const data = new Uint8ClampedArray(rect.width * rect.height * 4);
   for (let row = 0; row < rect.height; row++) {
     const offset = ((rect.y + row) * image.width + rect.x) * 4;
@@ -21,13 +26,10 @@ function extract(image: PixelBuffer, rect: Rect): PixelBuffer {
   return { width: rect.width, height: rect.height, data };
 }
 
-/**
- * Histórico por retângulos de pixels alterados. O limite inclui desfazer e
- * refazer; comandos mais antigos saem primeiro para manter a memória limitada.
- */
-export class PixelHistory {
-  private undoStack: HistoryEntry[] = [];
-  private redoStack: HistoryEntry[] = [];
+/** O orçamento de pixels inclui as pilhas de desfazer e refazer. */
+class PilhaHistorico<Entrada extends DadosHistorico> {
+  private undoStack: Entrada[] = [];
+  private redoStack: Entrada[] = [];
   private bytes = 0;
   private readonly maxBytes: number;
 
@@ -48,6 +50,58 @@ export class PixelHistory {
     return this.undoStack.map(({ label }) => ({ label }));
   }
 
+  protected registrar(entrada: Entrada): void {
+    for (const descartada of this.redoStack) this.bytes -= this.custo(descartada);
+    this.redoStack = [];
+    this.undoStack.push(entrada);
+    this.bytes += this.custo(entrada);
+    while (this.bytes > this.maxBytes && this.undoStack.length) {
+      this.bytes -= this.custo(this.undoStack.shift()!);
+    }
+  }
+
+  protected tirarParaDesfazer(): Entrada | null {
+    const entrada = this.undoStack.pop();
+    if (!entrada) return null;
+    this.redoStack.push(entrada);
+    return entrada;
+  }
+
+  protected tirarParaRefazer(): Entrada | null {
+    const entrada = this.redoStack.pop();
+    if (!entrada) return null;
+    this.undoStack.push(entrada);
+    return entrada;
+  }
+
+  clear(): void {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.bytes = 0;
+  }
+
+  private custo(entrada: Entrada): number {
+    return entrada.before.data.byteLength + entrada.after.data.byteLength;
+  }
+}
+
+/** O executor entrega a área e os pixels próprios do comando, sem varrer o papel. */
+export class HistoricoComandos extends PilhaHistorico<EntradaComando> {
+  registrarComando(entrada: EntradaComando): void {
+    this.registrar(entrada);
+  }
+
+  desfazer(): EntradaComando | null {
+    return this.tirarParaDesfazer();
+  }
+
+  refazer(): EntradaComando | null {
+    return this.tirarParaRefazer();
+  }
+}
+
+/** Compatibilidade com o histórico de buffers completos da versão 0.1. */
+export class PixelHistory extends PilhaHistorico<DadosHistorico> {
   push(before: PixelBuffer, after: PixelBuffer, label: string): boolean {
     let rect: Rect | null = null;
     if (before.width === after.width && before.height === after.height) {
@@ -74,43 +128,25 @@ export class PixelHistory {
       if (right < 0) return false;
       rect = { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
     }
-    const prior = rect ? extract(before, rect) : clone(before);
-    const next = rect ? extract(after, rect) : clone(after);
-    const entry = {
+    this.registrar({
       label,
-      before: prior,
-      after: next,
+      before: rect ? recortarPixels(before, rect) : clone(before),
+      after: rect ? recortarPixels(after, rect) : clone(after),
       rect,
-      bytes: prior.data.byteLength + next.data.byteLength,
-    };
-    for (const discarded of this.redoStack) this.bytes -= discarded.bytes;
-    this.redoStack = [];
-    this.undoStack.push(entry);
-    this.bytes += entry.bytes;
-    while (this.bytes > this.maxBytes && this.undoStack.length) {
-      this.bytes -= this.undoStack.shift()!.bytes;
-    }
+    });
     return true;
   }
 
   undo(current: PixelBuffer): PixelBuffer | null {
-    const entry = this.undoStack.pop();
+    const entry = this.tirarParaDesfazer();
     if (!entry) return null;
-    this.redoStack.push(entry);
     return this.apply(current, entry.before, entry.rect);
   }
 
   redo(current: PixelBuffer): PixelBuffer | null {
-    const entry = this.redoStack.pop();
+    const entry = this.tirarParaRefazer();
     if (!entry) return null;
-    this.undoStack.push(entry);
     return this.apply(current, entry.after, entry.rect);
-  }
-
-  clear(): void {
-    this.undoStack = [];
-    this.redoStack = [];
-    this.bytes = 0;
   }
 
   private apply(current: PixelBuffer, patch: PixelBuffer, rect: Rect | null): PixelBuffer {

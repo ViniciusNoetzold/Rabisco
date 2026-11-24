@@ -3,7 +3,7 @@ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import { useEditor } from '../store';
 import { FileMenu } from './FileMenu';
 import { Icon, Logo, type RunAction } from './Primitives';
-import { TOOL_NAMES, hints } from './editorUi';
+import { hints, nomeDaFerramenta } from './editorUi';
 import type { EditorDialogKind } from './EditorDialogs';
 
 interface EditorChromeProps {
@@ -114,7 +114,7 @@ export function ToolHint() {
   const tool = useEditor((state) => state.tool);
   return (
     <div className="tool-hint">
-      <span className="hint-key">{TOOL_NAMES[tool]}</span>
+      <span className="hint-key">{nomeDaFerramenta(tool)}</span>
       <span>{hints[tool]}</span>
       <span className="hint-right">Botão direito usa a Cor 2</span>
     </div>

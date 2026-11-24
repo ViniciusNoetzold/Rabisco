@@ -1,9 +1,9 @@
 import type { RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
+import { toolRegistry } from '../../tools/toolRegistry';
 import { PALETTE, useEditor } from '../store';
 import { Icon, ShapeIcon, RibbonGroup, type RunAction } from './Primitives';
-import { TOOL_NAMES } from './editorUi';
 
 interface RibbonProps {
   tab: string;
@@ -19,17 +19,21 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
   const sizeOptions = Array.from(new Set([1, 2, 3, 6, 10, 16, 24, 48, state.size])).sort(
     (a, b) => a - b,
   );
-  const chooseTool = (id: ToolId, icon: string, label: string, key: string) => (
-    <button
-      className={`tool-button ${state.tool === id ? 'selected' : ''}`}
-      aria-label={`${label} (${key})`}
-      title={`${label} (${key})`}
-      aria-pressed={state.tool === id}
-      onClick={() => state.setTool(id)}
-    >
-      <Icon name={icon} />
-    </button>
-  );
+  function botaoFerramenta(id: ToolId) {
+    const { nome, atalho, icone } = toolRegistry[id];
+    const rotulo = atalho ? `${nome} (${atalho})` : nome;
+    return (
+      <button
+        className={`tool-button ${state.tool === id ? 'selected' : ''}`}
+        aria-label={rotulo}
+        title={rotulo}
+        aria-pressed={state.tool === id}
+        onClick={() => state.setTool(id)}
+      >
+        <Icon name={icone} />
+      </button>
+    );
+  }
 
   return (
     <div className="ribbon" id="ribbon-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
@@ -65,7 +69,7 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
               aria-label="Selecionar (S)"
               aria-pressed={state.tool === 'select'}
             >
-              <Icon name="selection" className="large-icon" />
+              <Icon name={toolRegistry.select.icone} className="large-icon" />
               <span>Selecionar</span>
             </button>
             <div className="ribbon-stack">
@@ -84,11 +88,11 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
           </RibbonGroup>
           <RibbonGroup title="Ferramentas" className="tools-group">
             <div className="tools-grid">
-              {chooseTool('pencil', 'pencil', 'Lápis', 'P')}
-              {chooseTool('fill', 'paint-can', 'Balde', 'F')}
-              {chooseTool('eyedropper', 'pipette', 'Conta-gotas', 'I')}
-              {chooseTool('brush', 'paint-brush', 'Pincel', 'B')}
-              {chooseTool('eraser', 'eraser', 'Borracha', 'E')}
+              {botaoFerramenta('pencil')}
+              {botaoFerramenta('fill')}
+              {botaoFerramenta('eyedropper')}
+              {botaoFerramenta('brush')}
+              {botaoFerramenta('eraser')}
               <button
                 className="tool-button"
                 title="Ajustar à janela"
@@ -104,8 +108,8 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
               className={`ribbon-large brush-choice ${state.tool === 'brush' ? 'selected' : ''}`}
               onClick={() => state.setTool('brush')}
             >
-              <Icon name="paint-brush" className="large-icon" />
-              <span>Pincel</span>
+              <Icon name={toolRegistry.brush.icone} className="large-icon" />
+              <span>{toolRegistry.brush.nome}</span>
             </button>
           </RibbonGroup>
           <RibbonGroup title="Formas" className="shapes-group">
@@ -114,8 +118,8 @@ export function Ribbon({ tab, editor, info, onOpen, run }: RibbonProps) {
                 <button
                   key={id}
                   className={`shape-button ${state.tool === id ? 'selected' : ''}`}
-                  aria-label={TOOL_NAMES[id]}
-                  title={TOOL_NAMES[id]}
+                  aria-label={toolRegistry[id].nome}
+                  title={toolRegistry[id].nome}
                   aria-pressed={state.tool === id}
                   onClick={() => state.setTool(id)}
                 >

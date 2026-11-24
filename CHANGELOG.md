@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## 0.2 em desenvolvimento
+
+### Passo 1 — Fundação
+
+- Modelo de documento com camada ativa e composição da tela separada da superfície editável.
+- Registro das nove ferramentas existentes, com gestos, prévias e atalhos separados da interface.
+- API de comandos serializáveis, histórico por área e autosave a partir do buffer em memória. Uma pincelada curta lê apenas sua região no canvas.
+- Testes para o registro das ferramentas, a serialização dos comandos e a área registrada no histórico.
+
 ## 0.1.0 — 2026-11-24
 
 MVP 0.1 implementado e validado em 24 de novembro de 2026.

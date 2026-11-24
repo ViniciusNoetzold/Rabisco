@@ -44,29 +44,33 @@ export function clearRectPixels(image: PixelBuffer, rect: Rect): void {
   }
 }
 
-/**
- * Preenchimento por segmentos horizontais, sem recursão. A tolerância (0–255)
- * compara cada canal com a cor do pixel inicial, sem atravessar diagonais.
- */
-export function floodFill(
+interface PlanoPreenchimento {
+  area: Rect;
+  largura: number;
+  mascara: Uint8Array;
+  cor: [number, number, number, number];
+}
+
+/** Encontra a região conectada e os limites da alteração sem modificar a imagem. */
+export function planejarPreenchimento(
   image: PixelBuffer,
   x: number,
   y: number,
   color: string,
   tolerance = 0,
-): boolean {
+): PlanoPreenchimento | null {
   x = Math.floor(x);
   y = Math.floor(y);
   const { width, height, data } = image;
   if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= width || y >= height) {
-    return false;
+    return null;
   }
   const replacement = parseHexColor(color);
   const initial = (y * width + x) * 4;
   const target = [data[initial], data[initial + 1], data[initial + 2], data[initial + 3]];
   const limit = Number.isFinite(tolerance) ? Math.max(0, Math.min(255, tolerance)) : 0;
   // Um balde da mesma cor é uma operação vazia quando não há tolerância.
-  if (limit === 0 && target.every((channel, index) => channel === replacement[index])) return false;
+  if (limit === 0 && target.every((channel, index) => channel === replacement[index])) return null;
 
   const visited = new Uint8Array(width * height);
   const stack: number[] = [y * width + x];
@@ -78,7 +82,10 @@ export function floodFill(
     }
     return true;
   };
-  let changed = false;
+  let esquerda = width;
+  let direita = -1;
+  let topo = height;
+  let base = -1;
   while (stack.length) {
     const pixel = stack.pop()!;
     if (!matches(pixel)) continue;
@@ -92,9 +99,16 @@ export function floodFill(
       if (!matches(current)) break;
       visited[current] = 1;
       const offset = current * 4;
-      for (let channel = 0; channel < 4; channel++) {
-        if (data[offset + channel] !== replacement[channel]) changed = true;
-        data[offset + channel] = replacement[channel];
+      if (
+        data[offset] !== replacement[0] ||
+        data[offset + 1] !== replacement[1] ||
+        data[offset + 2] !== replacement[2] ||
+        data[offset + 3] !== replacement[3]
+      ) {
+        esquerda = Math.min(esquerda, column);
+        direita = Math.max(direita, column);
+        topo = Math.min(topo, row);
+        base = Math.max(base, row);
       }
       const hasAbove = row > 0 && matches(current - width);
       const hasBelow = row + 1 < height && matches(current + width);
@@ -104,5 +118,45 @@ export function floodFill(
       below = hasBelow;
     }
   }
-  return changed;
+  if (direita < 0) return null;
+  return {
+    area: { x: esquerda, y: topo, width: direita - esquerda + 1, height: base - topo + 1 },
+    largura: width,
+    mascara: visited,
+    cor: replacement,
+  };
+}
+
+/** Aplica o plano a um recorte, indicando sua origem em coordenadas do documento. */
+export function aplicarPreenchimento(
+  image: PixelBuffer,
+  plano: PlanoPreenchimento,
+  origem: Point,
+): void {
+  const { area, mascara, largura, cor } = plano;
+  for (let y = area.y; y < area.y + area.height; y++) {
+    let destino = ((y - origem.y) * image.width + area.x - origem.x) * 4;
+    const linha = y * largura;
+    for (let x = area.x; x < area.x + area.width; x++, destino += 4) {
+      if (!mascara[linha + x]) continue;
+      image.data[destino] = cor[0];
+      image.data[destino + 1] = cor[1];
+      image.data[destino + 2] = cor[2];
+      image.data[destino + 3] = cor[3];
+    }
+  }
+}
+
+/** Preenche por segmentos horizontais sem recursão e sem atravessar diagonais. */
+export function floodFill(
+  image: PixelBuffer,
+  x: number,
+  y: number,
+  color: string,
+  tolerance = 0,
+): boolean {
+  const plano = planejarPreenchimento(image, x, y, color, tolerance);
+  if (!plano) return false;
+  aplicarPreenchimento(image, plano, { x: 0, y: 0 });
+  return true;
 }
