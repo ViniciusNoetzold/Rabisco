@@ -5,6 +5,7 @@ import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { ConfiguracaoForma } from '../shapes/tipos';
+import type { EfeitosCamada, Grupo, PropriedadesCamada } from '../document/camadas';
 
 export { validarDimensoes } from '../document/dimensoes';
 
@@ -24,6 +25,8 @@ export interface EstiloTraco {
   /** Cor que a borracha de cor pode trocar, em vez de pintar todo o traço. */
   substituirCor?: string;
   toleranciaSubstituicao?: number;
+  /** Borracha em camada transparente: apaga para transparência em vez de pintar a Cor 2. */
+  transparente?: boolean;
 }
 
 export interface ComandoTraco extends EstiloTraco {
@@ -61,7 +64,15 @@ export type Comando =
   | ComandoForma
   | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
   | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
-  | { tipo: 'Preencher'; ponto: Point; cor: string; tolerancia: number; global?: boolean }
+  | {
+      tipo: 'Preencher';
+      ponto: Point;
+      cor: string;
+      tolerancia: number;
+      global?: boolean;
+      /** Decide a área pelo que se vê (todas as camadas), mas pinta só na ativa. */
+      amostrarTudo?: boolean;
+    }
   | { tipo: 'ApagarSelecao'; area: Rect; mascara?: MascaraSelecao }
   | {
       tipo: 'MoverSelecao';
@@ -92,7 +103,42 @@ export type Comando =
   | { tipo: 'RedimensionarPapel'; largura: number; altura: number; fundo: string; dpi?: number }
   | ({ tipo: 'RedimensionarInclinar'; area?: Rect } & OpcoesTransformacao)
   | { tipo: 'Girar'; graus: 90 | -90 | 180; area?: Rect }
-  | { tipo: 'Inverter'; eixo: 'horizontal' | 'vertical'; area?: Rect };
+  | { tipo: 'Inverter'; eixo: 'horizontal' | 'vertical'; area?: Rect }
+  | ComandoCamada
+  /** Vários comandos como um único item no histórico (ex.: nova camada + texto). */
+  | { tipo: 'Lote'; rotulo: string; comandos: Comando[] };
+
+type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara'>> & {
+  efeitos?: EfeitosCamada;
+};
+
+/** Comandos de estrutura: os identificadores vêm prontos para o comando poder ser repetido. */
+export type ComandoCamada =
+  | {
+      tipo: 'NovaCamada';
+      id: string;
+      nome: string;
+      /** Fica logo acima desta camada (padrão: a ativa). */
+      acimaDe?: string;
+      propriedades?: AlteracaoCamada;
+      /** Pixels iniciais (importar como camada, colar como nova camada). */
+      imagem?: ImagemSerializada;
+      x?: number;
+      y?: number;
+    }
+  | { tipo: 'DuplicarCamada'; id: string; novoId: string }
+  | { tipo: 'ExcluirCamada'; id: string }
+  | { tipo: 'AlterarCamada'; id: string; propriedades: AlteracaoCamada }
+  | { tipo: 'MoverCamada'; id: string; posicao: number; grupo?: string | null }
+  | { tipo: 'MesclarAbaixo'; id: string }
+  | { tipo: 'MesclarVisiveis'; novoId: string }
+  | { tipo: 'AchatarImagem' }
+  | { tipo: 'AgruparCamadas'; ids: string[]; grupoId: string; nome: string }
+  | { tipo: 'Desagrupar'; grupoId: string }
+  | { tipo: 'AlterarGrupo'; id: string; propriedades: Partial<Omit<Grupo, 'id'>> }
+  | { tipo: 'AdicionarMascara'; id: string; area?: Rect; mascara?: MascaraSelecao }
+  | { tipo: 'AplicarMascara'; id: string }
+  | { tipo: 'ExcluirMascara'; id: string };
 
 const BlocoBase64 = Uint8Array as typeof Uint8Array & {
   fromBase64?(texto: string): Uint8Array<ArrayBuffer>;

@@ -1,5 +1,15 @@
 # Histórico de alterações
 
+## 0.3 em desenvolvimento
+
+### Passo 1 — Modelo de camadas e histórico por camada
+
+- O documento passou a ter várias camadas do mesmo tamanho, de baixo para cima, com nome, visibilidade, opacidade, 16 modos de mesclagem, bloqueios (pixels, transparência e posição), etiqueta, grupo, máscara de recorte, máscara em tons de cinza e efeitos (contorno e sombra). Os grupos têm visibilidade, opacidade e modo próprios.
+- Compositor novo: modos de mesclagem, máscaras (a luminância vira transparência), recorte pela camada de baixo, grupos isolados, contorno por fora/por dentro e sombra. A tela é recomposta só na área alterada, com margem para os efeitos.
+- Comandos novos, todos no histórico: nova camada (com pixels opcionais), duplicar, excluir, alterar propriedades, mover, mesclar abaixo, mesclar visíveis, achatar, agrupar, desagrupar, alterar grupo, adicionar/aplicar/excluir máscara e lote (vários comandos num item). Desfazer restaura pixels e estrutura.
+- Girar, inverter, redimensionar, cortar e colar com papel maior valem para todas as camadas e máscaras. Pintar numa camada oculta ou bloqueada mostra um aviso. A borracha apaga para transparência fora da camada de fundo. O bloqueio de transparência mantém o alfa. O balde pode decidir a área pela imagem toda.
+- O autosave grava cada camada e cada máscara em blocos próprios, guarda a estrutura e apaga os blocos de camadas removidas. Correção: num desenho novo, ou depois de mudar o tamanho, a primeira gravação agora salva o papel inteiro. Antes, as áreas brancas nunca tocadas voltavam transparentes ao recuperar.
+
 ## 0.2.1 — 2026-11-24
 
 Estabilização depois da revisão da 0.2: testes confiáveis, desempenho medido de verdade, um só lugar para os pixels, autosave por blocos, editor em módulos, interface em qualquer largura e um app mais leve para abrir. Os números de cada passo estão em [docs/desempenho.md](docs/desempenho.md).

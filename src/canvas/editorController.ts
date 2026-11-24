@@ -4,7 +4,9 @@ import {
   type OpcoesTransformacao,
   type OrientacaoImagem,
 } from '../commands/comandos';
+import type { ComandoCamada } from '../commands/comandos';
 import { Executador } from '../commands/executador';
+import { chaveDoAlvo, novoId } from '../document/camadas';
 import { RabiscoDocument } from '../document/model';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
@@ -24,6 +26,13 @@ import { SuperficieTela } from './controle/superficie';
 import type { DocumentInfo, EditorApi } from './editorTypes';
 import { medicaoAtiva, medirOperacao } from './medicao';
 import { ZOOM_MIN } from './zoom';
+
+const MENSAGENS_RECUSA = {
+  bloqueada: 'Esta camada está bloqueada. Desbloqueie no painel Camadas para pintar nela.',
+  oculta: 'Esta camada está oculta. Mostre-a no painel Camadas (o olho) para pintar nela.',
+  'ultima-camada': 'O desenho precisa de pelo menos uma camada.',
+  'sem-camada-abaixo': 'Não há camada abaixo para mesclar.',
+} as const;
 
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
@@ -49,6 +58,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   private pronto = false;
   private ligado = true;
   private acompanharAjuste = true;
+  private revisao = 0;
   private ajustandoZoom = false;
 
   constructor(
@@ -94,7 +104,11 @@ export class EditorController implements EditorApi, NucleoEditor {
     const mudou = categoria
       ? medirOperacao(`historico:${categoria}`, () => this.comandos.executar(comando))
       : this.comandos.executar(comando);
-    if (!mudou) return false;
+    if (!mudou) {
+      const motivo = this.comandos.motivoRecusa;
+      if (motivo) this.avisar(MENSAGENS_RECUSA[motivo]);
+      return false;
+    }
     if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
     if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
     aposExecutar?.();
@@ -116,6 +130,8 @@ export class EditorController implements EditorApi, NucleoEditor {
       history: entries,
       selection: this.selecao.area,
       saving: this.persistencia.estado,
+      estrutura: this.doc.estrutura(),
+      revisao: this.revisao,
     });
   }
 
@@ -337,12 +353,64 @@ export class EditorController implements EditorApi, NucleoEditor {
     return this.ultimaForma ? referenciaDaForma(this.ultimaForma) : null;
   }
 
+  // ---- Camadas ---------------------------------------------------------------------------
+
+  /** Comandos do painel de camadas. Confirma antes o que estiver pendente (forma, texto, colagem). */
+  executarCamada(comando: ComandoCamada) {
+    if (!this.disponivel()) return false;
+    this.ferramentas.confirmarPendente();
+    return this.executar(comando);
+  }
+
+  novaCamada() {
+    const total = this.doc.layers.length;
+    return this.executarCamada({
+      tipo: 'NovaCamada',
+      id: novoId('camada'),
+      nome: `Camada ${total}`,
+    });
+  }
+
+  /** Troca a camada ativa (não entra no histórico). Com `mascara`, passa a pintar na máscara. */
+  ativarCamada(id: string, mascara = false) {
+    const camada = this.doc.camada(id);
+    if (!camada || !this.disponivel()) return;
+    this.ferramentas.confirmarPendente();
+    this.doc.activeLayerId = id;
+    this.doc.editandoMascara = mascara && Boolean(camada.mascara);
+    this.persistencia.marcarDescricao();
+    this.notificar();
+  }
+
+  /** Desenha a miniatura de uma camada (ou da máscara) num canvas pequeno do painel. */
+  miniatura(id: string, destino: HTMLCanvasElement, mascara = false) {
+    const camada = this.doc.camada(id);
+    const origem = mascara ? camada?.mascara : camada?.canvas;
+    const contexto = destino.getContext('2d');
+    if (!origem || !contexto) return;
+    contexto.clearRect(0, 0, destino.width, destino.height);
+    const escala = Math.min(destino.width / origem.width, destino.height / origem.height);
+    const largura = origem.width * escala;
+    const altura = origem.height * escala;
+    contexto.drawImage(
+      origem,
+      (destino.width - largura) / 2,
+      (destino.height - altura) / 2,
+      largura,
+      altura,
+    );
+  }
+
   // ---- Internos ----------------------------------------------------------------------------
 
   private edicaoAplicada() {
-    const area = this.comandos.ultimaAlteracao;
-    this.superficie.compor(area ?? undefined);
-    this.persistencia.marcar(area);
+    const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao } = this.comandos;
+    this.superficie.compor(ultimaAlteracao ?? undefined);
+    for (const { alvo, area } of ultimasAlteracoes)
+      this.persistencia.marcar(chaveDoAlvo(alvo), area);
+    if (estruturaMudou) this.persistencia.marcarDescricao();
+    this.revisao++;
+    this.notificar();
   }
 
   private opcoesMudaram(

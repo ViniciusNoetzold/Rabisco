@@ -1,7 +1,8 @@
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
-import type { OpcoesTransformacao, OrientacaoImagem } from '../commands/comandos';
+import type { ComandoCamada, OpcoesTransformacao, OrientacaoImagem } from '../commands/comandos';
+import type { EstruturaDocumento } from '../document/camadas';
 import type { DadosFormaPropria } from '../shapes/presets';
 
 export interface DocumentInfo {
@@ -14,6 +15,10 @@ export interface DocumentInfo {
   history: { label: string }[];
   selection: Rect | null;
   saving: 'loading' | 'saving' | 'saved' | 'error';
+  /** Camadas, grupos e camada ativa, para o painel Camadas. */
+  estrutura: EstruturaDocumento;
+  /** Cresce a cada edição: o painel usa para atualizar as miniaturas. */
+  revisao: number;
 }
 
 export interface EditorApi {
@@ -38,6 +43,10 @@ export interface EditorApi {
   girarImagem(orientacao: OrientacaoImagem): void;
   tecla(evento: KeyboardEvent): boolean;
   obterReferenciaForma(): Omit<DadosFormaPropria, 'pasta'> | null;
+  executarCamada(comando: ComandoCamada): boolean;
+  novaCamada(): boolean;
+  ativarCamada(id: string, mascara?: boolean): void;
+  miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;
 }
 
 export interface CanvasCallbacks {

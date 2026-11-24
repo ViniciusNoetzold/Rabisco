@@ -45,6 +45,8 @@ export function areaDoSegmento(de: Point, ate: Point, estilo: EstiloTraco): Rect
 
 export function desenharSegmento(ctx: Contexto2D, de: Point, ate: Point, estilo: EstiloTraco) {
   ctx.save();
+  // Borracha em camada transparente: remove os pixels em vez de pintar a Cor 2.
+  if (estilo.transparente) ctx.globalCompositeOperation = 'destination-out';
   ctx.lineWidth = larguraDoTraco(estilo);
   ctx.strokeStyle = estilo.cor;
   ctx.lineCap = 'round';

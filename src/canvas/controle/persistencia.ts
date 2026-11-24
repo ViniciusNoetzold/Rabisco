@@ -1,4 +1,5 @@
 import { DPI_PADRAO } from '../../document/dimensoes';
+import { alvoDaChave, chaveDoAlvo } from '../../document/camadas';
 import type { Rect } from '../../layers/types';
 import { AutosaveBlocos } from '../../storage/autosave';
 import { LADO_BLOCO, rgbaDaCor } from '../../storage/blocos';
@@ -33,9 +34,15 @@ export class Persistencia {
           largura: doc.width,
           altura: doc.height,
           dpi: doc.dpi,
-          camadas: doc.layers.map(({ id, name }) => ({ id, nome: name })),
+          camadas: doc.layers.flatMap(({ id, name, mascara }) => [
+            { id, nome: name },
+            ...(mascara
+              ? [{ id: chaveDoAlvo({ camada: id, mascara: true }), nome: `${name} (máscara)` }]
+              : []),
+          ]),
+          estrutura: doc.estrutura(),
         }),
-        lerArea: (_camada, area) => doc.lerPixels(area),
+        lerArea: (chave, area) => doc.lerPixels(area, alvoDaChave(chave)),
       },
       codificar: this.codificador.codificar,
       gravar: async (...argumentos) => (await armazenamento()).gravarPapel(...argumentos),
@@ -51,9 +58,14 @@ export class Persistencia {
     window.addEventListener('pagehide', this.aoSair);
   }
 
-  /** Marca a área alterada na camada ativa. `null` significa o papel inteiro. */
-  marcar(area: Rect | null) {
-    this.autosave.marcar(this.nucleo.doc.activeLayerId, area);
+  /** Marca a área alterada de uma camada ou máscara (chave). `null` significa ela inteira. */
+  marcar(chave: string, area: Rect | null) {
+    this.autosave.marcar(chave, area);
+  }
+
+  /** Estrutura, nome ou propriedades mudaram: grava a descrição. */
+  marcarDescricao() {
+    this.autosave.marcarDescricao();
   }
 
   /** Recupera o último papel salvo. Devolve true quando havia um. */
@@ -65,9 +77,16 @@ export class Persistencia {
       if (!this.nucleo.ativo()) return false;
       if (salvo?.tipo === 'blocos') {
         const { papel, blocos } = salvo;
-        await this.restaurarBlocos(papel.nome, papel.largura, papel.altura, blocos);
+        await this.restaurarBlocos(
+          papel.nome,
+          papel.largura,
+          papel.altura,
+          blocos,
+          papel.estrutura,
+        );
         if (!this.nucleo.ativo()) return false;
         doc.dpi = papel.dpi;
+        this.autosave.definirTamanhoGravado(papel.largura, papel.altura);
       } else if (salvo?.tipo === 'legado') {
         // Registro da 0.2 (pixels inteiros): converte em blocos e só então apaga o antigo.
         const { snapshot } = salvo;
@@ -78,7 +97,7 @@ export class Persistencia {
           data: snapshot.pixels,
         });
         doc.dpi = snapshot.dpi ?? DPI_PADRAO;
-        this.marcar(null);
+        this.marcar(doc.activeLayerId, null);
         await this.autosave.gravarAgora();
         if (this.estado !== 'error') await apagarLegado();
       }
@@ -106,6 +125,7 @@ export class Persistencia {
     largura: number,
     altura: number,
     blocos: BlocoSalvo[],
+    estrutura?: import('../../document/camadas').EstruturaDocumento,
   ) {
     const { doc } = this.nucleo;
     const imagens = await Promise.all(
@@ -114,9 +134,15 @@ export class Persistencia {
     if (!this.nucleo.ativo()) return;
     doc.preencherPapel(largura, altura, 'transparent');
     doc.name = nome;
-    const contexto = doc.contextoAtivo();
+    // 0.3: várias camadas e máscaras. Sem estrutura salva (0.2.1), a camada única recebe os blocos.
+    if (estrutura) doc.aplicarEstrutura(estrutura);
+    const unica = estrutura ? null : doc.activeLayerId;
     blocos.forEach((bloco, i) => {
-      if (bloco.camada !== doc.activeLayerId) return;
+      const alvo = alvoDaChave(
+        unica && !bloco.camada.includes('#') ? chaveDoAlvo({ camada: unica }) : bloco.camada,
+      );
+      if (!doc.existe(alvo)) return;
+      const contexto = doc.contexto(alvo);
       const x = bloco.bx * LADO_BLOCO;
       const y = bloco.by * LADO_BLOCO;
       const imagem = imagens[i];

@@ -1,3 +1,4 @@
+import type { Alvo, EstruturaDocumento } from '../document/camadas';
 import type { PixelBuffer, Rect } from '../layers/types';
 import type { Comando } from './comandos';
 
@@ -8,11 +9,45 @@ interface DadosHistorico {
   rect: Rect | null;
 }
 
+/** Pixels de uma área (ou da camada inteira, com `rect` nulo) antes e depois do comando. */
+export interface AlteracaoPixels {
+  alvo: Alvo;
+  rect: Rect | null;
+  before: PixelBuffer;
+  after: PixelBuffer;
+}
+
+/**
+ * Um item do histórico. Comandos de pintura guardam um recorte de uma camada; comandos de
+ * estrutura guardam a estrutura antes/depois e os pixels inteiros só das camadas afetadas.
+ * `rect`, `before`, `after` e `camada` repetem a primeira alteração (formato da 0.2).
+ */
 export interface EntradaComando extends DadosHistorico {
   comando: Comando;
   camada: string;
+  alteracoes: AlteracaoPixels[];
+  estrutura?: { antes: EstruturaDocumento; depois: EstruturaDocumento };
+  dimensoes?: {
+    antes: { largura: number; altura: number };
+    depois: { largura: number; altura: number };
+  };
+  nome?: { antes: string; depois: string };
   dpi?: { antes: number; depois: number };
-  apenasDpi?: boolean;
+  /** Lote: sub-itens aplicados em ordem (refazer) ou ao contrário (desfazer). */
+  subentradas?: EntradaComando[];
+}
+
+function bytesDaEntrada(entrada: DadosHistorico): number {
+  const comando = entrada as Partial<EntradaComando>;
+  if (comando.alteracoes || comando.subentradas) {
+    let total = 0;
+    for (const { before, after } of comando.alteracoes ?? []) {
+      total += before.data.byteLength + after.data.byteLength;
+    }
+    for (const sub of comando.subentradas ?? []) total += bytesDaEntrada(sub);
+    return total;
+  }
+  return entrada.before.data.byteLength + entrada.after.data.byteLength;
 }
 
 function clone(image: PixelBuffer): PixelBuffer {
@@ -87,7 +122,7 @@ class PilhaHistorico<Entrada extends DadosHistorico> {
   }
 
   private custo(entrada: Entrada): number {
-    return entrada.before.data.byteLength + entrada.after.data.byteLength;
+    return bytesDaEntrada(entrada);
   }
 }
 

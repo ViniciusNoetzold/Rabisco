@@ -48,7 +48,8 @@ export class AutosaveBlocos {
   private readonly gravar: typeof gravarPapel;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private rodada: Promise<void> | null = null;
-  private trocarTudo = false;
+  private descricaoPendente = false;
+  private tamanhoGravado: { largura: number; altura: number } | null = null;
   private ativo = true;
 
   constructor(private readonly opcoes: OpcoesAutosave) {
@@ -58,19 +59,31 @@ export class AutosaveBlocos {
   }
 
   get pendente(): boolean {
-    return [...this.sujos.values()].some((sujos) => !sujos.vazio);
+    return this.descricaoPendente || [...this.sujos.values()].some((sujos) => !sujos.vazio);
   }
 
-  /** Marca uma área alterada. `null` significa o papel inteiro (novo, aberto, redimensionado). */
+  /** Marca uma área alterada de uma camada (ou máscara). `null` significa a camada inteira. */
   marcar(camada: string, area: Rect | null): void {
     if (!this.ativo) return;
     const { largura, altura } = this.opcoes.fonte.descrever();
     let sujos = this.sujos.get(camada);
     if (!sujos) this.sujos.set(camada, (sujos = new BlocosSujos()));
     sujos.marcar(area, largura, altura);
-    if (!area) this.trocarTudo = true;
     this.opcoes.aoMudar('saving');
     this.agendar();
+  }
+
+  /** Só a descrição mudou (nome, propriedades, ordem das camadas): grava sem blocos. */
+  marcarDescricao(): void {
+    if (!this.ativo) return;
+    this.descricaoPendente = true;
+    this.opcoes.aoMudar('saving');
+    this.agendar();
+  }
+
+  /** O papel atual já está inteiro no banco com este tamanho (depois de recuperar). */
+  definirTamanhoGravado(largura: number, altura: number): void {
+    this.tamanhoGravado = { largura, altura };
   }
 
   /** Grava sem esperar a pausa: aba oculta, página fechando ou conversão do formato antigo. */
@@ -107,8 +120,22 @@ export class AutosaveBlocos {
   private async rodadaUnica(): Promise<void> {
     const descricao = this.opcoes.fonte.descrever();
     const { largura, altura } = descricao;
-    const substituirTudo = this.trocarTudo;
-    this.trocarTudo = false;
+    // Papel de outro tamanho: os blocos antigos não servem mais. As camadas alteradas pelo
+    // comando que mudou o tamanho já estão marcadas inteiras.
+    const anterior = this.tamanhoGravado;
+    const substituirTudo = !anterior || anterior.largura !== largura || anterior.altura !== altura;
+    const descricaoPendente = this.descricaoPendente;
+    this.descricaoPendente = false;
+    const validas = new Set(descricao.camadas.map(({ id }) => id));
+    for (const chave of this.sujos.keys()) if (!validas.has(chave)) this.sujos.delete(chave);
+    if (substituirTudo) {
+      // O banco não tem este papel inteiro (desenho novo ou outro tamanho): grava tudo.
+      for (const chave of validas) {
+        let sujos = this.sujos.get(chave);
+        if (!sujos) this.sujos.set(chave, (sujos = new BlocosSujos()));
+        sujos.marcar(null, largura, altura);
+      }
+    }
 
     const retirados = descricao.camadas.flatMap(({ id }) =>
       (this.sujos.get(id)?.retirar(largura, altura).blocos ?? []).map((bloco) => ({
@@ -117,7 +144,8 @@ export class AutosaveBlocos {
       })),
     );
     const devolver = () => {
-      if (substituirTudo) this.trocarTudo = true;
+      if (descricaoPendente) this.descricaoPendente = true;
+      if (substituirTudo) this.tamanhoGravado = null;
       for (const { camada, bx, by } of retirados) {
         const area = areaDoBloco({ bx, by }, largura, altura);
         let sujos = this.sujos.get(camada);
@@ -152,6 +180,7 @@ export class AutosaveBlocos {
         blocos,
         substituirTudo,
       );
+      this.tamanhoGravado = { largura, altura };
       this.opcoes.aoGravar?.({
         bytes: blocos.reduce((total, bloco) => total + (bloco.png?.size ?? 4), 0),
         blocos: blocos.length,

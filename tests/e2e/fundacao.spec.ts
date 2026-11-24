@@ -18,6 +18,14 @@ test('registra uma pincelada sem ler o papel inteiro', async ({ page }) => {
 
   const tela = page.locator('.drawing-canvas');
   const caixa = (await tela.boundingBox())!;
+  // Num desenho novo, a primeira gravação salva o papel inteiro (ele ainda não está no banco).
+  // A partir da segunda pincelada, só os blocos tocados são lidos.
+  await page.mouse.move(caixa.x + caixa.width * 0.1, caixa.y + caixa.height * 0.6);
+  await page.mouse.down();
+  await page.mouse.move(caixa.x + caixa.width * 0.2, caixa.y + caixa.height * 0.6, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.getByText('Salvando…', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
   const y = caixa.y + caixa.height * 0.2;
   await page.evaluate(() => {
     (window as JanelaInstrumentada).leiturasDaTela.length = 0;
@@ -27,7 +35,8 @@ test('registra uma pincelada sem ler o papel inteiro', async ({ page }) => {
   await page.mouse.move(caixa.x + caixa.width * 0.25, y, { steps: 16 });
   await page.mouse.up();
   const pinceladas = page.locator('.history-list').getByText('Pincelada', { exact: true });
-  await expect(pinceladas).toHaveCount(1);
+  await expect(pinceladas).toHaveCount(2);
+  await expect(page.getByText('Salvando…', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
 
   const leituras = await page.evaluate(() => (window as JanelaInstrumentada).leiturasDaTela);
@@ -43,7 +52,7 @@ test('registra uma pincelada sem ler o papel inteiro', async ({ page }) => {
   }
 
   await page.getByRole('button', { name: 'Desfazer (Ctrl+Z)', exact: true }).click();
-  await expect(pinceladas).toHaveCount(0);
-  await page.getByRole('button', { name: 'Refazer (Ctrl+Y)', exact: true }).click();
   await expect(pinceladas).toHaveCount(1);
+  await page.getByRole('button', { name: 'Refazer (Ctrl+Y)', exact: true }).click();
+  await expect(pinceladas).toHaveCount(2);
 });

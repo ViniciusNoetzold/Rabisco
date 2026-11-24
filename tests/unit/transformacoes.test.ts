@@ -1,3 +1,4 @@
+import { documentoFalso } from './documentoFalso';
 import { describe, expect, it } from 'vitest';
 import { HistoricoComandos } from '../../src/commands/history';
 import { Executador } from '../../src/commands/executador';
@@ -102,42 +103,8 @@ describe('histórico de transformações', () => {
   });
 
   it('restaura DPI e dimensões do papel separadamente e com um item por comando', () => {
-    let pixels = numerada(2, 2);
-    const doc = {
-      activeLayerId: 'papel',
-      activeLayer: {
-        id: 'papel',
-        name: 'Papel',
-        canvas: {} as HTMLCanvasElement,
-        visible: true,
-        opacity: 1,
-        locked: false,
-      },
-      get width() {
-        return pixels.width;
-      },
-      get height() {
-        return pixels.height;
-      },
-      name: 'Teste',
-      dpi: 96,
-      copiarPixels: () => pixels,
-      substituir(_nome: string, imagem: PixelBuffer) {
-        pixels = imagem;
-      },
-      contextoAtivo() {
-        throw new Error('O papel pode ser redimensionado sem contexto de desenho.');
-      },
-      lerPixels() {
-        throw new Error('O executor deve reutilizar os pixels em memória.');
-      },
-      preencherPapel() {
-        throw new Error('O executor deve aplicar as novas dimensões.');
-      },
-      aplicarPixels() {
-        throw new Error('O executor deve aplicar as novas dimensões.');
-      },
-    };
+    const doc = documentoFalso(numerada(2, 2));
+    doc.name = 'Teste';
     const editor = new Executador(doc);
     const propriedades = {
       tipo: 'RedimensionarPapel',

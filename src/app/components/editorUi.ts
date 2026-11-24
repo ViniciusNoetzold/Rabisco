@@ -16,6 +16,8 @@ export const initialInfo: DocumentInfo = {
   history: [],
   selection: null,
   saving: 'loading',
+  estrutura: { camadas: [], grupos: [], ativa: '', editandoMascara: false },
+  revisao: 0,
 };
 export const hints: Record<ToolId, string> = {
   brush: 'Solte a mão. Cada pincelada é uma nova ideia.',

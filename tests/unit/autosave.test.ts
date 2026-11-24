@@ -180,6 +180,8 @@ describe('agendador do autosave', () => {
   it('espera a pausa, lê só os blocos tocados e grava cores lisas sem codificar', async () => {
     vi.useFakeTimers();
     const { imagem, gravar, codificar, estados, leituras, autosave } = montar();
+    // O papel já está inteiro no banco: só os blocos tocados são regravados.
+    autosave.definirTamanhoGravado(600, 300);
     imagem.data.set([0, 0, 255, 255], (10 * 600 + 300) * 4);
     autosave.marcar('c1', { x: 300, y: 10, width: 1, height: 1 });
     autosave.marcar('c1', { x: 20, y: 20, width: 4, height: 4 });
@@ -208,9 +210,9 @@ describe('agendador do autosave', () => {
     expect(estados.at(-1)).toBe('saved');
   });
 
-  it('papel inteiro: grava todos os blocos e pede para trocar os antigos', async () => {
+  it('papel que o banco ainda não tem: grava todos os blocos e troca os antigos', async () => {
     const { gravar, autosave } = montar(600, 300);
-    autosave.marcar('c1', null);
+    autosave.marcar('c1', { x: 0, y: 0, width: 1, height: 1 });
     await autosave.gravarAgora();
     const [, blocos, substituirTudo] = gravar.mock.calls[0] as unknown as [
       unknown,

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { type Comando, desserializarImagem, serializarImagem } from '../../src/commands/comandos';
 import { Executador } from '../../src/commands/executador';
-import type { PixelBuffer, Rect } from '../../src/layers/types';
+import type { PixelBuffer } from '../../src/layers/types';
+import { documentoFalso } from './documentoFalso';
 
 const BRANCO = [255, 255, 255, 255];
 const AZUL = [48, 131, 197, 255];
@@ -24,20 +25,9 @@ function copiar(imagem: PixelBuffer): PixelBuffer {
 }
 
 function documentoEmMemoria(width = 50, height = 40) {
-  let raster = papel(width, height);
   let x = 0;
   let y = 0;
-  let nome = 'Papel original';
-  const escreverRecorte = (alvo: PixelBuffer, recorte: PixelBuffer, left: number, top: number) => {
-    for (let y = 0; y < recorte.height; y++) {
-      for (let x = 0; x < recorte.width; x++) {
-        escreverPixel(alvo, x + left, y + top, lerPixel(recorte, x, y));
-      }
-    }
-  };
-  const contexto = {
-    save() {},
-    restore() {},
+  return documentoFalso(papel(width, height), (raster) => ({
     beginPath() {},
     moveTo(proximoX: number, proximoY: number) {
       x = Math.floor(proximoX);
@@ -45,53 +35,9 @@ function documentoEmMemoria(width = 50, height = 40) {
     },
     lineTo() {},
     stroke() {
-      escreverPixel(raster, x, y, AZUL);
+      escreverPixel(raster(), x, y, AZUL);
     },
-  } as unknown as CanvasRenderingContext2D;
-  return {
-    activeLayerId: 'camada-teste',
-    activeLayer: {
-      id: 'camada-teste',
-      name: 'Papel',
-      canvas: {} as HTMLCanvasElement,
-      locked: false,
-      opacity: 1,
-      visible: true,
-    },
-    get name() {
-      return nome;
-    },
-    set name(novoNome) {
-      nome = novoNome;
-    },
-    get width() {
-      return raster.width;
-    },
-    get height() {
-      return raster.height;
-    },
-    copiarPixels: vi.fn(() => copiar(raster)),
-    contextoAtivo: () => contexto,
-    lerPixels: vi.fn((area: Rect) => {
-      const dados = papel(area.width, area.height);
-      for (let y = 0; y < area.height; y++) {
-        for (let x = 0; x < area.width; x++) {
-          escreverPixel(dados, x, y, lerPixel(raster, area.x + x, area.y + y));
-        }
-      }
-      return { ...dados, colorSpace: 'srgb' as const };
-    }),
-    aplicarPixels: vi.fn((imagem: PixelBuffer, x = 0, y = 0) => {
-      escreverRecorte(raster, imagem, x, y);
-    }),
-    substituir(novoNome: string, imagem: PixelBuffer) {
-      nome = novoNome;
-      raster = copiar(imagem);
-    },
-    preencherPapel(largura: number, altura: number) {
-      raster = papel(largura, altura);
-    },
-  };
+  }));
 }
 
 describe('comandos serializáveis', () => {
@@ -125,15 +71,15 @@ describe('comandos serializáveis', () => {
     const area = { x: 7, y: 9, width: 8, height: 8 };
     expect(editor.ultimaAlteracao).toEqual(area);
     // Antes e depois do traço: só a área do comando, nunca o papel inteiro.
-    expect(doc.lerPixels.mock.calls).toEqual([[area], [area]]);
+    expect(doc.lerPixels.mock.calls.map(([lida]) => lida)).toEqual([area, area]);
     expect(doc.copiarPixels).not.toHaveBeenCalled();
     expect(editor.historico.entries).toEqual([{ label: 'Pincelada' }]);
     expect(editor.historico.memoryBytes).toBe(8 * area.width * area.height);
-    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(AZUL);
+    expect(lerPixel(doc.raster, 10, 12)).toEqual(AZUL);
     expect(editor.desfazer()).toBe(true);
-    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(BRANCO);
+    expect(lerPixel(doc.raster, 10, 12)).toEqual(BRANCO);
     expect(editor.refazer()).toBe(true);
-    expect(lerPixel(doc.copiarPixels(), 10, 12)).toEqual(AZUL);
+    expect(lerPixel(doc.raster, 10, 12)).toEqual(AZUL);
     expect(doc.lerPixels).toHaveBeenCalledTimes(2);
     for (const [recorte, x, y] of doc.aplicarPixels.mock.calls) {
       expect({ x, y, width: recorte.width, height: recorte.height }).toEqual(area);
@@ -168,11 +114,13 @@ describe('comandos serializáveis', () => {
     ).toBe(true);
     expect(editor.ultimaAlteracao).toEqual({ x: 5, y: 8, width: 1, height: 2 });
     expect(editor.historico.memoryBytes).toBe(16);
-    expect(doc.lerPixels).toHaveBeenCalledExactlyOnceWith({ x: 5, y: 8, width: 1, height: 2 });
-    expect(lerPixel(doc.copiarPixels(), 5, 9)).toEqual([0, 255, 0, 255]);
-    expect(lerPixel(doc.copiarPixels(), 6, 9)).toEqual(BRANCO);
+    expect(doc.lerPixels.mock.calls.map(([lida]) => lida)).toEqual([
+      { x: 5, y: 8, width: 1, height: 2 },
+    ]);
+    expect(lerPixel(doc.raster, 5, 9)).toEqual([0, 255, 0, 255]);
+    expect(lerPixel(doc.raster, 6, 9)).toEqual(BRANCO);
     expect(editor.desfazer()).toBe(true);
-    expect(lerPixel(doc.copiarPixels(), 5, 8)).toEqual(AZUL);
+    expect(lerPixel(doc.raster, 5, 8)).toEqual(AZUL);
   });
 
   it('desfaz e refaz uma troca de imagem restaurando os pixels e as dimensões', () => {
@@ -187,19 +135,22 @@ describe('comandos serializáveis', () => {
     expect(editor.historico.entries).toEqual([{ label: 'Abrir PNG' }]);
     expect([doc.name, doc.width, doc.height]).toEqual(['Logo', 1, 1]);
     expect(editor.desfazer()).toBe(true);
-    expect([doc.name, doc.width, doc.height]).toEqual(['Logo', 50, 40]);
+    // Desde a 0.3 o nome também volta ao desfazer.
+    expect([doc.name, doc.width, doc.height]).toEqual(['Papel original', 50, 40]);
     expect(editor.refazer()).toBe(true);
     expect([doc.name, doc.width, doc.height]).toEqual(['Logo', 1, 1]);
-    expect(lerPixel(doc.copiarPixels(), 0, 0)).toEqual(AZUL);
+    expect(lerPixel(doc.raster, 0, 0)).toEqual(AZUL);
   });
 
   it('atualiza o nome de uma imagem idêntica sem adicionar histórico de pixels', () => {
     const doc = documentoEmMemoria();
     const editor = new Executador(doc);
-    const imagem = serializarImagem(doc.copiarPixels());
+    const imagem = serializarImagem(doc.raster);
     expect(editor.executar({ tipo: 'AbrirImagem', nome: 'Papel renomeado', imagem })).toBe(true);
     expect(doc.name).toBe('Papel renomeado');
-    expect(editor.historico.entries).toEqual([]);
+    // Só o nome mudou: um item sem pixels no histórico.
+    expect(editor.historico.entries).toEqual([{ label: 'Abrir PNG' }]);
+    expect(editor.historico.memoryBytes).toBe(0);
     expect(editor.executar({ tipo: 'AbrirImagem', nome: 'Papel renomeado', imagem })).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import type { EstruturaDocumento } from '../document/camadas';
 import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 import { database, type DocumentSnapshot } from './documents';
 import { colunasELinhas, chaveDoBloco, type PosicaoBloco } from './blocos';
@@ -9,7 +10,10 @@ export interface PapelSalvo {
   largura: number;
   altura: number;
   dpi: number;
+  /** Uma entrada por conjunto de blocos: cada camada e cada máscara (`id#mascara`). */
   camadas: { id: string; nome: string }[];
+  /** Camadas, grupos e propriedades (0.3). Sem ela, o papel tem uma camada só (0.2.1). */
+  estrutura?: EstruturaDocumento;
   atualizadoEm: number;
 }
 
@@ -84,6 +88,11 @@ export async function gravarPapel(
       if (substituirTudo) await database.blocos.where('documento').equals('current').delete();
       if (registros.length) await database.blocos.bulkPut(registros);
       await database.papeis.put(papel);
+      // Blocos de camadas ou máscaras que não existem mais (excluídas, mescladas).
+      const validos = new Set(papel.camadas.map(({ id }) => id));
+      const chaves = await database.blocos.where('documento').equals('current').primaryKeys();
+      const sobras = chaves.filter((chave) => !validos.has(String(chave).split(':')[1]));
+      if (sobras.length) await database.blocos.bulkDelete(sobras);
     });
   } catch (erro) {
     throw traduzirErro(erro);
