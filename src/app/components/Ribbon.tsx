@@ -5,7 +5,8 @@ import { toolRegistry } from '../../tools/toolRegistry';
 import { PALETTE, useEditor } from '../store';
 import { BrushGallery } from './BrushGallery';
 import { OrientationMenu } from './OrientationMenu';
-import { Icon, ShapeIcon, RibbonGroup, type RunAction } from './Primitives';
+import { Icon, RibbonGroup, type RunAction } from './Primitives';
+import { ShapeGallery } from './ShapeGallery';
 import { SprayControls, StrokeThickness } from './StrokeThickness';
 
 interface RibbonProps {
@@ -141,29 +142,8 @@ export function Ribbon({
             <BrushGallery carregando={carregando} />
             {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
           </RibbonGroup>
-          <RibbonGroup title="Formas" className="shapes-group">
-            <div className="shape-options">
-              {(['line', 'rectangle', 'ellipse'] as const).map((id) => (
-                <button
-                  key={id}
-                  className={`shape-button ${state.tool === id ? 'selected' : ''}`}
-                  aria-label={toolRegistry[id].nome}
-                  title={toolRegistry[id].nome}
-                  aria-pressed={state.tool === id}
-                  onClick={() => state.setTool(id)}
-                >
-                  <ShapeIcon shape={id} />
-                </button>
-              ))}
-            </div>
-            <label className="fill-option">
-              <input
-                type="checkbox"
-                checked={state.filled}
-                onChange={(event) => state.set({ filled: event.target.checked })}
-              />{' '}
-              Preenchimento
-            </label>
+          <RibbonGroup title="Formas" className="formas-ribbon">
+            <ShapeGallery carregando={carregando} />
           </RibbonGroup>
           <RibbonGroup title="Espessura" className="size-group">
             <StrokeThickness />

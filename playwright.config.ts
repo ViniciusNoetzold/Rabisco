@@ -7,6 +7,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
+  expect: {
+    // O catálogo é rasterizado em canvas sem fontes ou elementos do sistema.
+    toHaveScreenshot: { pathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}{ext}' },
+  },
   use: {
     baseURL: 'http://127.0.0.1:5173',
     viewport: { width: 1440, height: 1000 },

@@ -22,9 +22,10 @@ export const hints: Record<ToolId, string> = {
   pencil: 'Para os pequenos detalhes, um traço de cada vez.',
   eraser: 'Todo desenho tem espaço para recomeçar.',
   fill: 'Clique em uma área fechada para dar vida com cor.',
-  line: 'Segure Shift para uma linha em ângulos regulares.',
-  rectangle: 'Segure Shift para desenhar um quadrado.',
-  ellipse: 'Segure Shift para desenhar um círculo.',
+  line: 'Shift restringe os ângulos. Enter confirma ou Esc descarta.',
+  rectangle: 'Shift desenha um quadrado. Enter confirma ou Esc descarta.',
+  ellipse: 'Shift desenha um círculo. Enter confirma ou Esc descarta.',
+  shape: 'Arraste a forma ou suas alças. Enter confirma ou Esc descarta.',
   select: 'Arraste para selecionar. Arraste por dentro para mover.',
   eyedropper: 'Encontre uma cor no seu desenho e continue com ela.',
 };

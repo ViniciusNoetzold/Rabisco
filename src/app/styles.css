@@ -773,6 +773,14 @@ input[type='range']::-webkit-slider-thumb {
   font-style: italic;
   color: #899dad;
 }
+.workspace:not([data-forma-pendente]) .workspace-shape-hint,
+.workspace[data-forma-pendente] .workspace-default-hint {
+  display: none;
+}
+.workspace .workspace-shape-hint {
+  color: #275b83;
+  font-weight: 600;
+}
 .ruler {
   position: sticky;
   background: #f2f6fa;

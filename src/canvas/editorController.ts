@@ -36,8 +36,10 @@ export class EditorController implements EditorApi {
   private readonly ferramentas = criarFerramentas();
   private readonly grafico: CanvasRenderingContext2D;
   private readonly overlay: CanvasRenderingContext2D;
+  private readonly desconectarOpcoes: () => void;
   private gesto: { ponteiro: number; ferramenta: Tool } | null = null;
   private areaPrevia: Rect | null = null;
+  private areaOverlay: Rect | null = null;
   private previaPincel: {
     pintor: ReturnType<typeof criarPintorPincel>;
     margem: number;
@@ -59,6 +61,29 @@ export class EditorController implements EditorApi {
   ) {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
     this.overlay = previa.getContext('2d')!;
+    this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
+      if (!this.pronto) return;
+      const ferramentaAnterior = this.ferramentas[anterior.tool];
+      const ferramenta = this.ferramentas[atual.tool];
+      const trocouFerramenta = atual.tool !== anterior.tool;
+      const trocouForma = atual.forma !== anterior.forma && atual.tool === 'shape';
+      if (trocouFerramenta || trocouForma) {
+        if (this.gesto) this.cancelarGesto();
+        ferramentaAnterior.commitPendente?.(this.contexto(anterior));
+        this.redesenharOverlay(ferramenta);
+      } else if (
+        ferramenta.overlay &&
+        (atual.color1 !== anterior.color1 ||
+          atual.color2 !== anterior.color2 ||
+          atual.size !== anterior.size ||
+          atual.zoom !== anterior.zoom ||
+          atual.contornoForma !== anterior.contornoForma ||
+          atual.preenchimentoForma !== anterior.preenchimentoForma ||
+          atual.parametrosForma !== anterior.parametrosForma)
+      ) {
+        this.redesenharOverlay(ferramenta);
+      }
+    });
   }
 
   async iniciar() {
@@ -90,7 +115,9 @@ export class EditorController implements EditorApi {
 
   encerrar() {
     this.ativo = false;
+    this.desconectarOpcoes();
     this.cancelarGesto();
+    this.workspace.removeAttribute('data-forma-pendente');
   }
 
   ajustarAoRedimensionar() {
@@ -116,18 +143,21 @@ export class EditorController implements EditorApi {
     const ferramenta = this.ferramentas[id];
     this.gesto = { ponteiro, ferramenta };
     ferramenta.onPointerDown(this.contexto(), evento);
+    if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     return true;
   }
 
   moverGesto(ponteiro: number, evento: EventoFerramenta) {
+    if (!this.gesto) {
+      const ferramenta = this.ferramentas[useEditor.getState().tool];
+      if (ferramenta.onHover?.(this.contexto(), evento)) this.redesenharOverlay(ferramenta);
+      return;
+    }
     if (this.gesto?.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
     const contexto = this.contexto();
     ferramenta.onPointerMove(contexto, evento);
-    if (ferramenta.overlay) {
-      this.limparOverlay();
-      ferramenta.overlay(contexto, this.overlay);
-    }
+    if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
   }
 
   terminarGesto(ponteiro: number, evento?: EventoFerramenta) {
@@ -138,8 +168,8 @@ export class EditorController implements EditorApi {
       if (evento) ferramenta.onPointerUp(this.contexto(), evento);
       else ferramenta.onCancel?.(this.contexto());
     } finally {
-      if (ferramenta.overlay) this.limparOverlay();
       this.limparPrevia();
+      if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     }
   }
 
@@ -151,24 +181,33 @@ export class EditorController implements EditorApi {
   }
 
   tecla(evento: KeyboardEvent) {
-    if (evento.key === 'Escape' && this.gesto?.ferramenta.id === 'brush') {
+    if (
+      evento.key === 'Escape' &&
+      (this.gesto?.ferramenta.id === 'brush' || this.gesto?.ferramenta.overlay)
+    ) {
       this.cancelarGesto();
+      this.descartarFormaPendente();
       return true;
     }
     const ferramenta = this.gesto?.ferramenta ?? this.ferramentas[useEditor.getState().tool];
-    return ferramenta.onKeyDown?.(this.contexto(), evento) ?? false;
+    if (!ferramenta.onKeyDown?.(this.contexto(), evento)) return false;
+    this.redesenharOverlay(ferramenta);
+    return true;
   }
 
   undo() {
-    if (this.disponivel() && this.comandos.desfazer()) this.restaurarSelecao();
+    if (!this.disponivel() || this.descartarFormaPendente()) return;
+    if (this.comandos.desfazer()) this.restaurarSelecao();
   }
 
   redo() {
-    if (this.disponivel() && this.comandos.refazer()) this.restaurarSelecao();
+    if (!this.disponivel() || this.descartarFormaPendente()) return;
+    if (this.comandos.refazer()) this.restaurarSelecao();
   }
 
   async save() {
     if (!this.pronto) return;
+    this.confirmarFormaPendente();
     // Uma prévia de gesto pertence à tela, não ao documento salvo.
     const tela = this.areaPrevia ? document.createElement('canvas') : this.tela;
     if (tela !== this.tela) comporDocumento(this.doc, tela);
@@ -179,6 +218,7 @@ export class EditorController implements EditorApi {
   async open(arquivo: File) {
     const imagem = await openPng(arquivo);
     if (!this.disponivel()) return;
+    this.confirmarFormaPendente();
     const { name, width, height, pixels, dpi } = imagem;
     this.selecao = null;
     this.executar({
@@ -193,6 +233,7 @@ export class EditorController implements EditorApi {
 
   newDocument(nome: string, largura: number, altura: number) {
     if (!this.disponivel()) return;
+    this.descartarFormaPendente();
     this.selecao = null;
     this.executar({ tipo: 'NovoDocumento', nome: nome.trim() || 'Sem título', largura, altura });
     this.fit();
@@ -205,6 +246,7 @@ export class EditorController implements EditorApi {
     dpi?: number,
   ) {
     if (!this.disponivel()) return;
+    this.confirmarFormaPendente();
     this.executar({ tipo: 'RedimensionarPapel', largura, altura, fundo, dpi }, () => {
       if (this.selecao) this.selecao = limitarArea(this.selecao, this.doc);
     });
@@ -212,6 +254,7 @@ export class EditorController implements EditorApi {
 
   transformarImagem(opcoes: OpcoesTransformacao) {
     if (!this.disponivel()) return;
+    this.confirmarFormaPendente();
     this.executarTransformacao({
       tipo: 'RedimensionarInclinar',
       ...opcoes,
@@ -221,6 +264,7 @@ export class EditorController implements EditorApi {
 
   girarImagem(orientacao: OrientacaoImagem) {
     if (!this.disponivel()) return;
+    this.confirmarFormaPendente();
     const area = this.selecao ?? undefined;
     if (orientacao === 'horizontal' || orientacao === 'vertical') {
       this.executarTransformacao({ tipo: 'Inverter', eixo: orientacao, area });
@@ -302,8 +346,19 @@ export class EditorController implements EditorApi {
     return this.ativo && this.pronto && !this.gesto;
   }
 
-  private contexto(): ToolCtx {
-    const { color1, color2, size, filled, pincel, densidadeSpray } = useEditor.getState();
+  private contexto(estado = useEditor.getState()): ToolCtx {
+    const {
+      color1,
+      color2,
+      size,
+      pincel,
+      densidadeSpray,
+      forma,
+      contornoForma,
+      preenchimentoForma,
+      parametrosForma,
+      zoom,
+    } = estado;
     return {
       largura: this.doc.width,
       altura: this.doc.height,
@@ -311,9 +366,13 @@ export class EditorController implements EditorApi {
         cor1: color1,
         cor2: color2,
         espessura: size,
-        preenchida: filled,
         pincel,
         densidadeSpray,
+        forma,
+        contornoForma,
+        preenchimentoForma,
+        parametrosForma,
+        zoom,
       },
       selecao: this.selecao,
       executar: (comando) => this.executar(comando),
@@ -409,9 +468,37 @@ export class EditorController implements EditorApi {
     this.areaPrevia = null;
   }
 
-  private limparOverlay() {
-    const { width, height } = this.overlay.canvas;
-    this.overlay.clearRect(0, 0, width, height);
+  private redesenharOverlay(ferramenta: Tool) {
+    if (this.areaOverlay) {
+      const { x, y, width, height } = this.areaOverlay;
+      this.overlay.clearRect(x, y, width, height);
+      this.areaOverlay = null;
+    }
+    this.workspace.toggleAttribute('data-forma-pendente', ferramenta.temPendente?.() ?? false);
+    if (!ferramenta.overlay) return;
+
+    const contexto = this.contexto();
+    const limites = ferramenta.limitesOverlay
+      ? ferramenta.limitesOverlay(contexto)
+      : { x: 0, y: 0, width: this.doc.width, height: this.doc.height };
+    this.areaOverlay = limites && limitarArea(limites, this.doc);
+    if (this.areaOverlay) ferramenta.overlay(contexto, this.overlay);
+  }
+
+  private confirmarFormaPendente() {
+    if (this.gesto) return;
+    const ferramenta = this.ferramentas[useEditor.getState().tool];
+    if (!ferramenta.temPendente?.()) return;
+    ferramenta.commitPendente?.(this.contexto());
+    this.redesenharOverlay(ferramenta);
+  }
+
+  private descartarFormaPendente() {
+    const ferramenta = this.ferramentas[useEditor.getState().tool];
+    if (!ferramenta.temPendente?.()) return false;
+    ferramenta.descartarPendente?.();
+    this.redesenharOverlay(ferramenta);
+    return true;
   }
 
   private compor(area?: Rect) {

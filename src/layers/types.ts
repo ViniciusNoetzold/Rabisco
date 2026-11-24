@@ -20,6 +20,7 @@ export type ToolId =
   | 'line'
   | 'rectangle'
   | 'ellipse'
+  | 'shape'
   | 'select'
   | 'eyedropper';
 

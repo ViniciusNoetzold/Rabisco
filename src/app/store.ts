@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
 import type { ToolId } from '../layers/types';
+import { obterForma } from '../shapes/catalogo';
+import {
+  PARAMETROS_PADRAO,
+  type EstiloContorno,
+  type EstiloPreenchimento,
+  type FormaId,
+  type ParametrosForma,
+} from '../shapes/tipos';
 
 export const ESPESSURA_MAXIMA = 100;
 
@@ -44,23 +52,41 @@ interface EditorState {
   color2: string;
   colorTarget: 1 | 2;
   size: number;
-  filled: boolean;
+  forma: FormaId;
+  ultimaFormaGeral: FormaId;
+  contornoForma: EstiloContorno;
+  preenchimentoForma: EstiloPreenchimento;
+  parametrosForma: ParametrosForma;
   zoom: number;
   grid: boolean;
   ruler: boolean;
   sidebar: boolean;
   setTool: (tool: ToolId) => void;
   setPincel: (tipo: TipoPincel) => void;
+  setForma: (forma: FormaId) => void;
+  setParametroForma: (chave: keyof ParametrosForma, valor: number) => void;
   setColor: (color: string) => void;
   swapColors: () => void;
   set: (
     value: Partial<
       Pick<
         EditorState,
-        'colorTarget' | 'size' | 'densidadeSpray' | 'filled' | 'zoom' | 'grid' | 'ruler' | 'sidebar'
+        | 'colorTarget'
+        | 'size'
+        | 'densidadeSpray'
+        | 'contornoForma'
+        | 'preenchimentoForma'
+        | 'zoom'
+        | 'grid'
+        | 'ruler'
+        | 'sidebar'
       >
     >,
   ) => void;
+}
+
+function formaRapida(forma: ToolId | FormaId): forma is 'line' | 'rectangle' | 'ellipse' {
+  return forma === 'line' || forma === 'rectangle' || forma === 'ellipse';
 }
 
 /** Apenas configurações leves no React; pixels e gestos ficam fora do ciclo de renderização. */
@@ -73,7 +99,11 @@ export const useEditor = create<EditorState>()(
     color2: '#ffffff',
     colorTarget: 1,
     size: 6,
-    filled: false,
+    forma: 'rectangle',
+    ultimaFormaGeral: 'rectangle',
+    contornoForma: 'solid',
+    preenchimentoForma: 'none',
+    parametrosForma: { ...PARAMETROS_PADRAO },
     zoom: 1,
     grid: false,
     ruler: false,
@@ -81,12 +111,32 @@ export const useEditor = create<EditorState>()(
     setTool: (tool) =>
       set((state) => {
         state.tool = tool;
+        if (formaRapida(tool)) state.forma = tool;
+        if (tool === 'shape') state.forma = state.ultimaFormaGeral;
       }),
     setPincel: (tipo) =>
       set((state) => {
         if (tipo === 'spray' && state.pincel !== 'spray' && state.size < 16) state.size = 32;
         state.pincel = tipo;
         state.tool = 'brush';
+      }),
+    setForma: (forma) =>
+      set((estado) => {
+        estado.forma = forma;
+        if (formaRapida(forma)) estado.tool = forma;
+        else {
+          estado.tool = 'shape';
+          estado.ultimaFormaGeral = forma;
+        }
+      }),
+    setParametroForma: (chave, valor) =>
+      set((estado) => {
+        const limites = obterForma(estado.forma).params?.[chave];
+        if (!limites || !Number.isFinite(valor)) return;
+        estado.parametrosForma[chave] = Math.max(
+          limites.min,
+          Math.min(limites.max, Math.round(valor)),
+        );
       }),
     setColor: (color) =>
       set((state) => {

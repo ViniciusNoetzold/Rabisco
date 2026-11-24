@@ -4,6 +4,7 @@ import { elipse } from './ellipse';
 import { borracha } from './eraser';
 import { contaGotas } from './eyedropper';
 import { balde } from './fill';
+import { formaLivre } from './formaLivre';
 import { linha } from './line';
 import { lapis } from './pencil';
 import { retangulo } from './rectangle';
@@ -18,6 +19,7 @@ export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
   line: linha,
   rectangle: retangulo,
   ellipse: elipse,
+  shape: formaLivre,
   select: selecao,
   eyedropper: contaGotas,
 };

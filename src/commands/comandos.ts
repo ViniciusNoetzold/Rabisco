@@ -1,6 +1,7 @@
 import { validarDimensoes } from '../document/dimensoes';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
+import type { ConfiguracaoForma } from '../shapes/tipos';
 
 export { validarDimensoes } from '../document/dimensoes';
 
@@ -52,6 +53,7 @@ export type Comando =
   | ComandoTraco
   | ComandoPincel
   | ComandoForma
+  | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
   | { tipo: 'Preencher'; ponto: Point; cor: string; tolerancia: number }
   | { tipo: 'ApagarSelecao'; area: Rect }
   | { tipo: 'MoverSelecao'; origem: Rect; destino: Rect }

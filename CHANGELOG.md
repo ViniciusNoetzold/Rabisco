@@ -2,6 +2,13 @@
 
 ## 0.2 em desenvolvimento
 
+### Passo 4 — Formas clássicas editáveis
+
+- Biblioteca de 37 formas com miniaturas renderizadas a partir da mesma definição usada no papel. Inclui curva com dois controles, polígono livre, estrelas com número de pontas ajustável e polígonos regulares.
+- A forma fica na prévia até ser confirmada. Pode ser movida, redimensionada por oito alças e girada antes de criar uma única edição no histórico.
+- Contornos sólidos, tracejados, pontilhados e texturizados usam a Cor 1. Preenchimentos sólidos ou texturizados usam a Cor 2.
+- Os testes de retângulo aguardam a confirmação. O teste de seleção passou a definir a Cor 2 para testar o preenchimento sólido.
+
 ### Passo 3 — Pincéis clássicos e spray
 
 - Galeria com nove pincéis e miniaturas desenhadas pelo motor do editor. A reamostragem aplica carimbos em intervalos proporcionais à espessura e interpola as curvas do traço.

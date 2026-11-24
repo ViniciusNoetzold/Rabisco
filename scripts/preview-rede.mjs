@@ -23,7 +23,7 @@ async function conferirVersao() {
     const resposta = await fetch(indicador, { cache: 'no-store' });
     const nova = resposta.ok ? (await resposta.json()).versao : null;
     const status = document.querySelector('.autosave')?.textContent ?? '';
-    const ocupado = ponteirosAtivos.size || /Salvando|Recuperando/.test(status) || document.querySelector('dialog[open]');
+    const ocupado = ponteirosAtivos.size || /Salvando|Recuperando/.test(status) || document.querySelector('dialog[open], [data-forma-pendente]');
     if (typeof nova === 'string' && nova !== versao && !ocupado) {
       location.reload();
       return;

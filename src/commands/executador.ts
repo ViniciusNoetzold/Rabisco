@@ -8,6 +8,11 @@ import {
   sobreporPixels,
 } from '../document/transformacoes';
 import type { PixelBuffer, Rect } from '../layers/types';
+import { obterForma } from '../shapes/catalogo';
+import {
+  areaDaForma as areaFormaEditavel,
+  desenharForma as aplicarFormaEditavel,
+} from '../shapes/render';
 import { aplicarPreenchimento, clearRectPixels, planejarPreenchimento } from '../tools/pixels';
 import { type Comando, type ComandoTraco, desserializarImagem, validarDimensoes } from './comandos';
 import {
@@ -87,6 +92,15 @@ export class Executador {
         return this.pintar(comando, NOMES_FORMA[comando.forma], areaDaForma(comando), (ctx) =>
           desenharForma(ctx, comando),
         );
+      case 'AplicarForma': {
+        const { configuracao } = comando;
+        return this.pintar(
+          comando,
+          obterForma(configuracao.id).nome,
+          areaFormaEditavel(configuracao),
+          (ctx) => aplicarFormaEditavel(ctx, configuracao),
+        );
+      }
       case 'Preencher': {
         const dados = this.doc.obterDados();
         const plano = planejarPreenchimento(

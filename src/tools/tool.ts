@@ -6,6 +6,12 @@ import type {
   TipoPincel,
 } from '../brushes/catalogo';
 import type { Point, Rect, ToolId } from '../layers/types';
+import type {
+  EstiloContorno,
+  EstiloPreenchimento,
+  FormaId,
+  ParametrosForma,
+} from '../shapes/tipos';
 
 export type { EstiloTraco } from '../commands/comandos';
 
@@ -13,12 +19,17 @@ export interface EventoFerramenta {
   ponto: Point;
   botao: number;
   shift: boolean;
+  instante?: number;
+  cliques?: number;
 }
 
-export type ToolOptionsSchema = readonly (
-  | { chave: 'espessura'; tipo: 'numero'; rotulo: string; min: number; max: number }
-  | { chave: 'preenchida'; tipo: 'booleano'; rotulo: string }
-)[];
+export type ToolOptionsSchema = readonly {
+  chave: 'espessura';
+  tipo: 'numero';
+  rotulo: string;
+  min: number;
+  max: number;
+}[];
 
 export interface ToolCtx {
   readonly largura: number;
@@ -27,9 +38,13 @@ export interface ToolCtx {
     cor1: string;
     cor2: string;
     espessura: number;
-    preenchida: boolean;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
+    forma: FormaId;
+    contornoForma: EstiloContorno;
+    preenchimentoForma: EstiloPreenchimento;
+    parametrosForma: ParametrosForma;
+    zoom: number;
   };
   readonly selecao: Rect | null;
   executar(comando: Comando): boolean;
@@ -53,9 +68,13 @@ export interface Tool {
   onPointerDown(ctx: ToolCtx, evento: EventoFerramenta): void;
   onPointerMove(ctx: ToolCtx, evento: EventoFerramenta): void;
   onPointerUp(ctx: ToolCtx, evento: EventoFerramenta): void;
+  onHover?(ctx: ToolCtx, evento: EventoFerramenta): boolean;
   onKeyDown?(ctx: ToolCtx, evento: KeyboardEvent): boolean;
   onCancel?(ctx: ToolCtx): void;
   overlay?(ctx: ToolCtx, grafico: CanvasRenderingContext2D): void;
+  limitesOverlay?(ctx: ToolCtx): Rect | null;
+  temPendente?(): boolean;
+  descartarPendente?(): void;
   commitPendente?(ctx: ToolCtx): void;
 }
 

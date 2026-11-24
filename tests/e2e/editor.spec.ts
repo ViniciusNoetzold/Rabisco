@@ -84,6 +84,7 @@ test('desenha uma forma e usa Cor 1/Cor 2 no balde sem atravessar o contorno', a
   await ready(page);
   await page.getByRole('button', { name: 'Retângulo', exact: true }).click();
   await drag(page, [100, 100], [300, 250]);
+  await page.keyboard.press('Enter');
   await expect.poll(() => pixel(page, 100, 175)).toEqual(BLUE);
   await page.getByRole('button', { name: 'Usar cor #e24b4b', exact: true }).click();
   await page.getByRole('button', { name: 'Balde (F)', exact: true }).click();
@@ -120,8 +121,11 @@ test('apaga uma seleção retangular e recupera seus pixels com o atalho', async
 test('copia, cola, move e corta uma seleção sem perder os pixels originais', async ({ page }) => {
   await ready(page);
   await page.getByRole('button', { name: 'Retângulo', exact: true }).click();
-  await page.getByRole('checkbox', { name: 'Preenchimento', exact: true }).check();
+  await page.getByRole('button', { name: 'Selecionar Cor 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Usar cor #3083c5', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Preenchimento', exact: true }).selectOption('solid');
   await drag(page, [100, 100], [180, 150]);
+  await page.keyboard.press('Enter');
   expect(await pixel(page, 140, 120)).toEqual(BLUE);
   await page.getByRole('button', { name: 'Selecionar (S)', exact: true }).click();
   await drag(page, [90, 90], [190, 160]);

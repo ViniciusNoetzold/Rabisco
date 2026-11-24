@@ -22,6 +22,8 @@ function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
     },
     botao: evento.button,
     shift: evento.shiftKey,
+    instante: evento.timeStamp,
+    cliques: evento.detail,
   };
 }
 
@@ -190,7 +192,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
           />
         </div>
         <div className="workspace-hint">
-          <span>Um pequeno espaço para grandes ideias.</span>
+          <span className="workspace-default-hint">Um pequeno espaço para grandes ideias.</span>
+          <span className="workspace-shape-hint">Enter confirma · Esc descarta</span>
           <span>
             PNG · {dimensoes.width} × {dimensoes.height} px
           </span>

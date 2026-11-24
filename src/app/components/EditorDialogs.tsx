@@ -225,6 +225,8 @@ export function EditorDialogs({
                 ['E / F', 'Borracha / balde'],
                 ['S / I', 'Seleção / conta-gotas'],
                 ['L / R / O', 'Linha / retângulo / elipse'],
+                ['U', 'Ferramenta de formas'],
+                ['Enter / Esc', 'Confirmar / descartar a forma atual'],
                 ['Ctrl + Z / Y', 'Desfazer / refazer'],
                 ['Ctrl + S / O', 'Salvar / abrir PNG'],
                 ['Ctrl + E', 'Propriedades da imagem'],
@@ -247,6 +249,11 @@ export function EditorDialogs({
             <p className="help-note">
               A seleção pode ser movida arrastando por dentro dela. O botão direito desenha com a
               Cor 2.
+            </p>
+            <p className="help-note">
+              Para desenhar uma curva, arraste a linha e ajuste até dois pontos de controle. Para
+              desenhar um polígono, clique nos vértices e feche com um clique duplo ou no primeiro
+              ponto. Segure Shift para restringir os ângulos.
             </p>
             <div className="dialog-actions">
               <button className="primary-button" onClick={() => onClose()}>
