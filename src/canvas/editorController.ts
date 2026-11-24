@@ -38,6 +38,7 @@ import type { ConfiguracaoTexto } from '../tools/texto';
 import { criarFerramentas } from '../tools/toolRegistry';
 import type { DocumentInfo, EditorApi } from './editorTypes';
 import { ZOOM_MIN } from './zoom';
+import { definirMemoriaDoEspelho, medicaoAtiva, medirOperacao, registrarGravacao } from './medicao';
 
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
@@ -91,6 +92,7 @@ export class EditorController implements EditorApi {
   ) {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
     this.overlay = previa.getContext('2d')!;
+    if (medicaoAtiva) definirMemoriaDoEspelho(() => this.doc.obterDados().data.byteLength);
     this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
       if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
       if (!this.pronto) return;
@@ -263,13 +265,21 @@ export class EditorController implements EditorApi {
   }
 
   undo() {
-    if (!this.disponivel() || this.descartarColagem() || this.descartarFormaPendente()) return;
-    if (this.comandos.desfazer()) this.restaurarSelecao();
+    if (medicaoAtiva) medirOperacao('desfazer', () => this.mudarHistorico('desfazer'));
+    else this.mudarHistorico('desfazer');
   }
 
   redo() {
+    if (medicaoAtiva) medirOperacao('refazer', () => this.mudarHistorico('refazer'));
+    else this.mudarHistorico('refazer');
+  }
+
+  private mudarHistorico(operacao: 'desfazer' | 'refazer') {
     if (!this.disponivel() || this.descartarColagem() || this.descartarFormaPendente()) return;
-    if (this.comandos.refazer()) this.restaurarSelecao();
+    const mudou = medicaoAtiva
+      ? medirOperacao(`historico:${operacao}`, () => this.comandos[operacao]())
+      : this.comandos[operacao]();
+    if (mudou) this.restaurarSelecao();
   }
 
   async save() {
@@ -861,7 +871,19 @@ export class EditorController implements EditorApi {
   private executar(comando: Comando, aposExecutar?: () => void) {
     // As prévias não entram no histórico. O comando rasteriza uma única vez na camada.
     this.limparPrevia();
-    if (!this.comandos.executar(comando)) return false;
+    const categoria =
+      medicaoAtiva &&
+      (comando.tipo === 'Pincelar'
+        ? comando.configuracao.tipo === 'spray'
+          ? 'spray'
+          : 'pincel'
+        : comando.tipo === 'Preencher'
+          ? 'balde'
+          : null);
+    const mudou = categoria
+      ? medirOperacao(`historico:${categoria}`, () => this.comandos.executar(comando))
+      : this.comandos.executar(comando);
+    if (!mudou) return false;
     if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
     if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
     aposExecutar?.();
@@ -899,6 +921,7 @@ export class EditorController implements EditorApi {
           pixels: data,
           updatedAt: Date.now(),
         });
+        if (medicaoAtiva) registrarGravacao({ bytes: data.byteLength, blocos: 0 });
         if (revisao === this.revisao) this.salvamento = 'saved';
       } catch (erro) {
         if (revisao === this.revisao) {

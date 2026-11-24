@@ -1,6 +1,7 @@
 import { AmostradorPincel } from '../brushes/amostrador';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import { PONTOS_POR_SEGUNDO } from '../brushes/motor';
+import { medicaoAtiva, medirOperacao } from '../canvas/medicao';
 import type { Point } from '../layers/types';
 import { corDoBotao, definirFerramenta, opcaoEspessura, type ToolCtx } from './tool';
 
@@ -105,7 +106,8 @@ export const pincel = definirFerramenta(
         emitir(ctx, spray, [{ ...ponto, quantidade: Math.max(1, Math.round(taxa / 60)) }]);
         function animar(instante: number) {
           if (gesto !== spray) return;
-          borrifar(ctx, spray, instante);
+          if (medicaoAtiva) medirOperacao('spray:quadro', () => borrifar(ctx, spray, instante));
+          else borrifar(ctx, spray, instante);
           spray.quadro = requestAnimationFrame(animar);
         }
         spray.quadro = requestAnimationFrame(animar);

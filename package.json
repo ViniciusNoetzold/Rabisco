@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:estavel": "node scripts/test-e2e-estavel.mjs",
+    "perf": "node scripts/perf.mjs",
     "format": "prettier --write src tests scripts *.json *.ts *.md index.html"
   },
   "dependencies": {

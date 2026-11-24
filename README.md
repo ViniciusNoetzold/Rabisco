@@ -85,7 +85,7 @@ npm run test:e2e
 14. Salve uma cor personalizada. Exporte um arquivo JPEG ou GIF, abra-o e confira o desenho recuperado.
 15. Abra a impressão em paisagem e verifique a prévia. Feche-a, aguarde o autosave e recarregue o editor.
 
-No ensaio isolado de uma pincelada em um papel de 4000 × 4000 px, o Edge registrou 179 intervalos entre quadros durante o gesto. A média foi de 16,67 ms, com p95 de 16,80 ms.
+Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no Edge. O ensaio usa papéis de três tamanhos. A metodologia e os resultados ficam em [Desempenho do Rabisco](docs/desempenho.md).
 
 ## Organização
 

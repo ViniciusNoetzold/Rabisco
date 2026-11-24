@@ -2,6 +2,13 @@
 
 ## 0.2.1 em desenvolvimento
 
+### Passo 2 — Medição do custo do editor
+
+- `npm run perf` mede tempo síncrono dos eventos de desenho e comandos de histórico, tarefas longas e memória em três tamanhos de papel. O [relatório](docs/desempenho.md) explica como reproduzir e interpretar as medidas.
+- Linha de base medida: movimento do traço abaixo de 1 ms; histórico da pincelada de 4 a 16 ms a partir da segunda; desfazer e refazer de 17 a 48 ms. Pendências registradas: a primeira pincelada depois de criar o papel (127 ms em 4000 × 4000), o autosave do papel inteiro e o balde em papel grande (0,9 s em 4000 × 4000).
+- O ensaio encontrou um gargalo ao soltar o pincel: a máscara temporária era criada na GPU, e copiá-la para a camada forçava uma sincronização. Agora máscaras, transformações e texturas usam a memória comum. A confirmação da pincelada caiu de 125 ms para 3,6 ms em 4000 × 4000 e de 233 ms para 5,5 ms em 8192 × 4096.
+- Pendências medidas: o autosave ainda grava o papel inteiro (Passo 4), e o balde em papel inteiro leva 0,9 s em 4000 × 4000.
+
 ### Passo 1 — Testes reproduzíveis
 
 - Os quatro fluxos com área de transferência usam um projeto Playwright de um worker e uma área de transferência por contexto. Os demais fluxos rodam em paralelo.
@@ -17,7 +24,7 @@ Os oito passos da paridade clássica foram concluídos. A revisão encontrou ins
 - Abertura de PNG, JPEG, BMP, GIF pelo primeiro quadro, WebP e ICO. Exportação em PNG, JPEG, BMP de 24 bits, GIF e WebP, com avisos de perda de transparência ou cores e ajuste de qualidade onde aplicável.
 - Colagem pelo navegador, botão Colar, arquivo e arraste. A imagem externa fica flutuante para posicionamento e pode ampliar o papel quando necessário em uma única edição no histórico.
 - Editor com espectro, HSL, RGB, hexadecimal e 16 cores persistentes. Impressão com ajuste à página, centralização e orientação. A ajuda lista os atalhos atualizados.
-- Pincelada medida no Edge em papel de 4000 × 4000 px com média de 16,67 ms por quadro e p95 de 16,80 ms.
+- O ensaio de lançamento registrava intervalos entre quadros. A 0.2.1 passou a medir o custo dos eventos e comandos.
 
 ### Passo 7 — Navegação no papel
 

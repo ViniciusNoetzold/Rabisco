@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-test('mede os quadros de uma pincelada em papel de 4000 × 4000 px', async ({ page }) => {
+test('mede os eventos e o histórico de uma pincelada em papel de 4000 × 4000 px', async ({
+  page,
+}) => {
   test.setTimeout(90_000);
-  await page.goto('/');
+  await page.goto('/?medir=1');
   await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
   await page.keyboard.press('Control+n');
   const formulario = page.getByRole('dialog');
@@ -29,60 +31,24 @@ test('mede os quadros de uma pincelada em papel de 4000 × 4000 px', async ({ pa
     };
   });
 
-  const medicao = page.evaluate(
-    () =>
-      new Promise<number[]>((resolver) => {
-        const canvas = document.querySelector('canvas.drawing-canvas')!;
-        canvas.addEventListener(
-          'pointerdown',
-          () => {
-            let anterior: number | undefined;
-            let terminou = false;
-            const intervalos: number[] = [];
-            canvas.addEventListener(
-              'pointerup',
-              () => {
-                terminou = true;
-              },
-              { once: true, capture: true },
-            );
-            function quadro(tempo: number) {
-              if (anterior !== undefined) intervalos.push(tempo - anterior);
-              anterior = tempo;
-              if (terminou) resolver(intervalos);
-              else requestAnimationFrame(quadro);
-            }
-            requestAnimationFrame(quadro);
-          },
-          { once: true, capture: true },
-        );
-      }),
-  );
-  // A avaliação anterior instala o medidor antes do primeiro evento de mouse.
-  await page.evaluate(() => void 0);
-
   const x0 = visivel.x + visivel.largura * 0.15;
   const y0 = visivel.y + visivel.altura * 0.43;
   await page.mouse.move(x0, y0);
+  await page.evaluate(() => window.rabiscoMedicao!.iniciar());
   await page.mouse.down();
   const passos = 80;
   for (let i = 1; i <= passos; i++) {
     const x = x0 + visivel.largura * ((0.7 * i) / passos);
     const y = y0 + Math.sin((i * Math.PI) / 18) * visivel.altura * 0.09;
     await page.mouse.move(x, y);
-    await page.evaluate(
-      () => new Promise<void>((resolver) => requestAnimationFrame(() => resolver())),
-    );
   }
   await page.mouse.up();
 
-  const intervalos = (await medicao).filter((tempo) => tempo > 0).sort((a, b) => a - b);
-  expect(intervalos.length).toBeGreaterThan(20);
-  const media = intervalos.reduce((soma, tempo) => soma + tempo, 0) / intervalos.length;
-  const p95 = intervalos[Math.ceil(intervalos.length * 0.95) - 1];
-  console.log(
-    `Pincel 4000×4000 — ${intervalos.length} quadros, média ${media.toFixed(2)} ms, p95 ${p95.toFixed(2)} ms, máximo ${intervalos.at(-1)!.toFixed(2)} ms.`,
-  );
+  const { medidas } = await page.evaluate(() => window.rabiscoMedicao!.encerrar());
+  expect(medidas['pincel:inicio']).toHaveLength(1);
+  expect(medidas['pincel:movimento']).toHaveLength(passos);
+  expect(medidas['pincel:fim']).toHaveLength(1);
+  expect(medidas['historico:pincel']).toHaveLength(1);
 
   await expect(page.locator('.history-list').getByText('Pincelada', { exact: true })).toHaveCount(
     1,

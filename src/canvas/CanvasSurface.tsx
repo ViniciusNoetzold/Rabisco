@@ -10,6 +10,7 @@ import { Reguas } from './Reguas';
 import { Miniatura } from './Miniatura';
 import { LupaOverlay } from './LupaOverlay';
 import { useNavegacaoCanvas } from './useNavegacaoCanvas';
+import { medicaoAtiva, medirOperacao, type FaseDoTraco } from './medicao';
 
 export type { DocumentInfo, EditorApi } from './editorTypes';
 
@@ -31,6 +32,23 @@ function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
     instante: evento.timeStamp,
     cliques: evento.detail,
   };
+}
+
+function medirPonteiro(
+  evento: EventoPonteiro<HTMLCanvasElement>,
+  fase: FaseDoTraco,
+  executar: () => void,
+) {
+  const { tool, pincel } = useEditor.getState();
+  const gesto =
+    fase === 'inicio'
+      ? !evento.altKey && (evento.button === 0 || evento.button === 2)
+      : evento.currentTarget.hasPointerCapture(evento.pointerId);
+  if (gesto && tool === 'brush') {
+    medirOperacao(`${pincel === 'spray' ? 'spray' : 'pincel'}:${fase}`, executar);
+  } else if (gesto && tool === 'fill' && fase === 'fim') {
+    medirOperacao('balde', executar);
+  } else executar();
 }
 
 export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
@@ -176,9 +194,21 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
               aria-label="Tela de desenho. Use o ponteiro para desenhar e os botões das ferramentas para escolher uma ação."
               style={tamanho}
               onContextMenu={(evento) => evento.preventDefault()}
-              onPointerDown={pressionar}
-              onPointerMove={mover}
-              onPointerUp={(evento) => terminar(evento)}
+              onPointerDown={
+                medicaoAtiva
+                  ? (evento) => medirPonteiro(evento, 'inicio', () => pressionar(evento))
+                  : pressionar
+              }
+              onPointerMove={
+                medicaoAtiva
+                  ? (evento) => medirPonteiro(evento, 'movimento', () => mover(evento))
+                  : mover
+              }
+              onPointerUp={
+                medicaoAtiva
+                  ? (evento) => medirPonteiro(evento, 'fim', () => terminar(evento))
+                  : terminar
+              }
               onPointerCancel={(evento) => terminar(evento, true)}
               onLostPointerCapture={(evento) => terminar(evento, true)}
               onPointerLeave={() => {

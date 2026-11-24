@@ -1,0 +1,332 @@
+import { chromium, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { arch, availableParallelism, cpus, release, totalmem, type } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'vite';
+
+const raiz = fileURLToPath(new URL('..', import.meta.url));
+const papeis = [
+  { largura: 1024, altura: 640 },
+  { largura: 4000, altura: 4000 },
+  { largura: 8192, altura: 4096 },
+];
+const quantidadeMovimentos = 300;
+const endereco = 'http://127.0.0.1:5174';
+const canal = process.env.PLAYWRIGHT_CHANNEL || 'msedge';
+const data = new Date().toISOString();
+const corDoBalde = [48, 131, 197, 255];
+const branco = [255, 255, 255, 255];
+
+function lerRotulo(argumentos) {
+  if (!argumentos.length) return data.replace(/[:.]/g, '-');
+  const rotulo = argumentos[0]?.match(/^--rotulo=([a-zA-Z0-9_-]{1,64})$/)?.[1];
+  if (argumentos.length !== 1 || !rotulo) {
+    throw new Error('Uso: npm run perf -- --rotulo=passo-2');
+  }
+  return rotulo;
+}
+
+function resumir(amostras) {
+  const ordenadas = [...amostras].sort((a, b) => a - b);
+  const posicao = (fracao) => Math.max(0, Math.ceil(ordenadas.length * fracao) - 1);
+  return {
+    amostras: ordenadas.length,
+    p50: ordenadas[posicao(0.5)],
+    p95: ordenadas[posicao(0.95)],
+    maximo: ordenadas.at(-1),
+  };
+}
+
+async function aguardarSalvamento(pagina) {
+  await expect(pagina.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible({
+    timeout: 40_000,
+  });
+}
+
+async function recolherEstadoDoAutosave(pagina, aguardar = true) {
+  const indicador = pagina.locator('.autosave');
+  if (aguardar) {
+    await indicador
+      .filter({ hasText: /Salvo neste dispositivo|Salve uma cópia em PNG/ })
+      .waitFor({ timeout: 15_000 })
+      .catch(() => {});
+  }
+  const estado = (await indicador.innerText()).trim();
+  if (estado === 'Salvo neste dispositivo') return 'salvo';
+  if (estado === 'Salve uma cópia em PNG') return 'erro';
+  if (estado === 'Salvando…') return 'pendente';
+  throw new Error(`O editor não ficou disponível no ensaio. Estado do autosave: "${estado}".`);
+}
+
+async function criarPapel(pagina, { largura, altura }) {
+  await pagina.keyboard.press('Control+n');
+  const dialogo = pagina.getByRole('dialog');
+  await dialogo.getByLabel('Largura (px)', { exact: true }).fill(String(largura));
+  await dialogo.getByLabel('Altura (px)', { exact: true }).fill(String(altura));
+  await dialogo.getByRole('button', { name: 'Criar desenho', exact: true }).click();
+  const tela = pagina.locator('.drawing-canvas');
+  await expect(tela).toHaveAttribute('width', String(largura));
+  await expect(tela).toHaveAttribute('height', String(altura));
+  const estado = await recolherEstadoDoAutosave(pagina);
+  const zoom = pagina.getByRole('slider', { name: 'Zoom', exact: true });
+  // A escala de ajuste pode cair na mesma posição do controle que 100%.
+  await zoom.fill('2');
+  await expect(zoom).toHaveAttribute('aria-valuetext', '50%');
+  await zoom.fill('3');
+  await expect(zoom).toHaveAttribute('aria-valuetext', '100%');
+  await tela.focus();
+  return estado;
+}
+
+async function pontoNaAreaVisivel(pagina) {
+  return pagina.locator('.drawing-canvas').evaluate((tela) => {
+    const papel = tela.getBoundingClientRect();
+    const viewport = tela.closest('.workspace').getBoundingClientRect();
+    const esquerda = Math.max(papel.left, viewport.left);
+    const direita = Math.min(papel.right, viewport.right);
+    const topo = Math.max(papel.top, viewport.top);
+    const base = Math.min(papel.bottom, viewport.bottom);
+    if (direita - esquerda < 400 || base - topo < 300) {
+      throw new Error('O papel visível é pequeno demais para o ensaio.');
+    }
+    return {
+      x: Math.round((esquerda + direita) / 2),
+      y: Math.round((topo + base) / 2),
+    };
+  });
+}
+
+async function medir(pagina, autosave, operacao) {
+  await pagina.evaluate(() => {
+    if (!window.rabiscoMedicao) throw new Error('A instrumentação de desempenho não está ligada.');
+    window.rabiscoMedicao.iniciar();
+  });
+  await operacao();
+  const estadoDoAutosave = await recolherEstadoDoAutosave(pagina, autosave.estado === 'salvo');
+  if (estadoDoAutosave !== 'salvo' && autosave.estado === 'salvo')
+    console.warn(`Autosave ${estadoDoAutosave}; a etapa de desenho segue instrumentada.`);
+  autosave.estado = estadoDoAutosave;
+  // Entrega a última entrada ao PerformanceObserver após a tarefa que alterou a camada.
+  await pagina.evaluate(() => new Promise((resolver) => setTimeout(resolver, 0)));
+  const { medidas, ...coleta } = await pagina.evaluate(() => window.rabiscoMedicao.encerrar());
+  return {
+    ...coleta,
+    estadoDoAutosave,
+    operacoes: Object.fromEntries(
+      Object.entries(medidas).map(([nome, amostras]) => [nome, resumir(amostras)]),
+    ),
+  };
+}
+
+async function traco(pagina, autosave, atalho, categoria, rotuloDoHistorico, deslocamento = 0) {
+  await pagina.keyboard.press(atalho);
+  const centro = await pontoNaAreaVisivel(pagina);
+  const x = centro.x;
+  const y = centro.y + deslocamento;
+  const itens = pagina.locator('.history-list').getByText(rotuloDoHistorico, { exact: true });
+  const anteriores = await itens.count();
+  await pagina.mouse.move(x - 84, y);
+  const resultado = await medir(pagina, autosave, async () => {
+    await pagina.mouse.down();
+    // A trajetória mede 168 × 40 px no papel em todos os três tamanhos.
+    // Cada mouse.move entrega um evento real. O ensaio não espera quadros entre eventos.
+    for (let i = 1; i <= quantidadeMovimentos; i++) {
+      const progresso = i / quantidadeMovimentos;
+      await pagina.mouse.move(x - 84 + 168 * progresso, y + 20 * Math.sin(progresso * 8 * Math.PI));
+    }
+    await pagina.mouse.up();
+    await expect(itens).toHaveCount(anteriores + 1);
+  });
+  for (const nome of [`${categoria}:inicio`, `${categoria}:fim`, `historico:${categoria}`]) {
+    if (resultado.operacoes[nome]?.amostras !== 1)
+      throw new Error(`O ensaio não recebeu uma amostra para ${nome}.`);
+  }
+  const amostras = resultado.operacoes[`${categoria}:movimento`]?.amostras ?? 0;
+  if (amostras !== quantidadeMovimentos)
+    throw new Error(
+      `Esperava ${quantidadeMovimentos} movimentos de ${categoria}. Recebi ${amostras}.`,
+    );
+  if (categoria === 'spray' && !resultado.operacoes['spray:quadro']?.amostras)
+    throw new Error('O aerógrafo deve borrifar durante o arraste.');
+  return resultado;
+}
+
+async function conferirCantos(pagina, cor) {
+  const resultado = await pagina.locator('.drawing-canvas').evaluate((tela) => {
+    const ctx = tela.getContext('2d');
+    return [
+      Array.from(ctx.getImageData(0, 0, 1, 1).data),
+      Array.from(ctx.getImageData(tela.width - 1, tela.height - 1, 1, 1).data),
+    ];
+  });
+  expect(resultado).toEqual([cor, cor]);
+}
+
+async function memoriaEmRepouso(pagina, cdp) {
+  let dadosDoRuntime = null;
+  try {
+    await cdp.send('HeapProfiler.collectGarbage');
+    dadosDoRuntime = await cdp.send('Runtime.getHeapUsage');
+  } catch {
+    // A API experimental do protocolo pode não existir em versões antigas do Edge.
+  }
+  return { ...(await pagina.evaluate(() => window.rabiscoMedicao.memoria())), dadosDoRuntime };
+}
+
+async function medirPapel(browser, papel) {
+  const contexto = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  try {
+    const pagina = await contexto.newPage();
+    const cdp = await contexto.newCDPSession(pagina);
+    await pagina.goto(`${endereco}/?medir=1`);
+    await aguardarSalvamento(pagina);
+    const estadoInicial = await criarPapel(pagina, papel);
+    const autosave = { estado: estadoInicial };
+    if (estadoInicial !== 'salvo') {
+      console.warn(
+        `Papel ${papel.largura} × ${papel.altura}: autosave ${estadoInicial} ao criar. O ensaio vai medir as operações de desenho e informar o estado de gravação.`,
+      );
+    }
+    const semEdicoes = await memoriaEmRepouso(pagina, cdp);
+    // A primeira pincelada depois de criar o papel paga uma sincronização única entre a
+    // máscara do pincel (GPU) e a camada (memória comum). As seguintes mostram o custo usual.
+    const pincel = await traco(pagina, autosave, 'b', 'pincel', 'Pincelada');
+    const pincel2 = await traco(pagina, autosave, 'b', 'pincel', 'Pincelada', 60);
+    const pincel3 = await traco(pagina, autosave, 'b', 'pincel', 'Pincelada', 120);
+    const spray = await traco(pagina, autosave, 'a', 'spray', 'Aerógrafo / Spray', -60);
+    const depoisDosTracos = await memoriaEmRepouso(pagina, cdp);
+
+    autosave.estado = await criarPapel(pagina, papel);
+    await pagina.keyboard.press('f');
+    const { x, y } = await pontoNaAreaVisivel(pagina);
+    const balde = await medir(pagina, autosave, async () => {
+      await pagina.mouse.click(x, y);
+      await conferirCantos(pagina, corDoBalde);
+    });
+    const desfazer = await medir(pagina, autosave, async () => {
+      await pagina.keyboard.press('Control+z');
+      await conferirCantos(pagina, branco);
+    });
+    const refazer = await medir(pagina, autosave, async () => {
+      await pagina.keyboard.press('Control+y');
+      await conferirCantos(pagina, corDoBalde);
+    });
+    for (const [nome, fase] of [
+      ['balde', balde],
+      ['desfazer', desfazer],
+      ['refazer', refazer],
+    ]) {
+      for (const medida of [nome, `historico:${nome}`]) {
+        if (fase.operacoes[medida]?.amostras !== 1)
+          throw new Error(`O ensaio não recebeu uma amostra para ${medida}.`);
+      }
+    }
+    return {
+      ...papel,
+      autosaveAoCriar: estadoInicial,
+      memoria: { semEdicoes, depoisDosTracos },
+      fases: {
+        pincel,
+        'pincel (2ª)': pincel2,
+        'pincel (3ª)': pincel3,
+        spray,
+        balde,
+        desfazer,
+        refazer,
+      },
+    };
+  } finally {
+    await contexto.close();
+  }
+}
+
+const ms = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const inteiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+
+function imprimir(resultado) {
+  const { largura, altura, fases, memoria } = resultado;
+  console.log(`\nPapel ${largura} × ${altura} px (zoom 100%)`);
+  console.table(
+    Object.entries(fases).flatMap(([fase, { operacoes }]) =>
+      Object.entries(operacoes).map(([operacao, resumo]) => ({
+        fase,
+        operação: operacao,
+        amostras: resumo.amostras,
+        'p50 (ms)': ms.format(resumo.p50),
+        'p95 (ms)': ms.format(resumo.p95),
+        'máx. (ms)': ms.format(resumo.maximo),
+      })),
+    ),
+  );
+  console.table(
+    Object.entries(fases).map(([fase, dados]) => ({
+      fase,
+      autosave: dados.estadoDoAutosave,
+      'tarefas longas (≥ 50 ms)': dados.suportaTarefasLongas ? dados.tarefasLongas.length : 'n/d',
+      '> 100 ms': dados.suportaTarefasLongas
+        ? dados.tarefasLongas.filter(({ duracao }) => duracao > 100).length
+        : 'n/d',
+      'maior tarefa (ms)': dados.tarefasLongas.length
+        ? ms.format(Math.max(...dados.tarefasLongas.map(({ duracao }) => duracao)))
+        : '—',
+      'bytes gravados': dados.gravacoes.length
+        ? inteiro.format(dados.gravacoes.reduce((total, { bytes }) => total + bytes, 0))
+        : 'n/d',
+      'blocos gravados': dados.gravacoes.length
+        ? inteiro.format(dados.gravacoes.reduce((total, { blocos }) => total + blocos, 0))
+        : 'n/d',
+    })),
+  );
+  const mib = (bytes) => (typeof bytes === 'number' ? ms.format(bytes / 1024 ** 2) : 'n/d');
+  console.table(
+    Object.entries(memoria).map(([fase, dados]) => ({
+      fase,
+      'heap JS (MiB)': mib(dados.heapUsado),
+      'heap CDP (MiB)': mib(dados.dadosDoRuntime?.usedSize),
+      'ArrayBuffers e strings externas (MiB)': mib(dados.dadosDoRuntime?.backingStorageSize),
+      'espelho do documento (MiB)': mib(dados.bytesEspelho),
+    })),
+  );
+}
+
+const rotulo = lerRotulo(process.argv.slice(2));
+const servidor = await createServer({
+  root: raiz,
+  server: { host: '127.0.0.1', port: 5174, strictPort: true, hmr: false },
+});
+try {
+  await servidor.listen();
+  const browser = await chromium.launch({ channel: canal, args: ['--enable-precise-memory-info'] });
+  try {
+    const relatorio = {
+      data,
+      maquina: {
+        sistema: `${type()} ${release()} ${arch()}`,
+        cpu: cpus()[0]?.model,
+        nucleosLogicos: availableParallelism(),
+        ramBytes: totalmem(),
+      },
+      navegador: { canal, versao: browser.version() },
+      resultados: [],
+    };
+    console.log('Ensaio do Rabisco', relatorio.data, relatorio.maquina, relatorio.navegador);
+    for (const papel of papeis) {
+      const resultado = await medirPapel(browser, papel);
+      relatorio.resultados.push(resultado);
+      imprimir(resultado);
+    }
+    const pasta = join(raiz, 'output', 'perf');
+    await mkdir(pasta, { recursive: true });
+    const arquivo = join(pasta, `${rotulo}.json`);
+    await writeFile(arquivo, `${JSON.stringify(relatorio, null, 2)}\n`);
+    console.log(`\nRelatório salvo em ${arquivo}`);
+  } finally {
+    await browser.close();
+  }
+} finally {
+  await servidor.close();
+}
