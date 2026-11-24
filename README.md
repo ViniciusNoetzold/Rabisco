@@ -92,7 +92,8 @@ Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no 
 ```text
 src/
   app/        Interface, estado, diálogos e atalhos
-  canvas/     Superfície, coordenadas e controle dos gestos
+  canvas/     Superfície, coordenadas e o coordenador do editor
+    controle/ Tela e prévias, ferramentas, seleção, colagem, papel, autosave e arquivos
   commands/   Comandos serializáveis, execução e histórico por área
   document/   Documento, camada ativa e composição da tela
   io/         Arquivos de imagem, área de transferência e impressão

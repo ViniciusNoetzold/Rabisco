@@ -2,6 +2,19 @@
 
 ## 0.2.1 em desenvolvimento
 
+### Passo 5 — Editor em módulos
+
+- O `EditorController` passou de 999 para 364 linhas e virou o coordenador. O que sobrou nele é o histórico e as chamadas de uma linha que a interface `EditorApi` exige. O trabalho especializado foi para `src/canvas/controle/`:
+  - `superficie.ts`: composição da tela, prévias e overlay;
+  - `ferramentas.ts`: gestos, teclado, contexto das ferramentas, conta-gotas e formas pendentes;
+  - `selecao.ts`: seleção, laço, marquise e silhueta;
+  - `colagem.ts`: copiar, colar e imagem flutuante;
+  - `papel.ts`: abrir, novo, tamanho, girar e transformar;
+  - `persistencia.ts`: recuperação e autosave;
+  - `arquivos.ts`: salvar, exportar e imprimir;
+  - `opcoes.ts` e `nucleo.ts`: as opções das ferramentas e o contrato comum.
+- Nenhum comportamento mudou: 119 testes unitários e 46 fluxos E2E aprovados.
+
 ### Passo 4 — Autosave leve
 
 - O autosave grava o papel em blocos de 256 × 256 px. Cada edição marca só os blocos que tocou. Depois de 800 ms sem edições, esses blocos são lidos, convertidos em PNG num Web Worker e gravados numa transação com a descrição do papel. Blocos de uma cor só viram um número. A aba oculta (`visibilitychange`) e o fechamento da página (`pagehide`) gravam na hora.
