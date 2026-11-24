@@ -8,6 +8,9 @@ import { OrientationMenu } from './OrientationMenu';
 import { Icon, RibbonGroup, type RunAction } from './Primitives';
 import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
 import { SprayControls, StrokeThickness } from './StrokeThickness';
+import { TextTools } from './TextTools';
+import { ControlesDeBalde, ControlesDeBorracha } from './ContextPixelTools';
+import { SelectionMenu } from './SelectionMenu';
 
 interface RibbonProps {
   tab: string;
@@ -49,107 +52,142 @@ export function Ribbon({
   }
 
   return (
-    <div className="ribbon" id="ribbon-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
-      {tab === 'Início' ? (
+    <div
+      className="ribbon"
+      id="ribbon-panel"
+      role="tabpanel"
+      aria-labelledby={`tab-${tab}`}
+      data-opcoes-texto={tab === 'Texto' ? '' : undefined}
+    >
+      {tab !== 'Exibir' ? (
         <>
-          <RibbonGroup title="Área de transferência" className="clipboard-group">
-            <button
-              className="ribbon-large"
-              onClick={() => run(() => editor.current?.paste())}
-              title="Colar seleção (Ctrl+V)"
-            >
-              <Icon name="clipboard-paste" className="large-icon" />
-              <span>Colar</span>
-            </button>
-            <div className="ribbon-stack">
-              <button
-                onClick={() => run(() => editor.current?.copy(true))}
-                disabled={!info.selection}
+          {tab === 'Texto' ? (
+            <TextTools
+              estilo={state.estiloTexto}
+              definirEstilo={(estiloTexto) => state.set({ estiloTexto })}
+            />
+          ) : (
+            <>
+              <RibbonGroup title="Área de transferência" className="clipboard-group">
+                <button
+                  className="ribbon-large"
+                  onClick={() => run(() => editor.current?.paste())}
+                  title="Colar seleção (Ctrl+V)"
+                >
+                  <Icon name="clipboard-paste" className="large-icon" />
+                  <span>Colar</span>
+                </button>
+                <div className="ribbon-stack">
+                  <button
+                    onClick={() => run(() => editor.current?.copy(true))}
+                    disabled={!info.selection}
+                  >
+                    <Icon name="scissors" />
+                    Recortar
+                  </button>
+                  <button
+                    onClick={() => run(() => editor.current?.copy())}
+                    disabled={!info.selection}
+                  >
+                    <Icon name="document-copy" />
+                    Copiar
+                  </button>
+                </div>
+              </RibbonGroup>
+              <RibbonGroup title="Imagem" className="image-group">
+                <button
+                  className={`ribbon-large ${state.tool === 'select' ? 'selected' : ''}`}
+                  onClick={() => state.setTool('select')}
+                  aria-label="Selecionar (S)"
+                  aria-pressed={state.tool === 'select'}
+                >
+                  <Icon name={toolRegistry.select.icone} className="large-icon" />
+                  <span>Selecionar</span>
+                </button>
+                <div className="ribbon-stack">
+                  <button
+                    onClick={() => editor.current?.crop()}
+                    disabled={!info.selection || !info.selection.width || !info.selection.height}
+                  >
+                    <Icon name="image-crop" />
+                    Cortar
+                  </button>
+                  <button onClick={onOpen}>
+                    <Icon name="folder-open" />
+                    Abrir
+                  </button>
+                </div>
+                <div className="ribbon-stack image-actions">
+                  <button
+                    type="button"
+                    disabled={carregando}
+                    title="Propriedades da imagem (Ctrl+E)"
+                    onClick={onPropriedades}
+                  >
+                    <Icon name="information" />
+                    Propriedades da imagem
+                  </button>
+                  <button
+                    type="button"
+                    disabled={carregando}
+                    title="Redimensionar e inclinar (Ctrl+W)"
+                    onClick={onTransformar}
+                  >
+                    <Icon name="application-resize-full" />
+                    Redimensionar e inclinar
+                  </button>
+                  <OrientationMenu
+                    desabilitado={carregando}
+                    aplicar={(orientacao) => run(() => editor.current?.girarImagem(orientacao))}
+                  />
+                  <SelectionMenu editor={editor.current} selecionada={Boolean(info.selection)} />
+                </div>
+              </RibbonGroup>
+              <RibbonGroup title="Ferramentas" className="tools-group">
+                <div className="tools-grid">
+                  {botaoFerramenta('pencil')}
+                  {botaoFerramenta('fill')}
+                  {botaoFerramenta('eyedropper')}
+                  {botaoFerramenta('brush')}
+                  {botaoFerramenta('eraser')}
+                  {botaoFerramenta('text')}
+                  <button
+                    className="tool-button"
+                    title="Ajustar à janela"
+                    aria-label="Ajustar à janela"
+                    onClick={() => editor.current?.fit()}
+                  >
+                    <Icon name="magnifier" />
+                  </button>
+                </div>
+              </RibbonGroup>
+              <RibbonGroup title="Pincéis" className="brush-group">
+                <BrushGallery carregando={carregando} />
+                {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
+              </RibbonGroup>
+              <RibbonGroup title="Formas" className="formas-ribbon">
+                <ShapeGallery carregando={carregando} {...galeriaFormas} />
+              </RibbonGroup>
+              <RibbonGroup
+                title={
+                  state.tool === 'fill'
+                    ? 'Balde'
+                    : state.tool === 'eraser'
+                      ? 'Borracha'
+                      : 'Espessura'
+                }
+                className={`size-group ${state.tool === 'fill' ? 'pixel-fill-group' : state.tool === 'eraser' ? 'pixel-eraser-group' : ''}`}
               >
-                <Icon name="scissors" />
-                Recortar
-              </button>
-              <button onClick={() => run(() => editor.current?.copy())} disabled={!info.selection}>
-                <Icon name="document-copy" />
-                Copiar
-              </button>
-            </div>
-          </RibbonGroup>
-          <RibbonGroup title="Imagem" className="image-group">
-            <button
-              className={`ribbon-large ${state.tool === 'select' ? 'selected' : ''}`}
-              onClick={() => state.setTool('select')}
-              aria-label="Selecionar (S)"
-              aria-pressed={state.tool === 'select'}
-            >
-              <Icon name={toolRegistry.select.icone} className="large-icon" />
-              <span>Selecionar</span>
-            </button>
-            <div className="ribbon-stack">
-              <button
-                onClick={() => editor.current?.crop()}
-                disabled={!info.selection || !info.selection.width || !info.selection.height}
-              >
-                <Icon name="image-crop" />
-                Cortar
-              </button>
-              <button onClick={onOpen}>
-                <Icon name="folder-open" />
-                Abrir
-              </button>
-            </div>
-            <div className="ribbon-stack image-actions">
-              <button
-                type="button"
-                disabled={carregando}
-                title="Propriedades da imagem (Ctrl+E)"
-                onClick={onPropriedades}
-              >
-                <Icon name="information" />
-                Propriedades da imagem
-              </button>
-              <button
-                type="button"
-                disabled={carregando}
-                title="Redimensionar e inclinar (Ctrl+W)"
-                onClick={onTransformar}
-              >
-                <Icon name="application-resize-full" />
-                Redimensionar e inclinar
-              </button>
-              <OrientationMenu
-                desabilitado={carregando}
-                aplicar={(orientacao) => run(() => editor.current?.girarImagem(orientacao))}
-              />
-            </div>
-          </RibbonGroup>
-          <RibbonGroup title="Ferramentas" className="tools-group">
-            <div className="tools-grid">
-              {botaoFerramenta('pencil')}
-              {botaoFerramenta('fill')}
-              {botaoFerramenta('eyedropper')}
-              {botaoFerramenta('brush')}
-              {botaoFerramenta('eraser')}
-              <button
-                className="tool-button"
-                title="Ajustar à janela"
-                aria-label="Ajustar à janela"
-                onClick={() => editor.current?.fit()}
-              >
-                <Icon name="magnifier" />
-              </button>
-            </div>
-          </RibbonGroup>
-          <RibbonGroup title="Pincéis" className="brush-group">
-            <BrushGallery carregando={carregando} />
-            {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
-          </RibbonGroup>
-          <RibbonGroup title="Formas" className="formas-ribbon">
-            <ShapeGallery carregando={carregando} {...galeriaFormas} />
-          </RibbonGroup>
-          <RibbonGroup title="Espessura" className="size-group">
-            <StrokeThickness />
-          </RibbonGroup>
+                {state.tool === 'eraser' ? (
+                  <ControlesDeBorracha />
+                ) : state.tool === 'fill' ? (
+                  <ControlesDeBalde />
+                ) : (
+                  <StrokeThickness />
+                )}
+              </RibbonGroup>
+            </>
+          )}
           <RibbonGroup title="Cores" className="colors-group">
             <div className="color-targets">
               {([1, 2] as const).map((id) => (

@@ -21,6 +21,7 @@ export interface EditorApi {
   open(file: File): Promise<void>;
   newDocument(name: string, width: number, height: number): void;
   selectAll(): void;
+  inverterSelecao(): void;
   deleteSelection(): void;
   crop(): void;
   copy(cut?: boolean): Promise<void>;

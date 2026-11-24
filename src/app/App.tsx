@@ -26,6 +26,7 @@ export default function App() {
   const [info, setInfo] = useState(initialInfo);
   const cursorStatus = useRef<CursorStatusApi>(null);
   const [tab, setTab] = useState('Início');
+  const ferramenta = useEditor((estado) => estado.tool);
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
@@ -84,6 +85,9 @@ export default function App() {
   useEffect(() => {
     document.title = `${info.name} — Rabisco`;
   }, [info.name]);
+  useEffect(() => {
+    setTab((atual) => (ferramenta === 'text' ? 'Texto' : atual === 'Texto' ? 'Início' : atual));
+  }, [ferramenta]);
   useEffect(() => {
     function keys(event: KeyboardEvent) {
       const target = event.target as HTMLElement;

@@ -17,12 +17,21 @@ import { Executador } from '../commands/executador';
 import { comporDocumento } from '../document/compositor';
 import { DPI_PADRAO } from '../document/dimensoes';
 import { RabiscoDocument } from '../document/model';
+import {
+  contornoRetangular,
+  pintarRecorte,
+  prepararRecorte,
+  type MascaraSelecao,
+  type RecorteFlutuante,
+} from '../document/selecao';
 import { exportPng, openPng } from '../io/png';
 import type { Point, Rect, ToolId } from '../layers/types';
 import { referenciaDaForma, referenciaDaSelecao } from '../shapes/referencia';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import { loadDocument, saveDocument } from '../storage/documents';
 import type { EstiloTraco, EventoFerramenta, Tool, ToolCtx } from '../tools/tool';
+import { aplicarBorrachaDeCor } from '../tools/pixels';
+import type { ConfiguracaoTexto } from '../tools/texto';
 import { criarFerramentas } from '../tools/toolRegistry';
 import type { DocumentInfo, EditorApi } from './editorTypes';
 
@@ -48,6 +57,8 @@ export class EditorController implements EditorApi {
     area: Rect | null;
   } | null = null;
   private selecao: Rect | null = null;
+  private mascaraSelecao?: MascaraSelecao;
+  private timerMarquise = 0;
   private ultimaForma: ConfiguracaoForma | null = null;
   private copiado: ImageData | null = null;
   private pronto = false;
@@ -77,6 +88,7 @@ export class EditorController implements EditorApi {
           atual.formaPropria?.fechada !== anterior.formaPropria?.fechada);
       if (trocouFerramenta || trocouForma) {
         if (this.gesto) this.cancelarGesto();
+        ferramentaAnterior.onPointerLeave?.(this.contexto(anterior));
         ferramentaAnterior.commitPendente?.(this.contexto(anterior));
         this.redesenharOverlay(ferramenta);
       } else if (
@@ -84,6 +96,7 @@ export class EditorController implements EditorApi {
         (atual.color1 !== anterior.color1 ||
           atual.color2 !== anterior.color2 ||
           atual.size !== anterior.size ||
+          atual.espessuraBorracha !== anterior.espessuraBorracha ||
           atual.zoom !== anterior.zoom ||
           atual.contornoForma !== anterior.contornoForma ||
           atual.preenchimentoForma !== anterior.preenchimentoForma ||
@@ -125,6 +138,7 @@ export class EditorController implements EditorApi {
     this.ativo = false;
     this.desconectarOpcoes();
     this.cancelarGesto();
+    window.clearTimeout(this.timerMarquise);
     this.workspace.removeAttribute('data-forma-pendente');
   }
 
@@ -166,6 +180,11 @@ export class EditorController implements EditorApi {
     const contexto = this.contexto();
     ferramenta.onPointerMove(contexto, evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
+  }
+
+  sairDoPonteiro() {
+    const ferramenta = this.gesto?.ferramenta ?? this.ferramentas[useEditor.getState().tool];
+    if (ferramenta.onPointerLeave?.(this.contexto())) this.redesenharOverlay(ferramenta);
   }
 
   terminarGesto(ponteiro: number, evento?: EventoFerramenta) {
@@ -229,6 +248,7 @@ export class EditorController implements EditorApi {
     this.confirmarFormaPendente();
     const { name, width, height, pixels, dpi } = imagem;
     this.selecao = null;
+    this.mascaraSelecao = undefined;
     this.executar({
       tipo: 'AbrirImagem',
       nome: name,
@@ -243,6 +263,7 @@ export class EditorController implements EditorApi {
     if (!this.disponivel()) return;
     this.descartarFormaPendente();
     this.selecao = null;
+    this.mascaraSelecao = undefined;
     this.executar({ tipo: 'NovoDocumento', nome: nome.trim() || 'Sem título', largura, altura });
     this.fit();
   }
@@ -287,6 +308,7 @@ export class EditorController implements EditorApi {
   ) {
     const mudou = this.executar(comando, () => {
       this.selecao = this.comandos.ultimaSelecaoTransformada;
+      this.mascaraSelecao = undefined;
     });
     if (!mudou && this.comandos.ultimaSelecaoTransformada) {
       this.selecionar(this.comandos.ultimaSelecaoTransformada);
@@ -299,19 +321,61 @@ export class EditorController implements EditorApi {
     this.selecionar({ x: 0, y: 0, width: this.doc.width, height: this.doc.height });
   }
 
+  inverterSelecao() {
+    if (!this.disponivel()) return;
+    if (!this.selecao) {
+      this.selectAll();
+      return;
+    }
+    const papel = { x: 0, y: 0, width: this.doc.width, height: this.doc.height };
+    if (
+      !this.mascaraSelecao &&
+      this.selecao.width === papel.width &&
+      this.selecao.height === papel.height
+    ) {
+      this.selecionar(null);
+      return;
+    }
+    const contorno = this.mascaraSelecao?.contorno ?? contornoRetangular(this.selecao);
+    const inversa = !this.mascaraSelecao?.inversa;
+    const area = inversa
+      ? papel
+      : limitarArea(
+          {
+            x: Math.min(...contorno.map(({ x }) => x)),
+            y: Math.min(...contorno.map(({ y }) => y)),
+            width:
+              Math.max(...contorno.map(({ x }) => x)) - Math.min(...contorno.map(({ x }) => x)),
+            height:
+              Math.max(...contorno.map(({ y }) => y)) - Math.min(...contorno.map(({ y }) => y)),
+          },
+          papel,
+        );
+    useEditor.getState().setTool('select');
+    this.selecionar(area, { contorno, inversa });
+  }
+
+  aplicarTexto(configuracao: ConfiguracaoTexto) {
+    if (!this.disponivel()) return;
+    this.selecionar(null);
+    this.executar({ tipo: 'AplicarTexto', configuracao });
+  }
+
   deleteSelection() {
     if (!this.disponivel() || !this.selecao) return;
     const area = this.selecao;
-    this.selecao = null;
-    this.executar({ tipo: 'ApagarSelecao', area });
+    const mascara = this.mascaraSelecao;
+    this.selecionar(null);
+    this.executar({ tipo: 'ApagarSelecao', area, mascara });
     this.notificar();
   }
 
   crop() {
     if (!this.disponivel() || !this.selecao) return;
     const area = this.selecao;
-    this.selecao = null;
-    this.executar({ tipo: 'CortarPapel', area });
+    const mascara = this.mascaraSelecao;
+    this.selecionar(null);
+    this.executar({ tipo: 'CortarPapel', area, mascara });
     this.fit();
     this.notificar();
   }
@@ -322,7 +386,16 @@ export class EditorController implements EditorApi {
       this.eventos.avisar('Selecione uma parte do desenho primeiro.');
       return;
     }
-    this.copiado = this.doc.lerPixels(this.selecao);
+    const { selecaoTransparente, color2 } = useEditor.getState();
+    const area = this.selecao;
+    this.copiado = prepararRecorte(
+      this.doc.obterDados(),
+      area,
+      this.mascaraSelecao,
+      selecaoTransparente ? color2 : undefined,
+    )
+      .imagem.getContext('2d')!
+      .getImageData(0, 0, area.width, area.height);
     if (recortar) this.deleteSelection();
     this.eventos.avisar(
       recortar
@@ -339,14 +412,22 @@ export class EditorController implements EditorApi {
     }
     const x = Math.min(24, this.doc.width - 1);
     const y = Math.min(24, this.doc.height - 1);
-    this.selecao = {
+    const selecao = {
       x,
       y,
       width: Math.min(this.copiado.width, this.doc.width - x),
       height: Math.min(this.copiado.height, this.doc.height - y),
     };
     useEditor.getState().setTool('select');
-    this.executar({ tipo: 'ColarImagem', x, y, imagem: serializarImagem(this.copiado) });
+    this.selecionar(selecao);
+    const { selecaoTransparente, color2 } = useEditor.getState();
+    this.executar({
+      tipo: 'ColarImagem',
+      x,
+      y,
+      imagem: serializarImagem(this.copiado),
+      corTransparente: selecaoTransparente ? color2 : undefined,
+    });
     this.notificar();
   }
 
@@ -370,6 +451,10 @@ export class EditorController implements EditorApi {
       color1,
       color2,
       size,
+      espessuraBorracha,
+      toleranciaBorracha,
+      toleranciaBalde,
+      preenchimentoGlobal,
       pincel,
       densidadeSpray,
       forma,
@@ -377,6 +462,7 @@ export class EditorController implements EditorApi {
       contornoForma,
       preenchimentoForma,
       parametrosForma,
+      selecaoTransparente,
       zoom,
     } = estado;
     return {
@@ -386,6 +472,10 @@ export class EditorController implements EditorApi {
         cor1: color1,
         cor2: color2,
         espessura: size,
+        espessuraBorracha,
+        toleranciaBorracha,
+        toleranciaBalde,
+        preenchimentoGlobal,
         pincel,
         densidadeSpray,
         forma: formaPropria ? `propria:${formaPropria.id}` : forma,
@@ -395,23 +485,27 @@ export class EditorController implements EditorApi {
         contornoForma,
         preenchimentoForma,
         parametrosForma,
+        selecaoTransparente,
         zoom,
       },
       selecao: this.selecao,
+      mascaraSelecao: this.mascaraSelecao,
       executar: (comando) => this.executar(comando),
-      selecionar: (area) => this.selecionar(area),
-      capturarCor: (ponto) => this.capturarCor(ponto),
+      selecionar: (area, mascara) => this.selecionar(area, mascara),
+      capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
       lerPixels: (area) => this.doc.lerPixels(area),
       previsualizarTraco: (de, ate, estilo) => this.previsualizarTraco(de, ate, estilo),
       iniciarPreviaPincel: (configuracao) => this.iniciarPreviaPincel(configuracao),
       previsualizarMarcasPincel: (marcas) => this.previsualizarMarcasPincel(marcas),
-      previsualizarSelecao: (origem, destino, imagem) =>
-        this.previsualizarSelecao(origem, destino, imagem),
+      prepararRecorte: (area, mascara, transparente) =>
+        prepararRecorte(this.doc.obterDados(), area, mascara, transparente),
+      previsualizarSelecao: (origem, destino, recorte) =>
+        this.previsualizarSelecao(origem, destino, recorte),
       limparPrevia: () => this.limparPrevia(),
     };
   }
 
-  private capturarCor(ponto: Point) {
+  private capturarCor(ponto: Point, alvo?: 1 | 2) {
     const pixel = this.doc.lerPixels({
       x: Math.floor(ponto.x),
       y: Math.floor(ponto.y),
@@ -421,19 +515,43 @@ export class EditorController implements EditorApi {
     const hex = Array.from(pixel.data.subarray(0, 3), (valor) =>
       valor.toString(16).padStart(2, '0'),
     );
-    useEditor.getState().setColor(`#${hex.join('')}`);
+    const estado = useEditor.getState();
+    estado.capturarCor(`#${hex.join('')}`, alvo ?? estado.colorTarget);
+    if (estado.tool === 'eyedropper') {
+      queueMicrotask(() => {
+        const atual = useEditor.getState();
+        if (atual.tool === 'eyedropper') atual.setTool(atual.ultimaFerramenta);
+      });
+    }
   }
 
-  private selecionar(area: Rect | null) {
+  private selecionar(area: Rect | null, mascara?: MascaraSelecao) {
     const proxima = area && area.width > 0 && area.height > 0 ? area : null;
-    if (this.selecao === proxima) return;
+    if (this.selecao === proxima && this.mascaraSelecao === mascara) return;
     this.selecao = proxima;
+    this.mascaraSelecao = proxima ? mascara : undefined;
+    this.atualizarMarquise();
     this.notificar();
   }
 
+  private atualizarMarquise() {
+    const { tool } = useEditor.getState();
+    if (tool === 'select' || tool === 'lasso') this.redesenharOverlay(this.ferramentas[tool]);
+    if (!this.ativo || !this.selecao || this.timerMarquise) return;
+    this.timerMarquise = window.setTimeout(() => {
+      this.timerMarquise = 0;
+      if (this.selecao) this.atualizarMarquise();
+    }, 90);
+  }
+
   private previsualizarTraco(de: Point, ate: Point, estilo: EstiloTraco) {
-    desenharSegmento(this.grafico, de, ate, estilo);
-    const area = areaDoSegmento(de, ate, estilo);
+    const area = limitarArea(areaDoSegmento(de, ate, estilo), this.doc);
+    if (!area) return;
+    if (estilo.substituirCor) {
+      const imagem = this.grafico.getImageData(area.x, area.y, area.width, area.height);
+      aplicarBorrachaDeCor(imagem, area, [de, ate], estilo);
+      this.grafico.putImageData(imagem, area.x, area.y);
+    } else desenharSegmento(this.grafico, de, ate, estilo);
     this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, area) : area;
   }
 
@@ -471,11 +589,10 @@ export class EditorController implements EditorApi {
     previa.pintor.pintar(marcas);
   }
 
-  private previsualizarSelecao(origem: Rect, destino: Rect, imagem: ImageData) {
+  private previsualizarSelecao(origem: Rect | null, destino: Rect, recorte: RecorteFlutuante) {
     this.limparPrevia();
-    this.grafico.clearRect(origem.x, origem.y, origem.width, origem.height);
-    this.grafico.putImageData(imagem, destino.x, destino.y);
-    this.areaPrevia = unirAreas(origem, destino);
+    pintarRecorte(this.grafico, recorte, origem, destino);
+    this.areaPrevia = origem ? unirAreas(origem, destino) : destino;
   }
 
   private limparPrevia() {
@@ -547,7 +664,7 @@ export class EditorController implements EditorApi {
   }
 
   private restaurarSelecao() {
-    this.selecao = null;
+    this.selecionar(null);
     this.edicaoAplicada();
   }
 

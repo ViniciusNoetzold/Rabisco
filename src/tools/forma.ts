@@ -120,7 +120,7 @@ function operacaoNoPonto(forma: GeometriaForma, ponto: Point, ctx: ToolCtx): Ope
   return dentroDaForma(forma, ponto, 3 / zoom) ? 'mover' : null;
 }
 
-export function definirForma(id: FerramentaForma, nome: string, icone: string, atalho: string) {
+export function definirForma(id: FerramentaForma, nome: string, icone: string, atalho?: string) {
   return definirFerramenta({ id, nome, icone, atalho, opcoes: [opcaoEspessura] }, () => {
     let pendente: GeometriaForma | null = null;
     let curva: Point[] | null = null;

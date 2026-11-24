@@ -4,6 +4,7 @@ import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
 import type { ToolId } from '../layers/types';
 import { obterForma } from '../shapes/catalogo';
 import type { FormaPropria } from '../shapes/presets';
+import { ESTILO_TEXTO_PADRAO, type EstiloTexto } from '../tools/texto';
 import {
   PARAMETROS_PADRAO,
   type EstiloContorno,
@@ -47,6 +48,8 @@ export const PALETTE = [
 
 interface EditorState {
   tool: ToolId;
+  ultimaFerramenta: ToolId;
+  estiloTexto: EstiloTexto;
   pincel: TipoPincel;
   densidadeSpray: DensidadeSpray;
   color1: string;
@@ -64,6 +67,11 @@ interface EditorState {
   grid: boolean;
   ruler: boolean;
   sidebar: boolean;
+  selecaoTransparente: boolean;
+  espessuraBorracha: number;
+  toleranciaBorracha: number;
+  toleranciaBalde: number;
+  preenchimentoGlobal: boolean;
   setTool: (tool: ToolId) => void;
   setPincel: (tipo: TipoPincel) => void;
   setForma: (forma: FormaId) => void;
@@ -71,6 +79,7 @@ interface EditorState {
   sincronizarFormaPropria: (formas: readonly FormaPropria[]) => void;
   setParametroForma: (chave: keyof ParametrosForma, valor: number) => void;
   setColor: (color: string) => void;
+  capturarCor: (cor: string, alvo: 1 | 2) => void;
   swapColors: () => void;
   set: (
     value: Partial<
@@ -85,6 +94,12 @@ interface EditorState {
         | 'grid'
         | 'ruler'
         | 'sidebar'
+        | 'selecaoTransparente'
+        | 'estiloTexto'
+        | 'espessuraBorracha'
+        | 'toleranciaBorracha'
+        | 'toleranciaBalde'
+        | 'preenchimentoGlobal'
       >
     >,
   ) => void;
@@ -98,6 +113,8 @@ function formaRapida(forma: ToolId | FormaId): forma is 'line' | 'rectangle' | '
 export const useEditor = create<EditorState>()(
   immer((set) => ({
     tool: 'brush',
+    ultimaFerramenta: 'brush',
+    estiloTexto: { ...ESTILO_TEXTO_PADRAO },
     pincel: 'redondo',
     densidadeSpray: 'media',
     color1: '#3083c5',
@@ -115,8 +132,14 @@ export const useEditor = create<EditorState>()(
     grid: false,
     ruler: false,
     sidebar: true,
+    selecaoTransparente: false,
+    espessuraBorracha: 8,
+    toleranciaBorracha: 5,
+    toleranciaBalde: 5,
+    preenchimentoGlobal: false,
     setTool: (tool) =>
       set((state) => {
+        if (tool === 'eyedropper' && state.tool !== tool) state.ultimaFerramenta = state.tool;
         state.tool = tool;
         if (formaRapida(tool)) state.forma = tool;
         if (tool === 'shape') state.forma = state.ultimaFormaGeral;
@@ -180,12 +203,26 @@ export const useEditor = create<EditorState>()(
       set((state) => {
         [state.color1, state.color2] = [state.color2, state.color1];
       }),
+    capturarCor: (cor, alvo) =>
+      set((state) => {
+        if (alvo === 1) state.color1 = cor;
+        else state.color2 = cor;
+      }),
     set: (value) =>
       set((state) => {
-        const { size, ...outrasOpcoes } = value;
+        const { size, espessuraBorracha, toleranciaBorracha, toleranciaBalde, ...outrasOpcoes } =
+          value;
         Object.assign(state, outrasOpcoes);
         if (size !== undefined && Number.isFinite(size)) {
           state.size = Math.max(1, Math.min(ESPESSURA_MAXIMA, Math.round(size)));
+        }
+        for (const [chave, numero, minimo] of [
+          ['espessuraBorracha', espessuraBorracha, 1],
+          ['toleranciaBorracha', toleranciaBorracha, 0],
+          ['toleranciaBalde', toleranciaBalde, 0],
+        ] as const) {
+          if (numero !== undefined && Number.isFinite(numero))
+            state[chave] = Math.max(minimo, Math.min(100, Math.round(numero)));
         }
       }),
   })),

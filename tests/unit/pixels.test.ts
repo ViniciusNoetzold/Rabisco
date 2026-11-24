@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clearRectPixels, floodFill, normalizeRect, parseHexColor } from '../../src/tools/pixels';
+import {
+  aplicarBorrachaDeCor,
+  clearRectPixels,
+  floodFill,
+  normalizeRect,
+  parseHexColor,
+  toleranciaEmCanais,
+} from '../../src/tools/pixels';
 import type { PixelBuffer } from '../../src/layers/types';
 
 function image(width: number, height: number, color = '#ffffff'): PixelBuffer {
@@ -49,6 +56,53 @@ describe('operações de pixels', () => {
     const buffer = image(20, 20, '#646464');
     expect(floodFill(buffer, 10, 10, '#656565', 4)).toBe(true);
     expect(buffer.data[0]).toBe(101);
+  });
+
+  it('preenche regiões desconectadas apenas com a opção global', () => {
+    const buffer = image(4, 1, '#ffffff');
+    buffer.data.set(parseHexColor('#102030'), 0);
+    buffer.data.set(parseHexColor('#14212e'), 8);
+    const tolerancia = toleranciaEmCanais(2);
+    expect(tolerancia).toBe(5);
+    expect(floodFill(buffer, 0, 0, '#c00', tolerancia)).toBe(true);
+    expect([...buffer.data.slice(8, 12)]).toEqual([20, 33, 46, 255]);
+    expect(floodFill(buffer, 2, 0, '#102030', tolerancia, true)).toBe(true);
+    expect([...buffer.data.slice(8, 12)]).toEqual([16, 32, 48, 255]);
+    expect([...buffer.data.slice(4, 8)]).toEqual([255, 255, 255, 255]);
+    expect(toleranciaEmCanais(0)).toBe(0);
+    expect(toleranciaEmCanais(100)).toBe(255);
+  });
+
+  it('pinta somente a cor compatível dentro do traço, mesmo em recortes deslocados', () => {
+    const buffer = image(6, 6, '#102030');
+    const escrever = (x: number, y: number, cor: string) =>
+      buffer.data.set(parseHexColor(cor), (y * buffer.width + x) * 4);
+    const ler = (x: number, y: number) => {
+      const offset = (y * buffer.width + x) * 4;
+      return [...buffer.data.slice(offset, offset + 4)];
+    };
+    escrever(3, 2, '#14212e');
+    escrever(4, 2, '#ffffff');
+    aplicarBorrachaDeCor(
+      buffer,
+      { x: 20, y: 40 },
+      [
+        { x: 21.5, y: 42.5 },
+        { x: 25.5, y: 42.5 },
+      ],
+      {
+        ferramenta: 'eraser',
+        cor: '#ffffff',
+        substituirCor: '#102030',
+        espessura: 2,
+        toleranciaSubstituicao: 5,
+      },
+    );
+    expect(ler(0, 2)).toEqual([255, 255, 255, 255]);
+    expect(ler(3, 2)).toEqual([255, 255, 255, 255]);
+    expect(ler(4, 2)).toEqual([255, 255, 255, 255]);
+    expect(ler(0, 1)).toEqual([16, 32, 48, 255]);
+    expect(ler(3, 0)).toEqual([16, 32, 48, 255]);
   });
 
   it('normaliza gesto inverso e limita o retângulo ao documento', () => {

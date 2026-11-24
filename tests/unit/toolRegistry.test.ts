@@ -11,6 +11,7 @@ function ponteiro(x: number, y: number, botao = 0, shift = false): EventoFerrame
 function contexto(selecao: Rect | null = null, pincel: ToolCtx['opcoes']['pincel'] = 'redondo') {
   const executar = vi.fn<ToolCtx['executar']>(() => true);
   const imagem = { width: 5, height: 4, data: new Uint8ClampedArray(80) } as ImageData;
+  const recorte = { imagem: {} as HTMLCanvasElement, corte: null };
   const ctx = {
     largura: 30,
     altura: 30,
@@ -34,10 +35,11 @@ function contexto(selecao: Rect | null = null, pincel: ToolCtx['opcoes']['pincel
     previsualizarTraco: vi.fn<ToolCtx['previsualizarTraco']>(),
     iniciarPreviaPincel: vi.fn<ToolCtx['iniciarPreviaPincel']>(),
     previsualizarMarcasPincel: vi.fn<ToolCtx['previsualizarMarcasPincel']>(),
+    prepararRecorte: vi.fn<ToolCtx['prepararRecorte']>(() => recorte),
     previsualizarSelecao: vi.fn<ToolCtx['previsualizarSelecao']>(),
     limparPrevia: vi.fn<ToolCtx['limparPrevia']>(),
   } satisfies ToolCtx;
-  return { ctx, imagem };
+  return { ctx, recorte };
 }
 
 describe('registro de ferramentas', () => {
@@ -52,6 +54,8 @@ describe('registro de ferramentas', () => {
       'ellipse',
       'shape',
       'select',
+      'lasso',
+      'text',
       'eyedropper',
     ] as const;
     expect(Object.keys(toolRegistry).sort()).toEqual([...ids].sort());
@@ -260,15 +264,22 @@ describe('registro de ferramentas', () => {
   it('lê somente a origem da seleção na prévia e limita o destino ao papel', () => {
     const origem: Rect = { x: 3, y: 4, width: 5, height: 4 };
     const destino: Rect = { x: 25, y: 26, width: 5, height: 4 };
-    const { ctx, imagem } = contexto(origem);
+    const { ctx, recorte } = contexto(origem);
     const ferramenta = criarFerramentas().select;
     ferramenta.onPointerDown(ctx, ponteiro(4, 5));
     ferramenta.onPointerMove(ctx, ponteiro(29, 29));
-    expect(ctx.lerPixels).toHaveBeenCalledExactlyOnceWith(origem);
-    expect(ctx.previsualizarSelecao).toHaveBeenCalledExactlyOnceWith(origem, destino, imagem);
-    expect(ctx.selecionar).toHaveBeenCalledExactlyOnceWith(destino);
+    expect(ctx.prepararRecorte).toHaveBeenCalledExactlyOnceWith(origem, undefined, undefined);
+    expect(ctx.previsualizarSelecao).toHaveBeenCalledExactlyOnceWith(origem, destino, recorte);
+    expect(ctx.selecionar).toHaveBeenCalledExactlyOnceWith(destino, undefined);
     expect(ctx.executar).not.toHaveBeenCalled();
     ferramenta.onPointerUp(ctx, ponteiro(29, 29));
-    expect(ctx.executar).toHaveBeenCalledExactlyOnceWith({ tipo: 'MoverSelecao', origem, destino });
+    expect(ctx.executar).toHaveBeenCalledExactlyOnceWith({
+      tipo: 'MoverSelecao',
+      origem,
+      destino,
+      duplicar: false,
+      mascara: undefined,
+      corTransparente: undefined,
+    });
   });
 });

@@ -27,5 +27,7 @@ export const hints: Record<ToolId, string> = {
   ellipse: 'Shift desenha um círculo. Enter confirma ou Esc descarta.',
   shape: 'Arraste a forma ou suas alças. Enter confirma ou Esc descarta.',
   select: 'Arraste para selecionar. Arraste por dentro para mover.',
+  lasso: 'Contorne com o ponteiro. Arraste a seleção ou use as alças.',
+  text: 'Clique no papel para digitar. Clique fora da caixa para confirmar.',
   eyedropper: 'Encontre uma cor no seu desenho e continue com ela.',
 };

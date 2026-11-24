@@ -2,6 +2,13 @@
 
 ## 0.2 em desenvolvimento
 
+### Passo 6 — Seleção, texto e ferramentas de cor
+
+- Laço, seleção invertida, marquise animada, alças para redimensionar, deslocamento pelas setas, duplicação com Ctrl e opção de ignorar a Cor 2.
+- Texto multilinha com formatação, fundo opcional e caixa reposicionável. O texto entra no histórico ao confirmar.
+- A borracha indica no papel o diâmetro da área apagada. O botão esquerdo pinta com Cor 2 e o direito substitui só a Cor 1, com tolerância e espessura própria.
+- O balde tem tolerância ajustável e modo para cores espalhadas na imagem. O conta-gotas amplia a área sob o ponteiro, escolhe Cor 1 ou Cor 2 conforme o botão e retorna à ferramenta anterior.
+
 ### Passo 5 — Formas próprias
 
 - Editor com cinco bases paramétricas, desenho por pontos e curvas Bézier com encaixe e desfazer próprio. Permite reaproveitar a forma ativa, a última forma ou uma silhueta da seleção.

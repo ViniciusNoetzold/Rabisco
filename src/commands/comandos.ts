@@ -1,4 +1,6 @@
 import { validarDimensoes } from '../document/dimensoes';
+import type { MascaraSelecao } from '../document/selecao';
+import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { ConfiguracaoForma } from '../shapes/tipos';
@@ -18,6 +20,9 @@ export interface EstiloTraco {
   ferramenta: 'pencil' | 'brush' | 'eraser';
   cor: string;
   espessura: number;
+  /** Cor que a borracha de cor pode trocar, em vez de pintar todo o traço. */
+  substituirCor?: string;
+  toleranciaSubstituicao?: number;
 }
 
 export interface ComandoTraco extends EstiloTraco {
@@ -54,11 +59,25 @@ export type Comando =
   | ComandoPincel
   | ComandoForma
   | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
-  | { tipo: 'Preencher'; ponto: Point; cor: string; tolerancia: number }
-  | { tipo: 'ApagarSelecao'; area: Rect }
-  | { tipo: 'MoverSelecao'; origem: Rect; destino: Rect }
-  | { tipo: 'ColarImagem'; x: number; y: number; imagem: ImagemSerializada }
-  | { tipo: 'CortarPapel'; area: Rect }
+  | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
+  | { tipo: 'Preencher'; ponto: Point; cor: string; tolerancia: number; global?: boolean }
+  | { tipo: 'ApagarSelecao'; area: Rect; mascara?: MascaraSelecao }
+  | {
+      tipo: 'MoverSelecao';
+      origem: Rect;
+      destino: Rect;
+      mascara?: MascaraSelecao;
+      duplicar?: boolean;
+      corTransparente?: string;
+    }
+  | {
+      tipo: 'ColarImagem';
+      x: number;
+      y: number;
+      imagem: ImagemSerializada;
+      corTransparente?: string;
+    }
+  | { tipo: 'CortarPapel'; area: Rect; mascara?: MascaraSelecao }
   | { tipo: 'AbrirImagem'; nome: string; imagem: ImagemSerializada; dpi?: number }
   | { tipo: 'NovoDocumento'; nome: string; largura: number; altura: number }
   | { tipo: 'RedimensionarPapel'; largura: number; altura: number; fundo: string; dpi?: number }

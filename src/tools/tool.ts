@@ -1,4 +1,5 @@
 import type { Comando, EstiloTraco } from '../commands/comandos';
+import type { MascaraSelecao, RecorteFlutuante } from '../document/selecao';
 import type {
   ConfiguracaoPincel,
   DensidadeSpray,
@@ -20,6 +21,7 @@ export interface EventoFerramenta {
   ponto: Point;
   botao: number;
   shift: boolean;
+  ctrl?: boolean;
   instante?: number;
   cliques?: number;
 }
@@ -39,6 +41,10 @@ export interface ToolCtx {
     cor1: string;
     cor2: string;
     espessura: number;
+    espessuraBorracha: number;
+    toleranciaBorracha: number;
+    toleranciaBalde: number;
+    preenchimentoGlobal: boolean;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
     forma: IdForma;
@@ -47,16 +53,19 @@ export interface ToolCtx {
     preenchimentoForma: EstiloPreenchimento;
     parametrosForma: ParametrosForma;
     zoom: number;
+    selecaoTransparente: boolean;
   };
   readonly selecao: Rect | null;
+  readonly mascaraSelecao?: MascaraSelecao;
   executar(comando: Comando): boolean;
-  selecionar(area: Rect | null): void;
-  capturarCor(ponto: Point): void;
+  selecionar(area: Rect | null, mascara?: MascaraSelecao): void;
+  capturarCor(ponto: Point, alvo?: 1 | 2): void;
   lerPixels(area: Rect): ImageData;
   previsualizarTraco(de: Point, ate: Point, estilo: EstiloTraco): void;
   iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
   previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
-  previsualizarSelecao(origem: Rect, destino: Rect, imagem: ImageData): void;
+  prepararRecorte(area: Rect, mascara?: MascaraSelecao, transparente?: string): RecorteFlutuante;
+  previsualizarSelecao(origem: Rect | null, destino: Rect, recorte: RecorteFlutuante): void;
   limparPrevia(): void;
 }
 
@@ -71,6 +80,7 @@ export interface Tool {
   onPointerMove(ctx: ToolCtx, evento: EventoFerramenta): void;
   onPointerUp(ctx: ToolCtx, evento: EventoFerramenta): void;
   onHover?(ctx: ToolCtx, evento: EventoFerramenta): boolean;
+  onPointerLeave?(ctx: ToolCtx): boolean;
   onKeyDown?(ctx: ToolCtx, evento: KeyboardEvent): boolean;
   onCancel?(ctx: ToolCtx): void;
   overlay?(ctx: ToolCtx, grafico: CanvasRenderingContext2D): void;

@@ -751,10 +751,25 @@ input[type='range']::-webkit-slider-thumb {
 .selection-marquee {
   position: absolute;
   pointer-events: none;
-  border: 1px dashed #1d6eb0;
-  outline: 1px solid #fff;
-  box-shadow: 0 0 0 1px #fff8;
-  background: #5999d00a;
+}
+.selection-options {
+  position: fixed;
+  font-size: 12px;
+  display: grid;
+  gap: 4px;
+  width: max-content;
+  min-width: 154px;
+  padding: 6px;
+  z-index: 21;
+  background: #f1f7fc;
+  border: 1px solid #91aabe;
+  border-radius: 4px;
+  box-shadow: 0 3px 9px #213b5850;
+}
+.selection-options label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 .workspace-hint {
   position: absolute;

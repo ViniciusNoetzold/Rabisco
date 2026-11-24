@@ -1,3 +1,4 @@
+import { toleranciaEmCanais } from './pixels';
 import { corDoBotao, definirFerramenta } from './tool';
 
 export const balde = definirFerramenta(
@@ -5,7 +6,13 @@ export const balde = definirFerramenta(
   () => ({
     cursor: () => 'cell',
     onPointerDown(ctx, { ponto, botao }) {
-      ctx.executar({ tipo: 'Preencher', ponto, cor: corDoBotao(ctx, botao), tolerancia: 12 });
+      ctx.executar({
+        tipo: 'Preencher',
+        ponto,
+        cor: corDoBotao(ctx, botao),
+        tolerancia: toleranciaEmCanais(ctx.opcoes.toleranciaBalde),
+        global: ctx.opcoes.preenchimentoGlobal,
+      });
     },
     onPointerMove() {},
     onPointerUp() {},

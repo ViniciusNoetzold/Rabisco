@@ -1,0 +1,59 @@
+.ribbon .pixel-fill-group,
+.ribbon .pixel-eraser-group {
+  width: 114px;
+}
+
+.pixel-tool-options {
+  display: grid;
+  width: 100%;
+  gap: 7px;
+  padding-top: 5px;
+  color: #415e74;
+  font-size: 11px;
+}
+
+.pixel-eraser-options {
+  gap: 2px;
+  padding-top: 0;
+}
+
+.pixel-eraser-options .stroke-thickness {
+  gap: 2px;
+  padding-top: 1px;
+}
+
+.pixel-eraser-options .stroke-size-presets {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pixel-tools-tolerance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 3px;
+}
+
+.pixel-tools-tolerance input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  height: 19px;
+  margin: 0;
+  accent-color: #528cb2;
+}
+
+.pixel-tools-tolerance output {
+  color: #294d69;
+  font-variant-numeric: tabular-nums;
+}
+
+.pixel-tools-global {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+  line-height: 1.25;
+}
+
+.pixel-tools-global input {
+  flex: 0 0 auto;
+}

@@ -8,7 +8,8 @@ import { formaLivre } from './formaLivre';
 import { linha } from './line';
 import { lapis } from './pencil';
 import { retangulo } from './rectangle';
-import { selecao } from './select';
+import { selecao, selecaoLaco } from './select';
+import { ferramentaTexto } from './texto';
 import type { DefinicaoFerramenta, Tool } from './tool';
 
 export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
@@ -21,6 +22,8 @@ export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
   ellipse: elipse,
   shape: formaLivre,
   select: selecao,
+  lasso: selecaoLaco,
+  text: ferramentaTexto,
   eyedropper: contaGotas,
 };
 

@@ -46,7 +46,7 @@ export function areaDoSegmento(de: Point, ate: Point, estilo: EstiloTraco): Rect
 export function desenharSegmento(ctx: Contexto2D, de: Point, ate: Point, estilo: EstiloTraco) {
   ctx.save();
   ctx.lineWidth = larguraDoTraco(estilo);
-  ctx.strokeStyle = estilo.ferramenta === 'eraser' ? '#ffffff' : estilo.cor;
+  ctx.strokeStyle = estilo.cor;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();

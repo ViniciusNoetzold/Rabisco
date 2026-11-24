@@ -1,0 +1,62 @@
+.text-tools {
+  display: grid;
+  gap: 4px;
+}
+
+.text-tools-font {
+  display: flex;
+  gap: 6px;
+}
+
+.text-tools-font label {
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.text-tools-font select,
+.text-tools-font input {
+  height: 22px;
+  padding: 0 4px;
+  font: inherit;
+}
+
+.text-tools-font select {
+  min-width: 125px;
+}
+
+.text-tools-font input {
+  width: 64px;
+}
+
+.text-tools-buttons {
+  display: flex;
+  gap: 3px;
+}
+
+.ribbon .text-tools-buttons button {
+  width: 25px;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.text-tools-buttons [data-formato='negrito'] {
+  font-weight: 700;
+}
+
+.text-tools-buttons [data-formato='italico'] {
+  font-style: italic;
+  font-synthesis: style;
+}
+
+.text-tools-buttons [data-formato='sublinhado'] {
+  text-decoration: underline;
+}
+
+.text-tools-buttons [data-formato='tachado'] {
+  text-decoration: line-through;
+}
+
+.text-background-options {
+  align-content: start;
+}

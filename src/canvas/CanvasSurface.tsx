@@ -5,6 +5,7 @@ import type { Rect } from '../layers/types';
 import { EditorController } from './editorController';
 import type { CanvasCallbacks, EditorApi } from './editorTypes';
 import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
+import { TextOverlay } from './TextOverlay';
 
 export type { DocumentInfo, EditorApi } from './editorTypes';
 
@@ -22,6 +23,7 @@ function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
     },
     botao: evento.button,
     shift: evento.shiftKey,
+    ctrl: evento.ctrlKey || evento.metaKey,
     instante: evento.timeStamp,
     cliques: evento.detail,
   };
@@ -42,6 +44,9 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const tool = useEditor((estado) => estado.tool);
     const grid = useEditor((estado) => estado.grid);
     const ruler = useEditor((estado) => estado.ruler);
+    const estiloTexto = useEditor((estado) => estado.estiloTexto);
+    const cor1 = useEditor((estado) => estado.color1);
+    const cor2 = useEditor((estado) => estado.color2);
 
     useLayoutEffect(() => {
       const instancia = new EditorController(tela.current!, previa.current!, workspace.current!, {
@@ -156,7 +161,10 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             onPointerUp={(evento) => terminar(evento)}
             onPointerCancel={(evento) => terminar(evento, true)}
             onLostPointerCapture={(evento) => terminar(evento, true)}
-            onPointerLeave={() => eventos.current.onCursor(null)}
+            onPointerLeave={() => {
+              editor.current?.sairDoPonteiro();
+              eventos.current.onCursor(null);
+            }}
           />
           <canvas
             ref={previa}
@@ -189,6 +197,16 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             aoPrevisualizar={previsualizarPapel}
             aoAplicar={aplicarPapel}
             aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
+          />
+          <TextOverlay
+            ativo={tool === 'text'}
+            zoom={zoom}
+            largura={dimensoes.width}
+            altura={dimensoes.height}
+            estilo={estiloTexto}
+            cor1={cor1}
+            cor2={cor2}
+            confirmar={(configuracao) => editor.current?.aplicarTexto(configuracao)}
           />
         </div>
         <div className="workspace-hint">

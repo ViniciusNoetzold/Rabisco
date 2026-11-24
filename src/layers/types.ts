@@ -22,6 +22,8 @@ export type ToolId =
   | 'ellipse'
   | 'shape'
   | 'select'
+  | 'lasso'
+  | 'text'
   | 'eyedropper';
 
 /** Forma mínima de ImageData, também utilizável em testes e workers. */

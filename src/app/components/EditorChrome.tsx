@@ -25,6 +25,8 @@ export function EditorChrome({
   onOpen,
   run,
 }: EditorChromeProps) {
+  const textoAtivo = useEditor((estado) => estado.tool === 'text');
+  const abas = textoAtivo ? ['Início', 'Exibir', 'Texto'] : ['Início', 'Exibir'];
   const quick = (icon: string, label: string, action: () => void, disabled = false) => (
     <button
       className="quick-button"
@@ -79,7 +81,7 @@ export function EditorChrome({
           onAbout={() => onDialog('about')}
         />
         <div className="tabs" role="tablist" aria-label="Abas de ferramentas">
-          {['Início', 'Exibir'].map((label) => (
+          {abas.map((label, indice) => (
             <button
               key={label}
               role="tab"
@@ -87,10 +89,12 @@ export function EditorChrome({
               aria-controls="ribbon-panel"
               aria-selected={tab === label}
               tabIndex={tab === label ? 0 : -1}
+              data-opcoes-texto={label === 'Texto' ? '' : undefined}
               onKeyDown={(event) => {
                 if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
                   event.preventDefault();
-                  const next = label === 'Início' ? 'Exibir' : 'Início';
+                  const passo = event.key === 'ArrowRight' ? 1 : -1;
+                  const next = abas[(indice + passo + abas.length) % abas.length];
                   onTab(next);
                   document.getElementById(`tab-${next}`)?.focus();
                 }

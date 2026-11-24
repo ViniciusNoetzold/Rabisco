@@ -1,0 +1,64 @@
+.text-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  cursor: text;
+}
+
+.text-overlay-box {
+  position: absolute;
+  outline: 1px dashed #3d7398;
+}
+
+.text-overlay-box:focus-within {
+  outline-color: #247bb9;
+}
+
+.text-overlay-input {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  resize: none;
+  font-synthesis: style;
+  white-space: pre;
+  overflow: auto;
+  scrollbar-width: none;
+  text-align: left;
+  direction: ltr;
+}
+
+.text-overlay-input:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.text-overlay-input::placeholder {
+  color: #5e768a;
+  opacity: 1;
+}
+
+.text-overlay-handle {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  color: #2a648a;
+  border: 1px solid #7aa2be;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(#f4fbff, #d6e8f4);
+  box-shadow: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.text-overlay-handle:active {
+  cursor: grabbing;
+}

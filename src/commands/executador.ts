@@ -8,12 +8,19 @@ import {
   sobreporPixels,
 } from '../document/transformacoes';
 import type { PixelBuffer, Rect } from '../layers/types';
+import { apagarRecorte, pintarRecorte, prepararRecorte } from '../document/selecao';
+import { areaDoTexto, desenharTexto } from '../tools/texto';
 import {
   areaDaForma as areaFormaEditavel,
   desenharForma as aplicarFormaEditavel,
   obterDefinicaoForma,
 } from '../shapes/render';
-import { aplicarPreenchimento, clearRectPixels, planejarPreenchimento } from '../tools/pixels';
+import {
+  aplicarBorrachaDeCor,
+  aplicarPreenchimento,
+  clearRectPixels,
+  planejarPreenchimento,
+} from '../tools/pixels';
 import { type Comando, type ComandoTraco, desserializarImagem, validarDimensoes } from './comandos';
 import {
   areaDaForma,
@@ -101,6 +108,12 @@ export class Executador {
           (ctx) => aplicarFormaEditavel(ctx, configuracao),
         );
       }
+      case 'AplicarTexto': {
+        const { configuracao } = comando;
+        if (!configuracao.texto.trim()) return false;
+        const area = areaDoTexto(this.doc.contextoAtivo(), configuracao);
+        return this.pintar(comando, 'Texto', area, (ctx) => desenharTexto(ctx, configuracao));
+      }
       case 'Preencher': {
         const dados = this.doc.obterDados();
         const plano = planejarPreenchimento(
@@ -109,6 +122,7 @@ export class Executador {
           comando.ponto.y,
           comando.cor,
           comando.tolerancia,
+          comando.global,
         );
         if (!plano) return false;
         const depois = recortarPixels(dados, plano.area);
@@ -118,6 +132,10 @@ export class Executador {
       case 'ApagarSelecao': {
         const area = limitarArea(comando.area, this.doc);
         if (!area) return false;
+        if (comando.mascara)
+          return this.pintar(comando, 'Apagar seleção', area, (ctx) => {
+            apagarRecorte(ctx, area, comando.mascara);
+          });
         const depois = {
           width: area.width,
           height: area.height,
@@ -127,33 +145,49 @@ export class Executador {
       }
       case 'MoverSelecao': {
         const origem = limitarArea(comando.origem, this.doc);
-        if (!origem || (origem.x === comando.destino.x && origem.y === comando.destino.y))
-          return false;
-        const selecao = recortarPixels(this.doc.obterDados(), origem);
-        const destino = { ...comando.destino, width: origem.width, height: origem.height };
-        return this.pintar(comando, 'Mover seleção', unirAreas(origem, destino), (ctx) => {
-          ctx.clearRect(origem.x, origem.y, origem.width, origem.height);
-          const recorte = new ImageData(
-            new Uint8ClampedArray(selecao.data),
-            selecao.width,
-            selecao.height,
-          );
-          ctx.putImageData(recorte, destino.x, destino.y);
-        });
+        const { destino, duplicar, mascara, corTransparente } = comando;
+        if (!origem || destino.width < 1 || destino.height < 1) return false;
+        const redimensionou = origem.width !== destino.width || origem.height !== destino.height;
+        if (!redimensionou && origem.x === destino.x && origem.y === destino.y) return false;
+        const recorte = prepararRecorte(this.doc.obterDados(), origem, mascara, corTransparente);
+        const rotulo = duplicar
+          ? 'Duplicar seleção'
+          : redimensionou
+            ? 'Redimensionar seleção'
+            : 'Mover seleção';
+        return this.pintar(
+          comando,
+          rotulo,
+          duplicar ? destino : unirAreas(origem, destino),
+          (ctx) => {
+            pintarRecorte(ctx, recorte, duplicar ? null : origem, destino);
+          },
+        );
       }
       case 'ColarImagem': {
         const { x, y } = comando;
         const imagem = desserializarImagem(comando.imagem);
         const area = limitarArea({ x, y, width: imagem.width, height: imagem.height }, this.doc);
         if (!area) return false;
-        const depois = recortarPixels(imagem, { ...area, x: area.x - x, y: area.y - y });
-        return this.escrever(comando, 'Colar seleção', area, depois);
+        const origem = { x: 0, y: 0, width: imagem.width, height: imagem.height };
+        const recorte = prepararRecorte(imagem, origem, undefined, comando.corTransparente);
+        return this.pintar(comando, 'Colar seleção', area, (ctx) => {
+          pintarRecorte(ctx, recorte, null, { ...origem, x, y });
+        });
       }
       case 'CortarPapel': {
         const area = limitarArea(comando.area, this.doc);
-        if (!area || (area.width === this.doc.width && area.height === this.doc.height))
+        if (
+          !area ||
+          (!comando.mascara && area.width === this.doc.width && area.height === this.doc.height)
+        )
           return false;
-        const recorte = recortarPixels(this.doc.obterDados(), area);
+        const dados = this.doc.obterDados();
+        const recorte = comando.mascara
+          ? prepararRecorte(dados, area, comando.mascara)
+              .imagem.getContext('2d')!
+              .getImageData(0, 0, area.width, area.height)
+          : recortarPixels(dados, area);
         return this.substituir(comando, 'Cortar para seleção', this.doc.name, recorte);
       }
       case 'AbrirImagem':
@@ -223,6 +257,13 @@ export class Executador {
     for (const ponto of pontos) {
       area = unirAreas(area, areaDoSegmento(anterior, ponto, comando));
       anterior = ponto;
+    }
+    if (comando.ferramenta === 'eraser' && comando.substituirCor) {
+      const recorte = limitarArea(area, this.doc);
+      if (!recorte) return false;
+      const depois = this.doc.lerPixels(recorte);
+      aplicarBorrachaDeCor(depois, recorte, comando.pontos, comando);
+      return this.escrever(comando, 'Borracha de cor', recorte, depois);
     }
     return this.pintar(comando, NOMES_TRACO[comando.ferramenta], area, (ctx) => {
       desenharSegmento(ctx, inicio, inicio, comando);
