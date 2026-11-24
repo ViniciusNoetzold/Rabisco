@@ -76,6 +76,10 @@ interface EditorState {
   toleranciaBorracha: number;
   toleranciaBalde: number;
   preenchimentoGlobal: boolean;
+  /** Balde e conta-gotas olham todas as camadas (o que se vê) em vez só da ativa. */
+  amostrarTudo: boolean;
+  /** O texto confirmado entra numa camada própria. */
+  textoEmNovaCamada: boolean;
   setTool: (tool: ToolId) => void;
   setPincel: (tipo: TipoPincel) => void;
   setForma: (forma: FormaId) => void;
@@ -106,6 +110,8 @@ interface EditorState {
         | 'toleranciaBorracha'
         | 'toleranciaBalde'
         | 'preenchimentoGlobal'
+        | 'amostrarTudo'
+        | 'textoEmNovaCamada'
       >
     >,
   ) => void;
@@ -145,6 +151,8 @@ export const useEditor = create<EditorState>()(
     toleranciaBorracha: 5,
     toleranciaBalde: 5,
     preenchimentoGlobal: false,
+    amostrarTudo: false,
+    textoEmNovaCamada: true,
     setTool: (tool) =>
       set((state) => {
         if (tool === 'eyedropper' && state.tool !== tool) state.ultimaFerramenta = state.tool;

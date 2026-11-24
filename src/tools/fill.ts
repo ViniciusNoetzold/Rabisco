@@ -14,6 +14,7 @@ export const balde = definirFerramenta(
         cor: corDoBotao(ctx, botao),
         tolerancia: toleranciaEmCanais(ctx.opcoes.toleranciaBalde),
         global: ctx.opcoes.preenchimentoGlobal,
+        ...(ctx.opcoes.amostrarTudo ? { amostrarTudo: true } : {}),
       });
     },
   }),

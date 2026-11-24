@@ -2,6 +2,12 @@
 
 ## 0.3 em desenvolvimento
 
+### Passo 3 (parcial) — Ferramentas cientes de camadas
+
+- O texto confirmado entra numa camada própria ("Texto: …"), num único item do histórico. Dá para desligar em Texto › Fundo › "Em nova camada".
+- Balde e conta-gotas ganharam "Amostrar todas as camadas": a área ou a cor vêm do que se vê, mas o balde pinta só na camada ativa.
+- Já no Passo 1: borracha transparente fora do papel, travar transparência e aviso ao pintar em camada oculta ou bloqueada. Falta "Copiar mesclado" (Ctrl+Shift+C) e a opção de formas em nova camada.
+
 ### Passo 5 (parcial) — Colagem em camadas e ferramenta Mover
 
 - Imagem colada de fora (Ctrl+V) ou arrastada para a janela flutua para ser posicionada e, ao confirmar, vira uma camada nova com o nome do arquivo. Ctrl+Shift+V cola na camada atual, como antes. Várias imagens soltas de uma vez viram uma camada cada, centralizadas; as maiores que o papel são reduzidas para caber.

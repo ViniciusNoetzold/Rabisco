@@ -47,6 +47,7 @@ export interface ToolCtx {
     toleranciaBorracha: number;
     toleranciaBalde: number;
     preenchimentoGlobal: boolean;
+    amostrarTudo: boolean;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
     gotasSpray: 1 | 2;

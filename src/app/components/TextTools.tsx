@@ -1,3 +1,4 @@
+import { useEditor } from '../store';
 import { useState } from 'react';
 import {
   FONTES_TEXTO,
@@ -136,6 +137,16 @@ export function TextTools({
           >
             Opaco (Cor 2)
           </button>
+          <label className="texto-nova-camada" title="O texto confirmado entra numa camada própria">
+            <input
+              type="checkbox"
+              checked={useEditor((estado) => estado.textoEmNovaCamada)}
+              onChange={(evento) =>
+                useEditor.getState().set({ textoEmNovaCamada: evento.currentTarget.checked })
+              }
+            />
+            Em nova camada
+          </label>
         </div>
       </RibbonGroup>
     </>

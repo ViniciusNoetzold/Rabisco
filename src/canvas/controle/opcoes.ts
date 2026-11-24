@@ -14,6 +14,7 @@ export function opcoesDaFerramenta(estado: EstadoEditor): ToolCtx['opcoes'] {
     toleranciaBorracha: estado.toleranciaBorracha,
     toleranciaBalde: estado.toleranciaBalde,
     preenchimentoGlobal: estado.preenchimentoGlobal,
+    amostrarTudo: estado.amostrarTudo,
     pincel: estado.pincel,
     densidadeSpray: estado.densidadeSpray,
     gotasSpray: estado.gotasSpray,

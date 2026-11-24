@@ -41,6 +41,7 @@ export function ControlesDeBorracha() {
 
 export function ControlesDeBalde() {
   const preenchimentoGlobal = useEditor((estado) => estado.preenchimentoGlobal);
+  const amostrarTudo = useEditor((estado) => estado.amostrarTudo);
   const set = useEditor((estado) => estado.set);
 
   return (
@@ -53,6 +54,17 @@ export function ControlesDeBalde() {
           onChange={(evento) => set({ preenchimentoGlobal: evento.currentTarget.checked })}
         />
         Preencher cor em toda a imagem
+      </label>
+      <label
+        className="pixel-tools-global"
+        title="Decide a área pelo que se vê; pinta só na camada ativa"
+      >
+        <input
+          type="checkbox"
+          checked={amostrarTudo}
+          onChange={(evento) => set({ amostrarTudo: evento.currentTarget.checked })}
+        />
+        Amostrar todas as camadas
       </label>
     </div>
   );

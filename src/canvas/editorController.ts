@@ -316,7 +316,20 @@ export class EditorController implements EditorApi, NucleoEditor {
   aplicarTexto(configuracao: ConfiguracaoTexto) {
     if (!this.disponivel()) return;
     this.selecao.selecionar(null);
-    this.executar({ tipo: 'AplicarTexto', configuracao });
+    if (!useEditor.getState().textoEmNovaCamada || !configuracao.texto.trim()) {
+      this.executar({ tipo: 'AplicarTexto', configuracao });
+      return;
+    }
+    // Um item só no histórico: a camada nova e o texto dentro dela.
+    const nome = `Texto: ${configuracao.texto.trim().split(/\r?\n/)[0].slice(0, 30)}`;
+    this.executar({
+      tipo: 'Lote',
+      rotulo: 'Texto',
+      comandos: [
+        { tipo: 'NovaCamada', id: novoId('camada'), nome },
+        { tipo: 'AplicarTexto', configuracao },
+      ],
+    });
   }
 
   async copy(recortar = false) {

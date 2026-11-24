@@ -205,12 +205,13 @@ export class ControleFerramentas {
 
   /** Conta-gotas: lê o pixel e, depois de usado, volta para a ferramenta anterior. */
   private capturarCor(ponto: Point, alvo?: 1 | 2) {
-    const pixel = this.nucleo.doc.lerPixels({
-      x: Math.floor(ponto.x),
-      y: Math.floor(ponto.y),
-      width: 1,
-      height: 1,
-    });
+    const area = { x: Math.floor(ponto.x), y: Math.floor(ponto.y), width: 1, height: 1 };
+    // "Amostrar todas as camadas": a cor que se vê na tela, já composta.
+    const pixel = useEditor.getState().amostrarTudo
+      ? this.superficie.tela
+          .getContext('2d', { willReadFrequently: true })!
+          .getImageData(area.x, area.y, 1, 1)
+      : this.nucleo.doc.lerPixels(area);
     const hex = Array.from(pixel.data.subarray(0, 3), (valor) =>
       valor.toString(16).padStart(2, '0'),
     );
