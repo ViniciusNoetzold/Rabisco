@@ -78,6 +78,8 @@ export function EditorChrome({
           onNew={() => onDialog('new')}
           onOpen={onOpen}
           onSave={() => run(() => editor.current?.save())}
+          onSaveAs={() => onDialog('save-as')}
+          onPrint={() => onDialog('print')}
           onAbout={() => onDialog('about')}
         />
         <div className="tabs" role="tablist" aria-label="Abas de ferramentas">
@@ -108,7 +110,7 @@ export function EditorChrome({
         <button className="learn-link" onClick={() => onDialog('help')}>
           <span className="little-spark">✧</span> Uma ajudinha?
         </button>
-        <span className="version-label">MVP 0.1</span>
+        <span className="version-label">Versão 0.2</span>
       </nav>
     </>
   );

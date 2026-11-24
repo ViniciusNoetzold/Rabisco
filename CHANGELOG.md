@@ -1,6 +1,15 @@
 # Histórico de alterações
 
-## 0.2 em desenvolvimento
+## 0.2.0 — 2026-11-24
+
+Os oito passos da paridade clássica foram concluídos. O build de produção, os 110 testes unitários e os 45 fluxos no Edge passaram.
+
+### Passo 8 — Arquivos, colagem, cores e impressão
+
+- Abertura de PNG, JPEG, BMP, GIF pelo primeiro quadro, WebP e ICO. Exportação em PNG, JPEG, BMP de 24 bits, GIF e WebP, com avisos de perda de transparência ou cores e ajuste de qualidade onde aplicável.
+- Colagem pelo navegador, botão Colar, arquivo e arraste. A imagem externa fica flutuante para posicionamento e pode ampliar o papel quando necessário em uma única edição no histórico.
+- Editor com espectro, HSL, RGB, hexadecimal e 16 cores persistentes. Impressão com ajuste à página, centralização e orientação. A ajuda lista os atalhos atualizados.
+- Pincelada medida no Edge em papel de 4000 × 4000 px com média de 16,67 ms por quadro e p95 de 16,80 ms.
 
 ### Passo 7 — Navegação no papel
 

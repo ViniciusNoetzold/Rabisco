@@ -101,6 +101,11 @@ export function TextOverlay({
         evento.preventDefault();
         evento.stopPropagation();
         acaoAtual.current();
+      } else if (
+        (evento.ctrlKey || evento.metaKey) &&
+        ['s', 'o', 'n', 'p'].includes(evento.key.toLowerCase())
+      ) {
+        acaoAtual.current();
       }
     }
 

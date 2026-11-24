@@ -39,6 +39,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const previa = useRef<HTMLCanvasElement>(null);
     const workspace = useRef<HTMLDivElement>(null);
     const palco = useRef<HTMLDivElement>(null);
+    const camadaColagem = useRef<HTMLDivElement>(null);
     const editor = useRef<EditorController>(null);
     const redimensionando = useRef(false);
     const eventos = useRef(callbacks);
@@ -63,18 +64,24 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     });
 
     useLayoutEffect(() => {
-      const instancia = new EditorController(tela.current!, previa.current!, workspace.current!, {
-        mudar: (info) => {
-          definirDimensoes((atual) =>
-            atual.width === info.width && atual.height === info.height
-              ? atual
-              : { width: info.width, height: info.height },
-          );
-          definirSelecao(info.selection);
-          eventos.current.onChange(info);
+      const instancia = new EditorController(
+        tela.current!,
+        previa.current!,
+        workspace.current!,
+        camadaColagem.current!,
+        {
+          mudar: (info) => {
+            definirDimensoes((atual) =>
+              atual.width === info.width && atual.height === info.height
+                ? atual
+                : { width: info.width, height: info.height },
+            );
+            definirSelecao(info.selection);
+            eventos.current.onChange(info);
+          },
+          avisar: (mensagem) => eventos.current.onMessage(mensagem),
         },
-        avisar: (mensagem) => eventos.current.onMessage(mensagem),
-      });
+      );
       editor.current = instancia;
       void instancia.iniciar();
       const observador = new ResizeObserver(() => {
@@ -187,6 +194,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
               style={tamanho}
               aria-hidden="true"
             />
+            <div ref={camadaColagem} className="camada-colagem" aria-hidden="true" />
             {(grid || zoom >= 4) && (
               <div
                 className={`canvas-grid ${zoom >= 4 ? 'grade-de-pixels' : ''}`}
@@ -229,7 +237,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             <span className="workspace-default-hint">Um pequeno espaço para grandes ideias.</span>
             <span className="workspace-shape-hint">Enter confirma · Esc descarta</span>
             <span>
-              PNG · {dimensoes.width} × {dimensoes.height} px
+              {dimensoes.width} × {dimensoes.height} px
             </span>
           </div>
         </div>

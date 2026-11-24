@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 import type { FormaPropria } from '../shapes/presets';
+import type { CorPersonalizada } from './cores';
 
 export interface DocumentSnapshot {
   id: 'current';
@@ -16,11 +17,13 @@ export interface DocumentSnapshot {
 class DocumentDatabase extends Dexie {
   documents!: Table<DocumentSnapshot, 'current'>;
   formas!: Table<FormaPropria, string>;
+  cores!: Table<CorPersonalizada, number>;
 
   constructor() {
     super('rabisco-documentos');
     this.version(1).stores({ documents: 'id' });
     this.version(2).stores({ documents: 'id', formas: 'id' });
+    this.version(3).stores({ documents: 'id', formas: 'id', cores: 'slot' });
   }
 }
 

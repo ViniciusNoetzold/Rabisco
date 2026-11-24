@@ -1,4 +1,6 @@
-import type { Point, Rect } from '../layers/types';
+import type { PixelBuffer, Point, Rect } from '../layers/types';
+import type { OpcoesExportacao } from '../io/imagens';
+import type { OpcoesImpressao } from '../io/imprimir';
 import type { OpcoesTransformacao, OrientacaoImagem } from '../commands/comandos';
 import type { DadosFormaPropria } from '../shapes/presets';
 
@@ -18,6 +20,8 @@ export interface EditorApi {
   undo(): void;
   redo(): void;
   save(): Promise<void>;
+  salvarComo(opcoes: OpcoesExportacao): Promise<void>;
+  imprimir(opcoes: OpcoesImpressao): Promise<void>;
   open(file: File): Promise<void>;
   newDocument(name: string, width: number, height: number): void;
   selectAll(): void;
@@ -26,6 +30,8 @@ export interface EditorApi {
   crop(): void;
   copy(cut?: boolean): Promise<void>;
   paste(): Promise<void>;
+  colarImagem(pixels: PixelBuffer, aumentar?: boolean): void;
+  colarCopiaIgual(pixels: PixelBuffer): Promise<boolean>;
   fit(): void;
   redimensionarPapel(largura: number, altura: number, fundo?: string, dpi?: number): void;
   transformarImagem(opcoes: OpcoesTransformacao): void;

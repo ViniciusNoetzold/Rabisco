@@ -1,6 +1,6 @@
 # Rabisco
 
-Editor de desenho local em português, com interface inspirada nos editores gráficos da era Aero. O MVP 0.1 está concluído. O [roteiro](ROADMAP.md) acompanha os passos da versão 0.2.
+Editor de desenho local em português, com interface inspirada nos editores gráficos da era Aero. A versão 0.2 foi concluída e validada em 24 de novembro de 2026. O [roteiro](ROADMAP.md) acompanha as próximas versões.
 
 ## Executar
 
@@ -39,7 +39,10 @@ Para acompanhar mudanças em um servidor estático que já serve `dist/`, execut
 - Arraste a alça da direita, da base ou do canto para aumentar ou cortar o papel. A área nova recebe a Cor 2. Use `Shift` para manter a proporção e `Esc` para cancelar.
 - Abra **Propriedades da imagem** (`Ctrl+E`) para definir o tamanho em pixels, centímetros ou polegadas e ajustar a resolução (96 DPI por padrão). O diálogo mostra a memória ocupada pelos pixels e permite escolher a cor da área nova.
 - Abra **Redimensionar e inclinar** (`Ctrl+W`) para reamostrar em pixels ou porcentagem e inclinar até 89° em cada eixo. Use **Girar** para girar 90° ou 180° ou inverter em um dos eixos. Essas operações se aplicam à seleção quando ela está ativa, ou à imagem inteira.
-- Use **Arquivo** para criar um desenho, abrir um PNG e salvar uma cópia em PNG.
+- Em **Arquivo**, abra PNG, JPEG, BMP, GIF (primeiro quadro), WebP ou ICO. Use `Ctrl+S` para salvar PNG. Em **Salvar como** (`Ctrl+Shift+S`), escolha PNG, JPEG, BMP de 24 bits, GIF ou WebP. JPEG e WebP têm controle de qualidade. O diálogo indica perdas de transparência ou cores.
+- Use `Ctrl+V`, **Colar** ou **Colar de…** para inserir uma imagem. Você também pode arrastar um arquivo para a janela. Reposicione a imagem pela seleção e confirme com `Enter`. Quando a imagem for maior que o papel, escolha se deseja ampliar o papel.
+- Em **Editar cores**, use o espectro, HSL, RGB ou hexadecimal. Salve até 16 cores personalizadas neste navegador.
+- Pressione `Ctrl+P` para imprimir. Escolha orientação, ajuste à página e centralização. A aba de ajuda **Uma ajudinha?** lista os atalhos.
 - O trabalho é salvo automaticamente neste navegador, em IndexedDB. Aguarde a indicação de salvamento antes de fechar a aba. O tamanho e a resolução também são guardados no autosave e no PNG.
 
 Os arquivos e desenhos permanecem no dispositivo. Nesta versão não há chamadas de IA, serviços de nuvem ou telemetria.
@@ -61,16 +64,25 @@ $env:PLAYWRIGHT_CHANNEL = 'chromium'
 npm run test:e2e
 ```
 
-Verificação manual recomendada:
+### Roteiro manual de 10 minutos
 
-1. Faça um traço, uma forma fechada e preencha seu interior com o balde.
-2. Troque Cor 1 e Cor 2; faça um traço com cada botão do mouse.
-3. Desfaça e refaça. Faça uma seleção, recorte e confira o histórico.
-4. Salve PNG, abra esse arquivo e confira o resultado.
-5. Desenhe novamente, aguarde o salvamento automático e recarregue a página.
-6. Navegue pelas ferramentas usando o teclado e confira o foco visível.
-7. Aumente o papel pela alça do canto, confira a Cor 2 na área nova e desfaça a edição.
-8. Em **Propriedades da imagem**, altere o tamanho e a resolução. Faça uma seleção e experimente **Redimensionar e inclinar** e **Girar**. Recarregue após o autosave e confira as dimensões e o DPI.
+1. Trace com o pincel, desfaça e refaça. Confira a edição única no histórico.
+2. Aumente o papel pela alça do canto com `Shift`. Confira a Cor 2 na área nova e desfaça.
+3. Altere o DPI em **Propriedades da imagem**, gire a folha e teste **Redimensionar e inclinar**.
+4. Teste um pincel texturizado e mantenha o aerógrafo pressionado por um segundo.
+5. Desenhe uma estrela da galeria. Mova, redimensione e gire antes de apertar `Enter`.
+6. Salve uma estrela própria de sete pontas. Recarregue, desenhe com ela e exporte a biblioteca.
+7. Contorne parte de um desenho com o laço. Mova a seleção com as setas e duplique com `Ctrl` e arraste.
+8. Ative **Seleção transparente** e mova uma região com fundo da Cor 2 sobre outra tinta.
+9. Digite “Café” e “Ação” em duas linhas. Mova a caixa, formate e clique fora.
+10. Passe a borracha sobre duas cores. Confira o contorno, mude a espessura e apague pela Cor 1 com o botão direito.
+11. Ajuste a tolerância do balde, preencha áreas separadas e capture uma cor com o conta-gotas.
+12. Faça zoom com `Ctrl` e a roda. Use `Espaço` e arraste, ative a régua e mova a miniatura. Entre e saia da tela inteira.
+13. Cole uma imagem maior que o papel. Escolha **Sim**, mova a prévia e confirme a colagem.
+14. Salve uma cor personalizada. Exporte um arquivo JPEG ou GIF, abra-o e confira o desenho recuperado.
+15. Abra a impressão em paisagem e verifique a prévia. Feche-a, aguarde o autosave e recarregue o editor.
+
+No ensaio isolado de uma pincelada em um papel de 4000 × 4000 px, o Edge registrou 179 intervalos entre quadros durante o gesto. A média foi de 16,67 ms, com p95 de 16,80 ms.
 
 ## Organização
 
@@ -80,7 +92,7 @@ src/
   canvas/     Superfície, coordenadas e controle dos gestos
   commands/   Comandos serializáveis, execução e histórico por área
   document/   Documento, camada ativa e composição da tela
-  io/         Importação e exportação PNG
+  io/         Arquivos de imagem, área de transferência e impressão
   layers/     Tipos do documento
   storage/    Persistência local em IndexedDB
   tools/      Ferramentas, registro e operações de pixels
@@ -96,11 +108,11 @@ O documento tem uma camada raster editável, composta em uma tela separada. O re
 
 ## Limites desta entrega
 
-- Imagens de 1 a 8192 px por lado, com até 40 milhões de pixels. A importação PNG aceita arquivos de até 20 MiB.
+- Imagens de 1 a 8192 px por lado, com até 40 milhões de pixels. A importação PNG aceita arquivos de até 20 MiB. JPEG, GIF, WebP e ICO aceitam até 64 MiB. O limite do BMP considera o tamanho do bitmap sem compressão.
 - O histórico guarda os pixels da área afetada e descarta comandos antigos ao atingir 128 MiB. Quando uma única edição ultrapassa esse orçamento, ela permanece disponível para desfazer.
-- O autosave é uma recuperação local do último documento, não um backup. Limpar dados do navegador também remove o trabalho salvo.
-- Depois de carregado, desenhar, salvar PNG e recuperar dados locais dispensam conexão. Instalação PWA e abertura offline garantida após fechar o navegador ficam para a versão 1.0.
-- Camadas múltiplas, texto, IA, efeitos e Tauri ainda não fazem parte do MVP. O alvo de desempenho de 4000 × 4000 com 20 camadas será medido nas etapas do motor e de performance; não é uma garantia desta versão.
+- O autosave guarda o último documento neste navegador. Limpar os dados do site também remove desenho, formas próprias e cores personalizadas.
+- A leitura e a escrita diretas na área de transferência do sistema exigem HTTPS ou localhost e permissão do navegador. Na prévia HTTP da rede, use `Ctrl+V`, **Colar de…** ou arraste o arquivo. O botão **Colar** também usa a cópia interna.
+- Instalação PWA, camadas múltiplas, IA, efeitos e Tauri estão no roteiro. A área de texto é editável até a confirmação, quando vira pixels no papel.
 
 ## Créditos e licença
 

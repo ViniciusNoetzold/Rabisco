@@ -19,7 +19,7 @@ async function abrirAmostra(page: Page) {
     contexto.fillRect(40, 35, 8, 8);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await page.locator('input[type=file]').setInputFiles({
+  await page.getByLabel('Abrir arquivo de imagem', { exact: true }).setInputFiles({
     name: 'Amostra.png',
     mimeType: 'image/png',
     buffer: Buffer.from(png, 'base64'),
@@ -75,7 +75,7 @@ test('muda o tamanho e o DPI por propriedades e recupera ambos do autosave e do 
   expect(bloco).toBeGreaterThan(32);
   expect(png.readUInt32BE(bloco + 4)).toBe(3937);
   await page
-    .locator('input[type=file]')
+    .getByLabel('Abrir arquivo de imagem', { exact: true })
     .setInputFiles({ name: 'Exportado.png', mimeType: 'image/png', buffer: png });
   await expect(page).toHaveTitle('Exportado — Rabisco');
   await page.getByRole('button', { name: 'Propriedades da imagem', exact: true }).click();

@@ -24,7 +24,7 @@ interface MoverSelecao {
   mascara?: MascaraSelecao;
   corTransparente?: string;
   duplicar: boolean;
-  recorte: RecorteFlutuante;
+  recorte: RecorteFlutuante | null;
 }
 
 type GestoSelecao = { tipo: 'marcar'; pontos: Point[] } | MoverSelecao;
@@ -61,6 +61,7 @@ function definirSelecao(laco: boolean) {
 
       function publicar(ctx: ToolCtx, ajuste: MoverSelecao) {
         const { origem, destino, duplicar, mascara, corTransparente } = ajuste;
+        if (!ajuste.recorte) return;
         if (
           origem.x !== destino.x ||
           origem.y !== destino.y ||
@@ -118,8 +119,10 @@ function definirSelecao(laco: boolean) {
           if (destino.width < 1 || destino.height < 1) return;
         }
         gesto.destino = destino;
-        ctx.previsualizarSelecao(duplicar ? null : origem, destino, recorte);
-        ctx.selecionar(destino, projetarMascara(mascara, origem, destino));
+        if (recorte) {
+          ctx.previsualizarSelecao(duplicar ? null : origem, destino, recorte);
+          ctx.selecionar(destino, projetarMascara(mascara, origem, destino));
+        } else ctx.reposicionarColagem?.(destino);
       }
 
       return {
@@ -146,10 +149,13 @@ function definirSelecao(laco: boolean) {
               mascara,
               duplicar: Boolean(ctrl),
               corTransparente,
-              recorte: ctx.prepararRecorte(origem, mascara, corTransparente),
+              recorte: ctx.colagemFlutuante
+                ? null
+                : ctx.prepararRecorte(origem, mascara, corTransparente),
             };
             return;
           }
+          if (ctx.colagemFlutuante) ctx.confirmarColagem?.();
           gesto = { tipo: 'marcar', pontos: [ponto] };
           ctx.selecionar(null);
         },
@@ -164,8 +170,10 @@ function definirSelecao(laco: boolean) {
         },
         onCancel(ctx) {
           ctx.limparPrevia();
-          if (gesto?.tipo === 'mover') ctx.selecionar(gesto.origem, gesto.mascara);
-          else ctx.selecionar(null);
+          if (gesto?.tipo === 'mover') {
+            if (gesto.recorte) ctx.selecionar(gesto.origem, gesto.mascara);
+            else ctx.reposicionarColagem?.(gesto.origem);
+          } else ctx.selecionar(null);
           gesto = null;
         },
         onKeyDown(ctx, evento) {
@@ -179,6 +187,10 @@ function definirSelecao(laco: boolean) {
           if (!direcao || evento.ctrlKey || evento.metaKey || evento.altKey) return false;
           const passo = evento.shiftKey ? 10 : 1;
           const destino = deslocar(origem, direcao.x * passo, direcao.y * passo, ctx);
+          if (ctx.colagemFlutuante) {
+            ctx.reposicionarColagem?.(destino);
+            return true;
+          }
           const mascara = ctx.mascaraSelecao;
           const corTransparente = ctx.opcoes.selecaoTransparente ? ctx.opcoes.cor2 : undefined;
           if (destino.x !== origem.x || destino.y !== origem.y)

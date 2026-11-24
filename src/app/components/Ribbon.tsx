@@ -21,6 +21,9 @@ interface RibbonProps {
   onOpen(): void;
   onPropriedades(): void;
   onTransformar(): void;
+  onEditarCores(): void;
+  onColar(): void;
+  onColarDe(): void;
   alternarTelaInteira(): void;
   run: RunAction;
 }
@@ -33,6 +36,9 @@ export function Ribbon({
   onOpen,
   onPropriedades,
   onTransformar,
+  onEditarCores,
+  onColar,
+  onColarDe,
   alternarTelaInteira,
   run,
 }: RibbonProps) {
@@ -72,11 +78,7 @@ export function Ribbon({
           ) : (
             <>
               <RibbonGroup title="Área de transferência" className="clipboard-group">
-                <button
-                  className="ribbon-large"
-                  onClick={() => run(() => editor.current?.paste())}
-                  title="Colar seleção (Ctrl+V)"
-                >
+                <button className="ribbon-large" onClick={onColar} title="Colar (Ctrl+V)">
                   <Icon name="clipboard-paste" className="large-icon" />
                   <span>Colar</span>
                 </button>
@@ -94,6 +96,10 @@ export function Ribbon({
                   >
                     <Icon name="document-copy" />
                     Copiar
+                  </button>
+                  <button type="button" onClick={onColarDe}>
+                    <Icon name="folder-open" />
+                    Colar de…
                   </button>
                 </div>
               </RibbonGroup>
@@ -229,20 +235,19 @@ export function Ribbon({
                 />
               ))}
             </div>
-            <label className="edit-colors">
-              <input
-                type="color"
-                aria-label="Editar cor personalizada"
-                value={state.colorTarget === 1 ? state.color1 : state.color2}
-                onChange={(event) => state.setColor(event.target.value)}
-              />
+            <button
+              type="button"
+              className="edit-colors"
+              aria-label="Editar cores"
+              onClick={onEditarCores}
+            >
               <span className="color-wheel" />
               <span>
                 Editar
                 <br />
                 cores
               </span>
-            </label>
+            </button>
           </RibbonGroup>
         </>
       ) : (

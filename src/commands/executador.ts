@@ -165,14 +165,40 @@ export class Executador {
         );
       }
       case 'ColarImagem': {
-        const { x, y } = comando;
+        const { x, y, papel, tamanho } = comando;
         const imagem = desserializarImagem(comando.imagem);
-        const area = limitarArea({ x, y, width: imagem.width, height: imagem.height }, this.doc);
+        const destino = {
+          x,
+          y,
+          width: tamanho?.largura ?? imagem.width,
+          height: tamanho?.altura ?? imagem.height,
+        };
+        validarDimensoes(destino.width, destino.height);
+        const limites = papel ? { width: papel.largura, height: papel.altura } : this.doc;
+        const area = limitarArea(destino, limites);
         if (!area) return false;
         const origem = { x: 0, y: 0, width: imagem.width, height: imagem.height };
         const recorte = prepararRecorte(imagem, origem, undefined, comando.corTransparente);
+        if (papel) {
+          const depois = redimensionarPapel(
+            this.doc.obterDados(),
+            papel.largura,
+            papel.altura,
+            papel.fundo,
+          );
+          const pixels = recorte.imagem
+            .getContext('2d')!
+            .getImageData(0, 0, origem.width, origem.height);
+          const ajustada = redimensionarEInclinar(pixels, destino.width, destino.height, 0, 0);
+          const visivel =
+            area.width === ajustada.width && area.height === ajustada.height
+              ? ajustada
+              : recortarPixels(ajustada, { ...area, x: area.x - x, y: area.y - y });
+          sobreporPixels(visivel, depois, area.x, area.y);
+          return this.substituir(comando, 'Colar seleção', this.doc.name, depois);
+        }
         return this.pintar(comando, 'Colar seleção', area, (ctx) => {
-          pintarRecorte(ctx, recorte, null, { ...origem, x, y });
+          pintarRecorte(ctx, recorte, null, destino);
         });
       }
       case 'CortarPapel': {
@@ -193,7 +219,7 @@ export class Executador {
       case 'AbrirImagem':
         return this.substituir(
           comando,
-          'Abrir PNG',
+          `Abrir ${(comando.formato ?? 'png').toUpperCase()}`,
           comando.nome,
           desserializarImagem(comando.imagem),
           comando.dpi ?? DPI_PADRAO,

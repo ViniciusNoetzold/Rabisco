@@ -15,7 +15,7 @@ import {
 import { areaDoSegmento, desenharSegmento, limitarArea, unirAreas } from '../commands/desenho';
 import { Executador } from '../commands/executador';
 import { comporDocumento } from '../document/compositor';
-import { DPI_PADRAO } from '../document/dimensoes';
+import { DPI_PADRAO, validarDimensoes } from '../document/dimensoes';
 import { RabiscoDocument } from '../document/model';
 import {
   contornoRetangular,
@@ -24,8 +24,11 @@ import {
   type MascaraSelecao,
   type RecorteFlutuante,
 } from '../document/selecao';
-import { exportPng, openPng } from '../io/png';
-import type { Point, Rect, ToolId } from '../layers/types';
+import { exportPng } from '../io/png';
+import { copiarImagemClipboard } from '../io/clipboard';
+import type { OpcoesExportacao } from '../io/imagens';
+import type { OpcoesImpressao } from '../io/imprimir';
+import type { PixelBuffer, Point, Rect, ToolId } from '../layers/types';
 import { referenciaDaForma, referenciaDaSelecao } from '../shapes/referencia';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import { loadDocument, saveDocument } from '../storage/documents';
@@ -39,6 +42,14 @@ import { ZOOM_MIN } from './zoom';
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
   avisar(mensagem: string): void;
+}
+
+interface ColagemFlutuante {
+  pixels: PixelBuffer;
+  destino: Rect;
+  recorte: RecorteFlutuante;
+  corTransparente?: string;
+  papel?: { largura: number; altura: number; fundo: string };
 }
 
 /** Documento, comandos e estado dos gestos pertencem a uma instância do editor. */
@@ -62,6 +73,7 @@ export class EditorController implements EditorApi {
   private timerMarquise = 0;
   private ultimaForma: ConfiguracaoForma | null = null;
   private copiado: ImageData | null = null;
+  private colagem: ColagemFlutuante | null = null;
   private pronto = false;
   private acompanharAjuste = true;
   private ajustandoZoom = false;
@@ -74,6 +86,7 @@ export class EditorController implements EditorApi {
     private readonly tela: HTMLCanvasElement,
     previa: HTMLCanvasElement,
     private readonly workspace: HTMLDivElement,
+    private readonly camadaColagem: HTMLDivElement,
     private readonly eventos: EventosEditor,
   ) {
     this.grafico = tela.getContext('2d', { willReadFrequently: true })!;
@@ -81,6 +94,16 @@ export class EditorController implements EditorApi {
     this.desconectarOpcoes = useEditor.subscribe((atual, anterior) => {
       if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
       if (!this.pronto) return;
+      if (this.colagem) {
+        if (
+          atual.selecaoTransparente !== anterior.selecaoTransparente ||
+          atual.color2 !== anterior.color2
+        ) {
+          this.definirRecorteDaColagem();
+        } else if (atual.zoom !== anterior.zoom) {
+          this.mostrarColagem();
+        }
+      }
       const ferramentaAnterior = this.ferramentas[anterior.tool];
       const ferramenta = this.ferramentas[atual.tool];
       const trocouFerramenta = atual.tool !== anterior.tool;
@@ -92,6 +115,7 @@ export class EditorController implements EditorApi {
           atual.formaPropria?.fechada !== anterior.formaPropria?.fechada);
       if (trocouFerramenta || trocouForma) {
         if (this.gesto) this.cancelarGesto();
+        if (atual.tool !== 'select' && atual.tool !== 'lasso') this.confirmarColagem();
         ferramentaAnterior.onPointerLeave?.(this.contexto(anterior));
         ferramentaAnterior.commitPendente?.(this.contexto(anterior));
         this.redesenharOverlay(ferramenta);
@@ -144,6 +168,7 @@ export class EditorController implements EditorApi {
     this.cancelarGesto();
     window.clearTimeout(this.timerMarquise);
     this.workspace.removeAttribute('data-forma-pendente');
+    this.limparColagem();
   }
 
   ajustarAoRedimensionar() {
@@ -226,6 +251,11 @@ export class EditorController implements EditorApi {
       this.descartarFormaPendente();
       return true;
     }
+    if (this.colagem && (evento.key === 'Escape' || evento.key === 'Enter')) {
+      if (evento.key === 'Escape') this.descartarColagem();
+      else this.confirmarColagem();
+      return true;
+    }
     const ferramenta = this.gesto?.ferramenta ?? this.ferramentas[useEditor.getState().tool];
     if (!ferramenta.onKeyDown?.(this.contexto(), evento)) return false;
     this.redesenharOverlay(ferramenta);
@@ -233,36 +263,57 @@ export class EditorController implements EditorApi {
   }
 
   undo() {
-    if (!this.disponivel() || this.descartarFormaPendente()) return;
+    if (!this.disponivel() || this.descartarColagem() || this.descartarFormaPendente()) return;
     if (this.comandos.desfazer()) this.restaurarSelecao();
   }
 
   redo() {
-    if (!this.disponivel() || this.descartarFormaPendente()) return;
+    if (!this.disponivel() || this.descartarColagem() || this.descartarFormaPendente()) return;
     if (this.comandos.refazer()) this.restaurarSelecao();
   }
 
   async save() {
     if (!this.pronto) return;
+    await exportPng(this.telaParaSaida(), this.doc.name, this.doc.dpi);
+    this.eventos.avisar('PNG exportado. Seu rabisco está pronto para levar.');
+  }
+
+  async salvarComo({ nome, formato, qualidade }: OpcoesExportacao) {
+    if (!this.pronto) return;
+    const { exportarImagem, baixarImagem } = await import('../io/imagens');
+    const blob = await exportarImagem(this.telaParaSaida(), formato, qualidade, this.doc.dpi);
+    baixarImagem(blob, nome, formato);
+    this.eventos.avisar(`${formato.toUpperCase()} exportado.`);
+  }
+
+  async imprimir(opcoes: OpcoesImpressao) {
+    if (!this.pronto) return;
+    const { imprimirImagem } = await import('../io/imprimir');
+    await imprimirImagem(this.telaParaSaida(), this.doc.dpi, opcoes);
+  }
+
+  private telaParaSaida() {
     this.confirmarFormaPendente();
     // Uma prévia de gesto pertence à tela, não ao documento salvo.
     const tela = this.areaPrevia ? document.createElement('canvas') : this.tela;
     if (tela !== this.tela) comporDocumento(this.doc, tela);
-    await exportPng(tela, this.doc.name, this.doc.dpi);
-    this.eventos.avisar('PNG exportado. Seu rabisco está pronto para levar.');
+    return tela;
   }
 
   async open(arquivo: File) {
-    const imagem = await openPng(arquivo);
+    const { abrirImagem } = await import('../io/imagens');
+    const imagem = await abrirImagem(arquivo);
     if (!this.disponivel()) return;
+    this.descartarColagem();
     this.confirmarFormaPendente();
-    const { name, width, height, pixels, dpi } = imagem;
+    const { name, width, height, pixels, dpi, formato } = imagem;
     this.selecao = null;
     this.mascaraSelecao = undefined;
     this.executar({
       tipo: 'AbrirImagem',
       nome: name,
       dpi,
+      formato,
       imagem: serializarImagem({ width, height, data: pixels }),
     });
     this.fit();
@@ -271,6 +322,7 @@ export class EditorController implements EditorApi {
 
   newDocument(nome: string, largura: number, altura: number) {
     if (!this.disponivel()) return;
+    this.descartarColagem();
     this.descartarFormaPendente();
     this.selecao = null;
     this.mascaraSelecao = undefined;
@@ -327,12 +379,14 @@ export class EditorController implements EditorApi {
 
   selectAll() {
     if (!this.disponivel()) return;
+    this.confirmarColagem();
     useEditor.getState().setTool('select');
     this.selecionar({ x: 0, y: 0, width: this.doc.width, height: this.doc.height });
   }
 
   inverterSelecao() {
     if (!this.disponivel()) return;
+    this.confirmarColagem();
     if (!this.selecao) {
       this.selectAll();
       return;
@@ -373,6 +427,7 @@ export class EditorController implements EditorApi {
 
   deleteSelection() {
     if (!this.disponivel() || !this.selecao) return;
+    if (this.descartarColagem()) return;
     const area = this.selecao;
     const mascara = this.mascaraSelecao;
     this.selecionar(null);
@@ -382,6 +437,8 @@ export class EditorController implements EditorApi {
 
   crop() {
     if (!this.disponivel() || !this.selecao) return;
+    this.confirmarColagem();
+    if (!this.selecao) return;
     const area = this.selecao;
     const mascara = this.mascaraSelecao;
     this.selecionar(null);
@@ -396,28 +453,38 @@ export class EditorController implements EditorApi {
       this.eventos.avisar('Selecione uma parte do desenho primeiro.');
       return;
     }
+    this.confirmarColagem();
+    if (!this.selecao) return;
     const { selecaoTransparente, color2 } = useEditor.getState();
     const area = this.selecao;
-    this.copiado = prepararRecorte(
+    const recorte = prepararRecorte(
       this.doc.obterDados(),
       area,
       this.mascaraSelecao,
       selecaoTransparente ? color2 : undefined,
-    )
-      .imagem.getContext('2d')!
-      .getImageData(0, 0, area.width, area.height);
+    ).imagem;
+    this.copiado = recorte.getContext('2d')!.getImageData(0, 0, area.width, area.height);
+    const paraSistema = copiarImagemClipboard(recorte).then(
+      () => true,
+      () => false,
+    );
     if (recortar) this.deleteSelection();
+    const copiadoNoSistema = await paraSistema;
     this.eventos.avisar(
       recortar
         ? 'Seleção recortada. Use Colar para reposicionar.'
-        : 'Seleção copiada. Use Colar neste desenho.',
+        : copiadoNoSistema
+          ? 'Seleção copiada como PNG.'
+          : 'Seleção copiada neste editor.',
     );
   }
 
   async paste() {
     if (!this.disponivel()) return;
     if (!this.copiado) {
-      this.eventos.avisar('Copie uma seleção primeiro, ou abra um arquivo PNG.');
+      this.eventos.avisar(
+        'Use Ctrl+V para colar uma imagem ou Colar de… para escolher um arquivo.',
+      );
       return;
     }
     const x = Math.min(24, this.doc.width - 1);
@@ -428,6 +495,7 @@ export class EditorController implements EditorApi {
       width: Math.min(this.copiado.width, this.doc.width - x),
       height: Math.min(this.copiado.height, this.doc.height - y),
     };
+    this.confirmarColagem();
     useEditor.getState().setTool('select');
     this.selecionar(selecao);
     const { selecaoTransparente, color2 } = useEditor.getState();
@@ -441,6 +509,115 @@ export class EditorController implements EditorApi {
     this.notificar();
   }
 
+  async colarCopiaIgual(pixels: PixelBuffer) {
+    const capa = this.copiado;
+    if (
+      !capa ||
+      pixels.width !== capa.width ||
+      pixels.height !== capa.height ||
+      !pixels.data.every((valor, i) => valor === capa.data[i])
+    )
+      return false;
+    await this.paste();
+    return true;
+  }
+
+  colarImagem(pixels: PixelBuffer, aumentar = false) {
+    if (!this.disponivel()) return;
+    this.confirmarFormaPendente();
+    const { color2, selecaoTransparente, setTool } = useEditor.getState();
+    const largura = Math.max(pixels.width, this.doc.width);
+    const altura = Math.max(pixels.height, this.doc.height);
+    const papel =
+      aumentar && (largura !== this.doc.width || altura !== this.doc.height)
+        ? { largura, altura, fundo: color2 }
+        : undefined;
+    if (papel) validarDimensoes(papel.largura, papel.altura);
+    const destino = {
+      x: Math.max(0, Math.min(24, this.doc.width - pixels.width)),
+      y: Math.max(0, Math.min(24, this.doc.height - pixels.height)),
+      width: pixels.width,
+      height: pixels.height,
+    };
+    const corTransparente = selecaoTransparente ? color2 : undefined;
+    const recorte = prepararRecorte(pixels, { ...destino, x: 0, y: 0 }, undefined, corTransparente);
+    setTool('select');
+    this.colagem = { pixels, destino, papel, recorte, corTransparente };
+    this.mostrarColagem();
+    this.selecionar(destino);
+    this.eventos.avisar('Arraste a imagem para posicionar. Enter confirma, Esc descarta.');
+  }
+
+  private definirRecorteDaColagem() {
+    const colagem = this.colagem;
+    if (!colagem) return;
+    const { selecaoTransparente, color2 } = useEditor.getState();
+    const cor = selecaoTransparente ? color2 : undefined;
+    if (colagem.corTransparente === cor) return;
+    colagem.corTransparente = cor;
+    const { pixels } = colagem;
+    colagem.recorte = prepararRecorte(
+      pixels,
+      { x: 0, y: 0, width: pixels.width, height: pixels.height },
+      undefined,
+      cor,
+    );
+    this.mostrarColagem();
+  }
+
+  private mostrarColagem() {
+    if (!this.colagem) return;
+    const { destino, recorte } = this.colagem;
+    const { zoom } = useEditor.getState();
+    if (recorte.imagem.parentElement !== this.camadaColagem)
+      this.camadaColagem.replaceChildren(recorte.imagem);
+    Object.assign(recorte.imagem.style, {
+      left: `${destino.x * zoom}px`,
+      top: `${destino.y * zoom}px`,
+      width: `${destino.width * zoom}px`,
+      height: `${destino.height * zoom}px`,
+    });
+    this.workspace.setAttribute('data-colagem-pendente', '');
+  }
+
+  private reposicionarColagem(destino: Rect) {
+    if (!this.colagem) return;
+    this.colagem.destino = destino;
+    this.mostrarColagem();
+    this.selecionar(destino);
+  }
+
+  private confirmarColagem() {
+    const colagem = this.colagem;
+    if (!colagem) return;
+    const { pixels, destino, papel, corTransparente } = colagem;
+    this.limparColagem();
+    const mudou = this.executar({
+      tipo: 'ColarImagem',
+      x: destino.x,
+      y: destino.y,
+      imagem: serializarImagem(pixels),
+      tamanho: { largura: destino.width, altura: destino.height },
+      papel,
+      corTransparente,
+    });
+    if (mudou && papel) this.fit();
+    this.selecionar(limitarArea(destino, this.doc));
+  }
+
+  private limparColagem() {
+    this.colagem = null;
+    this.camadaColagem.replaceChildren();
+    this.workspace.removeAttribute('data-colagem-pendente');
+  }
+
+  private descartarColagem() {
+    if (!this.colagem) return false;
+    this.limparColagem();
+    this.selecionar(null);
+    return true;
+  }
+
   private disponivel() {
     return this.ativo && this.pronto && !this.gesto;
   }
@@ -449,7 +626,22 @@ export class EditorController implements EditorApi {
     const estado = useEditor.getState();
     const ativa = this.ferramentas[estado.tool].obterFormaPendente?.(this.contexto(estado));
     if (ativa) return referenciaDaForma(ativa);
-    if (this.selecao) {
+    if (this.colagem) {
+      const { pixels } = this.colagem;
+      const referencia = referenciaDaSelecao(pixels, {
+        x: 0,
+        y: 0,
+        width: pixels.width,
+        height: pixels.height,
+      });
+      if (referencia) return referencia;
+    } else if (this.selecao && this.mascaraSelecao) {
+      const area = this.selecao;
+      const recorte = prepararRecorte(this.doc.obterDados(), area, this.mascaraSelecao);
+      const pixels = recorte.imagem.getContext('2d')!.getImageData(0, 0, area.width, area.height);
+      const referencia = referenciaDaSelecao(pixels, { ...area, x: 0, y: 0 });
+      if (referencia) return referencia;
+    } else if (this.selecao) {
       const referencia = referenciaDaSelecao(this.doc.obterDados(), this.selecao);
       if (referencia) return referencia;
     }
@@ -500,6 +692,7 @@ export class EditorController implements EditorApi {
       },
       selecao: this.selecao,
       mascaraSelecao: this.mascaraSelecao,
+      colagemFlutuante: Boolean(this.colagem),
       executar: (comando) => this.executar(comando),
       selecionar: (area, mascara) => this.selecionar(area, mascara),
       capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
@@ -509,6 +702,8 @@ export class EditorController implements EditorApi {
       previsualizarMarcasPincel: (marcas) => this.previsualizarMarcasPincel(marcas),
       prepararRecorte: (area, mascara, transparente) =>
         prepararRecorte(this.doc.obterDados(), area, mascara, transparente),
+      reposicionarColagem: (destino) => this.reposicionarColagem(destino),
+      confirmarColagem: () => this.confirmarColagem(),
       previsualizarSelecao: (origem, destino, recorte) =>
         this.previsualizarSelecao(origem, destino, recorte),
       limparPrevia: () => this.limparPrevia(),
@@ -637,6 +832,7 @@ export class EditorController implements EditorApi {
 
   private confirmarFormaPendente() {
     if (this.gesto) return;
+    this.confirmarColagem();
     const ferramenta = this.ferramentas[useEditor.getState().tool];
     if (!ferramenta.temPendente?.()) return;
     ferramenta.commitPendente?.(this.contexto());

@@ -225,7 +225,10 @@ test('abre um PNG e exporta arquivo com dimensões e assinatura válidas', async
     context.fillRect(0, 0, 24, 18);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.getByRole('button', { name: 'Arquivo', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: /^Abrir imagem/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Abrir arquivo de imagem', { exact: true }).setInputFiles({
     name: 'teste-cor.png',
     mimeType: 'image/png',
     buffer: Buffer.from(encoded, 'base64'),

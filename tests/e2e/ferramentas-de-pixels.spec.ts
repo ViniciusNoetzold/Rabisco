@@ -25,7 +25,7 @@ async function prepararPapel(page: Page) {
     ctx.fillRect(44, 95, 134, 50);
     return tela.toDataURL('image/png').split(',')[1];
   });
-  await page.getByLabel('Abrir arquivo PNG', { exact: true }).setInputFiles({
+  await page.getByLabel('Abrir arquivo de imagem', { exact: true }).setInputFiles({
     name: 'Teste das ferramentas.png',
     mimeType: 'image/png',
     buffer: Buffer.from(png, 'base64'),

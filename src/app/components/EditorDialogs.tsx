@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DocumentInfo } from '../../canvas/editorTypes';
 import type { OpcoesTransformacao } from '../../commands/comandos';
+import type { OpcoesExportacao } from '../../io/imagens';
+import type { OpcoesImpressao } from '../../io/imprimir';
 import { dimensoesValidas, LIMITE_LADO, MENSAGEM_DIMENSOES } from '../../document/dimensoes';
 import { PropriedadesImagem, RedimensionarInclinar } from './PaperDialogs';
 import { Logo } from './Primitives';
+import { ColorEditor } from './ColorEditor';
+import { ImprimirDesenho, SalvarComo } from './ExportDialogs';
+import { ATALHOS } from './atalhos';
 
-export type EditorDialogKind = 'new' | 'about' | 'help' | 'properties' | 'transform' | null;
+export type EditorDialogKind =
+  | 'new'
+  | 'about'
+  | 'help'
+  | 'properties'
+  | 'transform'
+  | 'save-as'
+  | 'print'
+  | 'colors'
+  | 'fit-paste'
+  | null;
 
 const titulos: Record<NonNullable<EditorDialogKind>, string> = {
   new: 'Um novo começo',
@@ -13,26 +28,42 @@ const titulos: Record<NonNullable<EditorDialogKind>, string> = {
   help: 'Uma ajudinha para começar',
   properties: 'Propriedades da imagem',
   transform: 'Redimensionar e inclinar',
+  'save-as': 'Salvar como',
+  print: 'Imprimir desenho',
+  colors: 'Editar cores',
+  'fit-paste': 'Aumentar o papel para caber?',
 };
 
 interface EditorDialogsProps {
   dialog: EditorDialogKind;
   info: DocumentInfo;
   corDeFundo: string;
+  corAtiva: string;
+  ajustarColagem: { largura: number; altura: number; podeAumentar: boolean } | null;
   onClose(): void;
   onNew(name: string, width: number, height: number): void;
   onPropriedades(largura: number, altura: number, fundo: string, dpi: number): void;
   onTransformar(opcoes: OpcoesTransformacao): void;
+  onSalvarComo(opcoes: OpcoesExportacao): Promise<void>;
+  onImprimir(opcoes: OpcoesImpressao): Promise<void>;
+  onAplicarCor(cor: string): void;
+  onColagem(aumentar: boolean): void;
 }
 
 export function EditorDialogs({
   dialog,
   info,
   corDeFundo,
+  corAtiva,
+  ajustarColagem,
   onClose,
   onNew,
   onPropriedades,
   onTransformar,
+  onSalvarComo,
+  onImprimir,
+  onAplicarCor,
+  onColagem,
 }: EditorDialogsProps) {
   const [newName, setNewName] = useState('Meu rabisco');
   const [newWidth, setNewWidth] = useState(1024);
@@ -81,7 +112,7 @@ export function EditorDialogs({
             }}
           >
             <h2>O que vamos criar hoje?</h2>
-            <p>Exporte o desenho atual em PNG antes de começar outro.</p>
+            <p>Salve uma cópia do desenho atual antes de começar outro.</p>
             <label className="field">
               Nome do desenho
               <input
@@ -171,12 +202,58 @@ export function EditorDialogs({
         {dialog === 'transform' && (
           <RedimensionarInclinar info={info} fechar={onClose} aplicar={onTransformar} />
         )}
+        {dialog === 'save-as' && (
+          <SalvarComo nome={info.name} fechar={onClose} salvar={onSalvarComo} />
+        )}
+        {dialog === 'print' && <ImprimirDesenho fechar={onClose} imprimir={onImprimir} />}
+        {dialog === 'colors' && (
+          <ColorEditor cor={corAtiva} fechar={onClose} aoAplicar={onAplicarCor} />
+        )}
+        {dialog === 'fit-paste' && ajustarColagem && (
+          <>
+            <p>
+              A imagem mede {ajustarColagem.largura} × {ajustarColagem.altura} px. O papel atual
+              mede {info.width} × {info.height} px.
+            </p>
+            <p>
+              Escolha <strong>Sim</strong> para aumentar o papel ao confirmar a colagem ou{' '}
+              <strong>Não</strong> para manter o tamanho atual.
+            </p>
+            {!ajustarColagem.podeAumentar && <p className="form-error">{MENSAGEM_DIMENSOES}</p>}
+            <div className="dialog-actions">
+              <button type="button" onClick={onClose}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onColagem(false);
+                  onClose();
+                }}
+              >
+                Não
+              </button>
+              <button
+                data-foco-inicial
+                type="button"
+                className="primary-button"
+                disabled={!ajustarColagem.podeAumentar}
+                onClick={() => {
+                  onColagem(true);
+                  onClose();
+                }}
+              >
+                Sim
+              </button>
+            </div>
+          </>
+        )}
         {dialog === 'about' && (
           <>
             <Logo large />
             <p className="about-tagline">Um pequeno ateliê. Infinitas possibilidades.</p>
             <p>
-              Versão 0.1.0 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
+              Versão 0.2.0 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
             </p>
             <div className="about-credits">
               <h3>Feito com ferramentas abertas</h3>
@@ -201,7 +278,7 @@ export function EditorDialogs({
               </a>
             </div>
             <p className="about-footnote">
-              Seu desenho é salvo apenas neste navegador. Use Salvar PNG para guardar uma cópia.
+              Seu desenho é salvo apenas neste navegador. Use Salvar como para guardar uma cópia.
             </p>
             <div className="dialog-actions">
               <button className="primary-button" onClick={() => onClose()}>
@@ -218,28 +295,7 @@ export function EditorDialogs({
               quiser.
             </p>
             <div className="shortcut-list">
-              {[
-                ['B / P', 'Pincel / lápis'],
-                ['A', 'Aerógrafo / spray'],
-                ['[ / ]', 'Diminuir / aumentar espessura'],
-                ['E / F', 'Borracha / balde'],
-                ['S / I', 'Seleção / conta-gotas'],
-                ['L / R / O', 'Linha / retângulo / elipse'],
-                ['U', 'Ferramenta de formas'],
-                ['Enter / Esc', 'Confirmar / descartar a forma atual'],
-                ['Ctrl + Z / Y', 'Desfazer / refazer'],
-                ['Ctrl + S / O', 'Salvar / abrir PNG'],
-                ['Ctrl + E', 'Propriedades da imagem'],
-                ['Ctrl + W', 'Redimensionar e inclinar'],
-                ['Ctrl + A', 'Selecionar tudo'],
-                ['Ctrl + C / X / V', 'Copiar / recortar / colar seleção'],
-                ['Delete', 'Apagar seleção'],
-                ['Alt + clique', 'Capturar uma cor'],
-                ['X', 'Trocar Cor 1 e Cor 2'],
-                ['Shift + arrastar', 'Restringir formas'],
-                ['Shift + arrastar alça', 'Manter a proporção do papel'],
-                ['Ctrl + 0', 'Ajustar à janela'],
-              ].map(([key, label]) => (
+              {ATALHOS.map(([key, label]) => (
                 <div key={key}>
                   <kbd>{key}</kbd>
                   <span>{label}</span>

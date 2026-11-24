@@ -57,6 +57,7 @@ export interface ToolCtx {
   };
   readonly selecao: Rect | null;
   readonly mascaraSelecao?: MascaraSelecao;
+  readonly colagemFlutuante?: boolean;
   executar(comando: Comando): boolean;
   selecionar(area: Rect | null, mascara?: MascaraSelecao): void;
   capturarCor(ponto: Point, alvo?: 1 | 2): void;
@@ -65,6 +66,8 @@ export interface ToolCtx {
   iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
   previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
   prepararRecorte(area: Rect, mascara?: MascaraSelecao, transparente?: string): RecorteFlutuante;
+  reposicionarColagem?(destino: Rect): void;
+  confirmarColagem?(): void;
   previsualizarSelecao(origem: Rect | null, destino: Rect, recorte: RecorteFlutuante): void;
   limparPrevia(): void;
 }

@@ -5,11 +5,13 @@ interface FileMenuProps {
   onNew(): void;
   onOpen(): void;
   onSave(): void;
+  onSaveAs(): void;
+  onPrint(): void;
   onAbout(): void;
 }
 
 /** Menu com foco circular: as setas navegam e Escape devolve o foco ao botão. */
-export function FileMenu({ onNew, onOpen, onSave, onAbout }: FileMenuProps) {
+export function FileMenu({ onNew, onOpen, onSave, onSaveAs, onPrint, onAbout }: FileMenuProps) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -100,11 +102,19 @@ export function FileMenu({ onNew, onOpen, onSave, onAbout }: FileMenuProps) {
             </button>
             <button role="menuitem" tabIndex={-1} onClick={() => activate(onOpen)}>
               <Icon name="folder-open" />
-              Abrir PNG <kbd>Ctrl+O</kbd>
+              Abrir imagem <kbd>Ctrl+O</kbd>
             </button>
             <button role="menuitem" tabIndex={-1} onClick={() => activate(onSave)}>
               <Icon name="disk" />
               Salvar PNG <kbd>Ctrl+S</kbd>
+            </button>
+            <button role="menuitem" tabIndex={-1} onClick={() => activate(onSaveAs)}>
+              <Icon name="disk" />
+              Salvar como <kbd>Ctrl+Shift+S</kbd>
+            </button>
+            <button role="menuitem" tabIndex={-1} onClick={() => activate(onPrint)}>
+              <Icon name="document" />
+              Imprimir <kbd>Ctrl+P</kbd>
             </button>
             <div className="menu-rule" />
             <button role="menuitem" tabIndex={-1} onClick={() => activate(onAbout)}>

@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
 import type { DadosFormaPropria, FormaPropria } from '../shapes/presets';
 import { listarFormas, salvarForma } from '../storage/formas';
 import { useEditor } from './store';
-import type { Point } from '../layers/types';
+import type { PixelBuffer, Point } from '../layers/types';
+import { imagemDaTransferencia, lerImagemClipboard } from '../io/clipboard';
+import { TIPOS_IMAGEM } from '../io/formatosImagem';
+import { dimensoesValidas } from '../document/dimensoes';
 import { toolRegistry } from '../tools/toolRegistry';
 import { Icon } from './components/Primitives';
 import { initialInfo } from './components/editorUi';
@@ -11,11 +14,32 @@ import { EditorChrome, ToolHint } from './components/EditorChrome';
 import { Ribbon } from './components/Ribbon';
 import { StudioPanel } from './components/StudioPanel';
 import { EditorStatus, type CursorStatusApi } from './components/EditorStatus';
-import { EditorDialogs, type EditorDialogKind } from './components/EditorDialogs';
-import { CustomShapeEditor, type ReferenciaEditorForma } from './components/CustomShapeEditor';
-import { ShapeLibrary } from './components/ShapeLibrary';
+import type { EditorDialogKind } from './components/EditorDialogs';
+import type { ReferenciaEditorForma } from './components/CustomShapeEditor';
 import { useTelaInteira } from './useTelaInteira';
 import { nivelSeguinte } from '../canvas/zoom';
+
+const CustomShapeEditor = lazy(() =>
+  import('./components/CustomShapeEditor').then(({ CustomShapeEditor: defaultExport }) => ({
+    default: defaultExport,
+  })),
+);
+const ShapeLibrary = lazy(() =>
+  import('./components/ShapeLibrary').then(({ ShapeLibrary: defaultExport }) => ({
+    default: defaultExport,
+  })),
+);
+const EditorDialogs = lazy(() =>
+  import('./components/EditorDialogs').then(({ EditorDialogs: defaultExport }) => ({
+    default: defaultExport,
+  })),
+);
+
+function editandoTexto(alvo: EventTarget | null) {
+  return (
+    alvo instanceof HTMLElement && (alvo.matches('input,textarea,select') || alvo.isContentEditable)
+  );
+}
 
 type PainelDeFormas =
   | { tipo: 'gerenciar' }
@@ -31,14 +55,22 @@ export default function App() {
   } = useTelaInteira(telaDoApp);
   const editor = useRef<EditorApi>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const arquivoColagem = useRef<HTMLInputElement>(null);
   const [info, setInfo] = useState(initialInfo);
+  const papelAtual = useRef(info);
+  papelAtual.current = info;
   const cursorStatus = useRef<CursorStatusApi>(null);
   const [tab, setTab] = useState('Início');
   const ferramenta = useEditor((estado) => estado.tool);
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+  const [colagemMaior, definirColagemMaior] = useState<PixelBuffer | null>(null);
+  const sequenciaColagem = useRef(0);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
   const corDeFundo = useEditor((estado) => estado.color2);
+  const corAtiva = useEditor((estado) =>
+    estado.colorTarget === 1 ? estado.color1 : estado.color2,
+  );
   const [message, setMessage] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // O movimento do cursor atualiza apenas a barra de status, sem renderizar o ribbon.
@@ -78,6 +110,29 @@ export default function App() {
   }, []);
   useEffect(() => run(atualizarFormas), [atualizarFormas, run]);
 
+  const prepararColagem = useCallback(async (arquivo: File, verificarCopia = false) => {
+    const versao = ++sequenciaColagem.current;
+    const { abrirImagem } = await import('../io/imagens');
+    const { width, height, pixels } = await abrirImagem(arquivo);
+    if (versao !== sequenciaColagem.current) return;
+    const dados = { width, height, data: pixels };
+    if (verificarCopia && (await editor.current?.colarCopiaIgual(dados))) return;
+    if (versao !== sequenciaColagem.current) return;
+    const papel = papelAtual.current;
+    if (width > papel.width || height > papel.height) {
+      definirColagemMaior(dados);
+      setDialog('fit-paste');
+    } else editor.current?.colarImagem(dados);
+  }, []);
+
+  const colar = useCallback(async () => {
+    const versao = ++sequenciaColagem.current;
+    const arquivo = await lerImagemClipboard();
+    if (versao !== sequenciaColagem.current) return;
+    if (arquivo) await prepararColagem(arquivo, true);
+    else await editor.current?.paste();
+  }, [prepararColagem]);
+
   function criarForma() {
     setPainelFormas({ tipo: 'criar', referencia: editor.current?.obterReferenciaForma() ?? null });
   }
@@ -98,16 +153,26 @@ export default function App() {
   }, [ferramenta]);
   useEffect(() => {
     function keys(event: KeyboardEvent) {
-      const target = event.target as HTMLElement;
+      const target = event.target;
       const state = useEditor.getState();
+      const key = event.key.toLowerCase();
+      const mod = event.ctrlKey || event.metaKey;
       if (
-        target.matches('input,textarea,select,[contenteditable="true"]') ||
-        target.closest('[role="menu"]') ||
+        (editandoTexto(target) && !(mod && ['s', 'o', 'n', 'p'].includes(key))) ||
+        (target instanceof Element && target.closest('[role="menu"]')) ||
         dialog ||
         painelFormas ||
         info.saving === 'loading'
       )
         return;
+      if (mod && key === 'v') {
+        // Deixa o navegador entregar os dados pelo evento de colagem antes de tentar o botão.
+        const versao = sequenciaColagem.current;
+        window.setTimeout(() => {
+          if (versao === sequenciaColagem.current) run(colar);
+        }, 100);
+        return;
+      }
       if (editor.current?.tecla(event)) {
         event.preventDefault();
         return;
@@ -118,13 +183,12 @@ export default function App() {
         else sairDaTelaInteira();
         return;
       }
-      const key = event.key.toLowerCase();
-      const mod = event.ctrlKey || event.metaKey;
       if (mod) {
         const actions: Record<string, () => void> = {
           z: () => (event.shiftKey ? editor.current?.redo() : editor.current?.undo()),
           y: () => editor.current?.redo(),
-          s: () => run(() => editor.current?.save()),
+          s: () => (event.shiftKey ? setDialog('save-as') : run(() => editor.current?.save())),
+          p: () => setDialog('print'),
           o: () => fileInput.current?.click(),
           n: () => setDialog('new'),
           e: () => setDialog('properties'),
@@ -132,7 +196,6 @@ export default function App() {
           a: () => editor.current?.selectAll(),
           c: () => run(() => editor.current?.copy()),
           x: () => run(() => editor.current?.copy(true)),
-          v: () => run(() => editor.current?.paste()),
           '0': () => editor.current?.fit(),
           r: () => state.set({ ruler: !state.ruler }),
           g: () => state.set({ grid: !state.grid }),
@@ -165,14 +228,40 @@ export default function App() {
         state.setTool(ferramenta.id);
       }
       if (key === 'x') state.swapColors();
-      if (key === '[' || key === ']') {
+      if (['[', ']', '-', '+', '='].includes(key)) {
         event.preventDefault();
-        state.set({ size: state.size + (key === '[' ? -1 : 1) });
+        const passo = key === '[' || key === '-' ? -1 : 1;
+        if (state.tool === 'eraser')
+          state.set({ espessuraBorracha: state.espessuraBorracha + passo });
+        else state.set({ size: state.size + passo });
       }
     }
+    function receberColagem(evento: ClipboardEvent) {
+      if (editandoTexto(evento.target) || dialog || painelFormas || info.saving === 'loading')
+        return;
+      sequenciaColagem.current++;
+      const arquivo = imagemDaTransferencia(evento.clipboardData);
+      evento.preventDefault();
+      if (arquivo) run(() => prepararColagem(arquivo, true));
+      else run(() => editor.current?.paste());
+    }
     window.addEventListener('keydown', keys);
-    return () => window.removeEventListener('keydown', keys);
-  }, [dialog, painelFormas, info.saving, run, telaInteira, alternarTelaInteira, sairDaTelaInteira]);
+    window.addEventListener('paste', receberColagem);
+    return () => {
+      window.removeEventListener('keydown', keys);
+      window.removeEventListener('paste', receberColagem);
+    };
+  }, [
+    dialog,
+    painelFormas,
+    info.saving,
+    run,
+    telaInteira,
+    alternarTelaInteira,
+    sairDaTelaInteira,
+    colar,
+    prepararColagem,
+  ]);
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -183,7 +272,22 @@ export default function App() {
   const openFile = () => fileInput.current?.click();
 
   return (
-    <main ref={telaDoApp} className="app-shell" data-tela-inteira={telaInteira ? '' : undefined}>
+    <main
+      ref={telaDoApp}
+      className="app-shell"
+      data-tela-inteira={telaInteira ? '' : undefined}
+      onDragOver={(evento) => {
+        if (!evento.dataTransfer.types.includes('Files')) return;
+        evento.preventDefault();
+        evento.dataTransfer.dropEffect = dialog || painelFormas ? 'none' : 'copy';
+      }}
+      onDrop={(evento) => {
+        if (evento.dataTransfer.types.includes('Files')) evento.preventDefault();
+        const arquivo = imagemDaTransferencia(evento.dataTransfer);
+        if (arquivo && !dialog && !painelFormas && info.saving !== 'loading')
+          run(() => prepararColagem(arquivo));
+      }}
+    >
       <EditorChrome
         info={info}
         editor={editor}
@@ -205,6 +309,9 @@ export default function App() {
         onOpen={openFile}
         onPropriedades={() => setDialog('properties')}
         onTransformar={() => setDialog('transform')}
+        onEditarCores={() => setDialog('colors')}
+        onColar={() => run(colar)}
+        onColarDe={() => arquivoColagem.current?.click()}
         alternarTelaInteira={alternarTelaInteira}
         run={run}
       />
@@ -215,7 +322,6 @@ export default function App() {
             <span>
               <Icon name="picture" />
               <strong>{info.name}</strong>
-              <span className="paper-badge">PNG</span>
             </span>
             <span className={`autosave ${info.saving === 'error' ? 'save-error' : ''}`}>
               <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -249,12 +355,24 @@ export default function App() {
         ref={fileInput}
         className="visually-hidden"
         type="file"
-        accept="image/png,.png"
-        aria-label="Abrir arquivo PNG"
+        accept={TIPOS_IMAGEM}
+        aria-label="Abrir arquivo de imagem"
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) run(() => editor.current?.open(file));
           event.target.value = '';
+        }}
+      />
+      <input
+        ref={arquivoColagem}
+        className="visually-hidden"
+        type="file"
+        accept={TIPOS_IMAGEM}
+        aria-label="Colar de arquivo"
+        onChange={(evento) => {
+          const arquivo = evento.target.files?.[0];
+          if (arquivo) run(() => prepararColagem(arquivo));
+          evento.target.value = '';
         }}
       />
       {message && (
@@ -266,35 +384,65 @@ export default function App() {
           </button>
         </div>
       )}
-      <EditorDialogs
-        dialog={dialog}
-        info={info}
-        corDeFundo={corDeFundo}
-        onClose={() => setDialog(null)}
-        onNew={(name, width, height) => editor.current?.newDocument(name, width, height)}
-        onPropriedades={(largura, altura, fundo, dpi) =>
-          editor.current?.redimensionarPapel(largura, altura, fundo, dpi)
-        }
-        onTransformar={(opcoes) => editor.current?.transformarImagem(opcoes)}
-      />
-      {painelFormas?.tipo === 'gerenciar' && (
-        <ShapeLibrary
-          formas={formas}
-          editar={(forma) => setPainelFormas({ tipo: 'editar', forma })}
-          atualizar={atualizarFormas}
-          fechar={() => setPainelFormas(null)}
-        />
-      )}
-      {(painelFormas?.tipo === 'criar' || painelFormas?.tipo === 'editar') && (
-        <CustomShapeEditor
-          editar={painelFormas.tipo === 'editar' ? painelFormas.forma : null}
-          referencia={painelFormas.tipo === 'criar' ? painelFormas.referencia : null}
-          aoSalvar={salvarFormaDoEditor}
-          fechar={() =>
-            setPainelFormas(painelFormas.tipo === 'editar' ? { tipo: 'gerenciar' } : null)
-          }
-        />
-      )}
+      <Suspense fallback={null}>
+        {dialog && (
+          <EditorDialogs
+            dialog={dialog}
+            info={info}
+            corDeFundo={corDeFundo}
+            corAtiva={corAtiva}
+            ajustarColagem={
+              colagemMaior
+                ? {
+                    largura: colagemMaior.width,
+                    altura: colagemMaior.height,
+                    podeAumentar: dimensoesValidas(
+                      Math.max(colagemMaior.width, info.width),
+                      Math.max(colagemMaior.height, info.height),
+                    ),
+                  }
+                : null
+            }
+            onClose={() => {
+              setDialog(null);
+              definirColagemMaior(null);
+            }}
+            onNew={(name, width, height) => editor.current?.newDocument(name, width, height)}
+            onPropriedades={(largura, altura, fundo, dpi) =>
+              editor.current?.redimensionarPapel(largura, altura, fundo, dpi)
+            }
+            onTransformar={(opcoes) => editor.current?.transformarImagem(opcoes)}
+            onSalvarComo={async (opcoes) => {
+              await editor.current?.salvarComo(opcoes);
+            }}
+            onImprimir={async (opcoes) => {
+              await editor.current?.imprimir(opcoes);
+            }}
+            onAplicarCor={(cor) => useEditor.getState().setColor(cor)}
+            onColagem={(aumentar) => {
+              if (colagemMaior) run(() => editor.current?.colarImagem(colagemMaior, aumentar));
+            }}
+          />
+        )}
+        {painelFormas?.tipo === 'gerenciar' && (
+          <ShapeLibrary
+            formas={formas}
+            editar={(forma) => setPainelFormas({ tipo: 'editar', forma })}
+            atualizar={atualizarFormas}
+            fechar={() => setPainelFormas(null)}
+          />
+        )}
+        {(painelFormas?.tipo === 'criar' || painelFormas?.tipo === 'editar') && (
+          <CustomShapeEditor
+            editar={painelFormas.tipo === 'editar' ? painelFormas.forma : null}
+            referencia={painelFormas.tipo === 'criar' ? painelFormas.referencia : null}
+            aoSalvar={salvarFormaDoEditor}
+            fechar={() =>
+              setPainelFormas(painelFormas.tipo === 'editar' ? { tipo: 'gerenciar' } : null)
+            }
+          />
+        )}
+      </Suspense>
     </main>
   );
 }

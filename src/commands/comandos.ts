@@ -1,5 +1,6 @@
 import { validarDimensoes } from '../document/dimensoes';
 import type { MascaraSelecao } from '../document/selecao';
+import type { FormatoImagem } from '../io/imagens';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
@@ -76,9 +77,17 @@ export type Comando =
       y: number;
       imagem: ImagemSerializada;
       corTransparente?: string;
+      tamanho?: { largura: number; altura: number };
+      papel?: { largura: number; altura: number; fundo: string };
     }
   | { tipo: 'CortarPapel'; area: Rect; mascara?: MascaraSelecao }
-  | { tipo: 'AbrirImagem'; nome: string; imagem: ImagemSerializada; dpi?: number }
+  | {
+      tipo: 'AbrirImagem';
+      nome: string;
+      imagem: ImagemSerializada;
+      dpi?: number;
+      formato?: FormatoImagem;
+    }
   | { tipo: 'NovoDocumento'; nome: string; largura: number; altura: number }
   | { tipo: 'RedimensionarPapel'; largura: number; altura: number; fundo: string; dpi?: number }
   | ({ tipo: 'RedimensionarInclinar'; area?: Rect } & OpcoesTransformacao)
