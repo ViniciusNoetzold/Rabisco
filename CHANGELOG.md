@@ -2,6 +2,15 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 2 — Pressão e curvas
+
+- **Curva da caneta** (suave, linear, firme) no cartão "Seu traço", com mini gráfico de prévia. Com força 0,4: suave pinta 18 px, firme 10 px (pincel de 24 px).
+- **Simular pressão pela velocidade** (mouse e toque): rápido afina, devagar engrossa, sem saltos (amortecida). Medido: 24 px devagar e 16–20 px rápido.
+- **Afinar pontas** (0–100%): o começo sai fino enquanto se desenha e o fim é afinado ao soltar. Com 100%: 8 px nas pontas e 24 px no meio.
+- As curvas entre pontos já eram suaves (quadráticas no amostrador do pincel desde a 0.2).
+- Vale para os pincéis; lápis e borracha seguem com espessura fixa. Algoritmos em `src/brushes/pressao.ts`.
+- Testes: 6 unitários e 3 E2E. Total: 136 unitários e 73 E2E.
+
 ### Passo 1 — Estabilizador de traço
 
 - **Estabilizar** (0–100) no cartão "Seu traço": o pincel segue o ponteiro como se puxado por uma corda do comprimento escolhido (em px de tela), então o tremor da mão não chega ao papel. **Suavizar** (0–100%) amortece ainda mais cada passo, para curvas redondas no mouse. "Terminar onde a mão parou" faz o fim do traço alcançar o ponteiro ao soltar.

@@ -2112,3 +2112,48 @@ input[type='range']::-webkit-slider-thumb {
   display: flex;
   gap: 4px;
 }
+
+/* Pressão dos pincéis no cartão "Seu traço" (0.4). */
+.pressao-controles {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #465e71;
+}
+.pressao-controles > label {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+}
+.pressao-controles select,
+.pressao-controles input[type='range'] {
+  min-width: 0;
+  width: 100%;
+  font-size: 11px;
+}
+.pressao-controles > label.pressao-velocidade {
+  display: flex;
+  gap: 4px;
+}
+.curva-previa {
+  width: 26px;
+  height: 18px;
+  border: 1px solid #c6d3de;
+  background: #fff;
+}
+.curva-previa polyline,
+.curva-previa path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.curva-previa polyline {
+  stroke: #2f7fc1;
+  stroke-width: 1.6;
+}
+.curva-referencia {
+  stroke: #c6d3de;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}

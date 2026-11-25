@@ -1,6 +1,7 @@
 import { AmostradorPincel } from '../brushes/amostrador';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import { PONTOS_POR_SEGUNDO } from '../brushes/motor';
+import { afinarFim, comprimentoDaPonta } from '../brushes/pressao';
 import { medicaoAtiva, medirOperacao } from '../canvas/medicao';
 import type { Point } from '../layers/types';
 import { corDoBotao, definirFerramenta, opcaoEspessura, type ToolCtx } from './tool';
@@ -134,7 +135,15 @@ export const pincel = definirFerramenta(
         else emitir(ctx, ativo, ativo.amostrador.finalizar());
 
         ctx.limparPrevia();
-        ctx.executar({ tipo: 'Pincelar', configuracao: ativo.configuracao, marcas: ativo.marcas });
+        // O começo já saiu fino enquanto se desenhava; o fim só dá para afinar agora.
+        const marcas =
+          ativo.modo === 'carimbos' && ctx.opcoes.afinar > 0
+            ? afinarFim(
+                ativo.marcas,
+                comprimentoDaPonta(ctx.opcoes.afinar, ativo.configuracao.espessura),
+              )
+            : ativo.marcas;
+        ctx.executar({ tipo: 'Pincelar', configuracao: ativo.configuracao, marcas });
       },
       onCancel(ctx) {
         if (!gesto) return;

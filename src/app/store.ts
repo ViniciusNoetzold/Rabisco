@@ -1,3 +1,4 @@
+import type { CurvaPressao } from '../brushes/pressao';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
@@ -88,6 +89,12 @@ interface EditorState {
   suavizar: number;
   /** Ao soltar, o fim do traço alcança onde o ponteiro parou. */
   alcancarFim: boolean;
+  /** Como a força da caneta vira espessura e opacidade nos pincéis. */
+  curvaPressao: CurvaPressao;
+  /** Mouse e toque: rápido afina, devagar engrossa. */
+  pressaoVelocidade: boolean;
+  /** Pontas finas no começo e no fim da pincelada, 0–100%. */
+  afinar: number;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
@@ -126,6 +133,9 @@ interface EditorState {
         | 'estabilizar'
         | 'suavizar'
         | 'alcancarFim'
+        | 'curvaPressao'
+        | 'pressaoVelocidade'
+        | 'afinar'
         | 'guiasInteligentes'
       >
     >,
@@ -172,6 +182,9 @@ export const useEditor = create<EditorState>()(
     estabilizar: 0,
     suavizar: 0,
     alcancarFim: true,
+    curvaPressao: 'linear',
+    pressaoVelocidade: false,
+    afinar: 0,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

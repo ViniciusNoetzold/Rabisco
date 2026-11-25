@@ -56,6 +56,8 @@ export interface ToolCtx {
     amostrarTudo: boolean;
     formasEmNovaCamada: boolean;
     guiasInteligentes: boolean;
+    /** Pontas afinadas, 0–100% (o fim é aplicado ao soltar). */
+    afinar: number;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
     gotasSpray: 1 | 2;

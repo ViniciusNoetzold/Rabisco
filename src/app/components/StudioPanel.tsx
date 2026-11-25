@@ -4,6 +4,7 @@ import { ESPESSURA_MAXIMA, useEditor } from '../store';
 import { BrushStrokeSample } from './BrushStrokeSample';
 import { Icon } from './Primitives';
 import { CamadasPainel } from './CamadasPainel';
+import { pontosDaCurva, type CurvaPressao } from '../../brushes/pressao';
 
 interface StudioPanelProps {
   info: DocumentInfo;
@@ -106,6 +107,54 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
               onChange={(event) => state.set({ alcancarFim: event.target.checked })}
             />
             Terminar onde a mão parou
+          </label>
+        </div>
+        <div className="pressao-controles" role="group" aria-label="Pressão dos pincéis">
+          <label title="Como a força da caneta vira espessura e opacidade dos pincéis">
+            <span>Caneta</span>
+            <select
+              aria-label="Curva de pressão da caneta"
+              value={state.curvaPressao}
+              onChange={(event) => state.set({ curvaPressao: event.target.value as CurvaPressao })}
+            >
+              <option value="suave">Suave (toque leve já pinta)</option>
+              <option value="linear">Linear</option>
+              <option value="firme">Firme (aperte para engrossar)</option>
+            </select>
+            <svg className="curva-previa" viewBox="0 0 1 1" aria-hidden="true">
+              <path d="M0 1 L1 0" className="curva-referencia" />
+              <polyline
+                points={pontosDaCurva(state.curvaPressao)
+                  .map(({ x, y }) => `${x},${1 - y}`)
+                  .join(' ')}
+              />
+            </svg>
+          </label>
+          <label
+            className="pressao-velocidade"
+            title="No mouse e no toque: rápido afina, devagar engrossa"
+          >
+            <input
+              type="checkbox"
+              checked={state.pressaoVelocidade}
+              onChange={(event) => state.set({ pressaoVelocidade: event.target.checked })}
+            />
+            Simular pressão pela velocidade
+          </label>
+          <label title="Pontas finas no começo e no fim de cada pincelada">
+            <span>Afinar pontas</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={state.afinar}
+              aria-label="Afinar pontas"
+              onChange={(event) => state.set({ afinar: Number(event.target.value) })}
+            />
+            <span className="estabilizador-valor" aria-hidden="true">
+              {state.afinar}%
+            </span>
           </label>
         </div>
         <div className="current-color">

@@ -17,6 +17,7 @@ export function opcoesDaFerramenta(estado: EstadoEditor): ToolCtx['opcoes'] {
     amostrarTudo: estado.amostrarTudo,
     formasEmNovaCamada: estado.formasEmNovaCamada,
     guiasInteligentes: estado.guiasInteligentes,
+    afinar: estado.afinar,
     pincel: estado.pincel,
     densidadeSpray: estado.densidadeSpray,
     gotasSpray: estado.gotasSpray,

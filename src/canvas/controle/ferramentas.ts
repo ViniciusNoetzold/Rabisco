@@ -1,5 +1,11 @@
 import { useEditor } from '../../app/store';
 import { Estabilizador, FERRAMENTAS_ESTABILIZAVEIS } from '../../brushes/estabilizador';
+import {
+  aplicarCurva,
+  comprimentoDaPonta,
+  fatorDaPonta,
+  PressaoPorVelocidade,
+} from '../../brushes/pressao';
 import { prepararRecorteDaArea } from '../../document/selecao';
 import type { Point, ToolId } from '../../layers/types';
 import type { EventoFerramenta, Tool, ToolCtx } from '../../tools/tool';
@@ -23,6 +29,13 @@ export class ControleFerramentas {
   private estabilizador: Estabilizador | null = null;
   /** A corda do estabilizador, desenhada sobre o papel (SVG, fora dos canvas). */
   private corda: SVGSVGElement | null = null;
+  /** Pressão do pincel durante o gesto: curva da caneta, velocidade e começo afinado. */
+  private pressao: {
+    velocidade: PressaoPorVelocidade | null;
+    comprimento: number;
+    percorrido: number;
+    ultimo: Point;
+  } | null = null;
 
   constructor(
     private readonly nucleo: NucleoEditor,
@@ -48,7 +61,20 @@ export class ControleFerramentas {
     const id = atalhoContaGotas ? 'eyedropper' : useEditor.getState().tool;
     const ferramenta = this.ferramentas[id];
     this.gesto = { ponteiro, ferramenta };
-    const { estabilizar, suavizar, zoom } = useEditor.getState();
+    const { estabilizar, suavizar, zoom, pressaoVelocidade, afinar, size } = useEditor.getState();
+    this.pressao =
+      id === 'brush'
+        ? {
+            velocidade:
+              pressaoVelocidade && evento.ponto.pressure === undefined
+                ? new PressaoPorVelocidade(zoom)
+                : null,
+            comprimento: comprimentoDaPonta(afinar, size),
+            percorrido: 0,
+            ultimo: evento.ponto,
+          }
+        : null;
+    evento = this.ajustarPressao(evento);
     this.estabilizador =
       estabilizar > 0 && FERRAMENTAS_ESTABILIZAVEIS.has(id)
         ? new Estabilizador(evento.ponto, estabilizar / zoom, suavizar / 100)
@@ -66,6 +92,7 @@ export class ControleFerramentas {
     }
     if (this.gesto.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
+    evento = this.ajustarPressao(evento);
     if (this.estabilizador) {
       const ponta = this.estabilizador.mover(evento.ponto);
       this.mostrarCorda(evento.ponto, this.estabilizador.ponta);
@@ -87,6 +114,8 @@ export class ControleFerramentas {
     this.gesto = null;
     const estabilizador = this.estabilizador;
     this.estabilizador = null;
+    if (evento) evento = this.ajustarPressao(evento);
+    this.pressao = null;
     this.mostrarCorda(null);
     try {
       if (evento && estabilizador) {
@@ -257,6 +286,22 @@ export class ControleFerramentas {
       y.push(limites.y, limites.y + limites.height / 2, limites.y + limites.height);
     }
     return { x, y };
+  }
+
+  /** Curva da caneta, pressão pela velocidade (mouse e toque) e começo do traço afinado. */
+  private ajustarPressao(evento: EventoFerramenta): EventoFerramenta {
+    const estado = this.pressao;
+    if (!estado) return evento;
+    const { ponto } = evento;
+    let pressao =
+      ponto.pressure !== undefined
+        ? aplicarCurva(ponto.pressure, useEditor.getState().curvaPressao)
+        : (estado.velocidade?.proxima(ponto, evento.instante ?? performance.now()) ?? undefined);
+    estado.percorrido += Math.hypot(ponto.x - estado.ultimo.x, ponto.y - estado.ultimo.y);
+    estado.ultimo = ponto;
+    const ponta = fatorDaPonta(estado.percorrido, estado.comprimento);
+    if (ponta < 1) pressao = (pressao ?? 1) * ponta;
+    return pressao === undefined ? evento : { ...evento, ponto: { ...ponto, pressure: pressao } };
   }
 
   /** Linha fina do ponteiro até a ponta do pincel, e um anel na ponta. `null` esconde. */
