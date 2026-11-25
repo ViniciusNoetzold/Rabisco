@@ -2,6 +2,17 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 3 — Simetria e mandala
+
+- Grupo **Simetria** na aba Exibir e atalho **Shift+S** (liga no último modo usado e desliga). Modos: espelho esquerda/direita, cima/baixo, quatro quadrantes e **radial** com 2 a 24 fatias, com a opção **Caleidoscópio** (espelha dentro de cada fatia, como numa mandala).
+- O centro aparece como uma bolinha roxa sobre o papel: arraste para mudar (Shift ou soltar perto do meio prende no centro); "Centralizar no papel" volta ao meio. Linhas-guia tracejadas, cortadas na borda do papel, podem ser escondidas.
+- Vale para lápis, os 9 pincéis, spray, borracha e borracha de cor. A prévia já mostra todas as cópias enquanto se desenha. Formas e texto ficam para depois (anotado em MELHORIAS).
+- O comando guarda a simetria e as marcas de um eixo só; o executor pinta as cópias. Um traço simétrico é **um item no histórico**: um Ctrl+Z apaga todas as cópias.
+- O histórico guarda um recorte por cópia (não o retângulo que junta todas), quando isso economiza memória: num papel 4000 × 4000, um traço radial longe do centro ocupava quase o papel inteiro e empurrava itens antigos para fora do limite de 128 MB.
+- Medido com estabilizador 40 e radial de 12 fatias: cada movimento do pincel custa 0,2–0,3 ms (p95) nos três papéis (meta: < 4 ms); soltar o traço custa 18 ms em 1024 × 640 e 45–53 ms em 4000 × 4000 e 8192 × 4096. `npm run perf` aceita `PERF_SIMETRIA=12`.
+- Algoritmos em `src/brushes/simetria.ts`; guias em `src/canvas/GuiasSimetria.tsx`.
+- Testes: 7 unitários das transformações, 1 do executor (cópias num item, recortes por cópia) e 3 E2E (radial de 6 pinta 6 cópias e desfaz de uma vez; espelho com o centro arrastado; Shift+S). Total: 144 unitários e 76 E2E.
+
 ### Passo 2 — Pressão e curvas
 
 - **Curva da caneta** (suave, linear, firme) no cartão "Seu traço", com mini gráfico de prévia. Com força 0,4: suave pinta 18 px, firme 10 px (pincel de 24 px).

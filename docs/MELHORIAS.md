@@ -18,7 +18,10 @@
 ## Desenho (0.4 — ver prompts/PROMPT_0.4.md)
 
 - [x] **Estabilizador de traço** ajustável (0–100) — 0.4
-- [ ] **Simetria** vertical, horizontal e radial (mandala)
+- [x] **Pressão**: curva da caneta, pressão pela velocidade e pontas afinadas — 0.4
+- [x] **Simetria** vertical, horizontal, quatro quadrantes e radial com caleidoscópio (mandala) — 0.4
+- [ ] Simetria também nas formas e no texto (hoje vale para lápis, pincéis, spray e borrachas)
+- [ ] Pincéis de caligrafia com o ângulo da ponta espelhado nas cópias simétricas
 - [ ] **Formas inteligentes**: segurar no fim do traço e ele vira linha, círculo ou retângulo perfeito
 - [ ] Régua e guias magnéticas
 - [ ] Rotação do canvas (girar a vista, não a imagem)

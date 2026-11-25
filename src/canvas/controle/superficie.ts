@@ -10,6 +10,7 @@ import { comporDocumento } from '../../document/compositor';
 import type { RabiscoDocument } from '../../document/model';
 import { pintarRecorte, type RecorteFlutuante } from '../../document/selecao';
 import type { Point, Rect } from '../../layers/types';
+import type { Transformacao } from '../../brushes/simetria';
 import type { EstiloTraco, Tool, ToolCtx } from '../../tools/tool';
 import { aplicarBorrachaDeCor } from '../../tools/pixels';
 
@@ -23,7 +24,8 @@ export class SuperficieTela {
   private areaPrevia: Rect | null = null;
   private areaOverlay: Rect | null = null;
   private previaPincel: {
-    pintor: ReturnType<typeof criarPintorPincel>;
+    /** Um pintor por cópia simétrica (a original primeiro). */
+    pintores: { pintor: ReturnType<typeof criarPintorPincel>; transformar: Transformacao }[];
     margem: number;
     area: Rect | null;
   } | null = null;
@@ -71,9 +73,12 @@ export class SuperficieTela {
     this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, area) : area;
   }
 
-  iniciarPincel(configuracao: ConfiguracaoPincel) {
+  iniciarPincel(configuracao: ConfiguracaoPincel, copias: readonly Transformacao[] = [(p) => p]) {
     this.previaPincel = {
-      pintor: criarPintorPincel(this.overlay, configuracao),
+      pintores: copias.map((transformar) => ({
+        pintor: criarPintorPincel(this.overlay, configuracao),
+        transformar,
+      })),
       margem: margemDoPincel(configuracao),
       area: null,
     };
@@ -86,6 +91,19 @@ export class SuperficieTela {
   marcasPincel(marcas: readonly MarcaPincel[]) {
     const previa = this.previaPincel;
     if (!previa || marcas.length === 0) return;
+    previa.pintores.forEach(({ pintor, transformar }, i) =>
+      this.pintarMarcas(
+        pintor,
+        i === 0 ? marcas : marcas.map((marca) => transformar(marca) as MarcaPincel),
+      ),
+    );
+  }
+
+  private pintarMarcas(
+    pintor: ReturnType<typeof criarPintorPincel>,
+    marcas: readonly MarcaPincel[],
+  ) {
+    const previa = this.previaPincel!;
     let esquerda = marcas[0].x;
     let topo = marcas[0].y;
     let direita = esquerda;
@@ -102,7 +120,7 @@ export class SuperficieTela {
       width: direita - esquerda + 2 * previa.margem,
       height: base - topo + 2 * previa.margem,
     });
-    previa.pintor.pintar(marcas);
+    pintor.pintar(marcas);
   }
 
   selecao(origem: Rect | null, destino: Rect, recorte: RecorteFlutuante) {

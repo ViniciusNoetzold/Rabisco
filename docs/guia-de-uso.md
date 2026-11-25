@@ -19,6 +19,8 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 ## Desenhar fácil (0.4)
 
 - **Estabilizar** (cartão "Seu traço", ou Alt+[ / Alt+]): o pincel segue o ponteiro como se puxado por uma corda; quanto maior o valor, mais o tremor da mão some. A corda tracejada aparece enquanto você desenha. **Suavizar** arredonda ainda mais as curvas. "Terminar onde a mão parou" leva o fim do traço até o ponteiro.
+- **Pressão** (cartão "Seu traço"): a curva da caneta escolhe se um toque leve já pinta cheio (suave) ou se é preciso apertar (firme). No mouse e no toque, "Simular pressão pela velocidade" afina o traço rápido. **Afinar pontas** deixa o começo e o fim de cada pincelada finos, como numa pincelada de verdade.
+- **Simetria** (aba Exibir, ou `Shift+S` para ligar e desligar): o lápis, os pincéis, o spray e as borrachas se repetem em espelho. Modos: esquerda/direita, cima/baixo, quatro quadrantes e **radial** com 2 a 24 fatias; marque **Caleidoscópio** para espelhar dentro de cada fatia (mandala). Arraste a bolinha roxa para mudar o centro (`Shift` prende no meio do papel) e use "Centralizar no papel" para voltar. As linhas-guia tracejadas podem ser escondidas. Cada traço simétrico é um item só no histórico: um `Ctrl+Z` apaga todas as cópias.
 
 ## Ferramentas clássicas
 

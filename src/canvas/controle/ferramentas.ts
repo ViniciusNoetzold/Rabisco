@@ -6,6 +6,12 @@ import {
   fatorDaPonta,
   PressaoPorVelocidade,
 } from '../../brushes/pressao';
+import {
+  configDaSimetria,
+  transformacoes,
+  type ConfigSimetria,
+  type Transformacao,
+} from '../../brushes/simetria';
 import { prepararRecorteDaArea } from '../../document/selecao';
 import type { Point, ToolId } from '../../layers/types';
 import type { EventoFerramenta, Tool, ToolCtx } from '../../tools/tool';
@@ -36,6 +42,9 @@ export class ControleFerramentas {
     percorrido: number;
     ultimo: Point;
   } | null = null;
+
+  /** Simetria do traço em andamento (lápis, pincéis e borrachas), com as cópias da prévia. */
+  private simetria: { config: ConfigSimetria; copias: Transformacao[] } | null = null;
 
   constructor(
     private readonly nucleo: NucleoEditor,
@@ -79,6 +88,10 @@ export class ControleFerramentas {
       estabilizar > 0 && FERRAMENTAS_ESTABILIZAVEIS.has(id)
         ? new Estabilizador(evento.ponto, estabilizar / zoom, suavizar / 100)
         : null;
+    const config = FERRAMENTAS_ESTABILIZAVEIS.has(id)
+      ? configDaSimetria(useEditor.getState(), this.nucleo.doc.width, this.nucleo.doc.height)
+      : null;
+    this.simetria = config && { config, copias: transformacoes(config) };
     ferramenta.onPointerDown(this.contexto(), evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     return true;
@@ -128,6 +141,7 @@ export class ControleFerramentas {
       if (evento) ferramenta.onPointerUp(this.contexto(), evento);
       else ferramenta.onCancel?.(this.contexto());
     } finally {
+      this.simetria = null;
       this.superficie.limpar();
       if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     }
@@ -250,12 +264,25 @@ export class ControleFerramentas {
       selecao: selecao.area,
       mascaraSelecao: selecao.mascara,
       colagemFlutuante: colagem.ativa,
-      executar: (comando) => nucleo.executar(comando),
+      executar: (comando) => {
+        // O comando leva a simetria e as marcas de um eixo só; o executor pinta as cópias.
+        const simetria = this.simetria?.config;
+        return nucleo.executar(
+          simetria && (comando.tipo === 'TracarPincel' || comando.tipo === 'Pincelar')
+            ? { ...comando, simetria }
+            : comando,
+        );
+      },
       selecionar: (area, mascara) => selecao.selecionar(area, mascara),
       capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
       lerPixels: (area) => doc.lerPixels(area),
-      previsualizarTraco: (de, ate, estilo) => superficie.traco(de, ate, estilo),
-      iniciarPreviaPincel: (configuracao) => superficie.iniciarPincel(configuracao),
+      previsualizarTraco: (de, ate, estilo) => {
+        for (const transformar of this.simetria?.copias ?? [null])
+          if (transformar) superficie.traco(transformar(de), transformar(ate), estilo);
+          else superficie.traco(de, ate, estilo);
+      },
+      iniciarPreviaPincel: (configuracao) =>
+        superficie.iniciarPincel(configuracao, this.simetria?.copias),
       previsualizarMarcasPincel: (marcas) => superficie.marcasPincel(marcas),
       prepararRecorte: (area, mascara, transparente) =>
         prepararRecorteDaArea(doc.lerPixels(area), area, mascara, transparente),

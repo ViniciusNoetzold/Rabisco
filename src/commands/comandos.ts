@@ -3,6 +3,7 @@ import type { MascaraSelecao } from '../document/selecao';
 import type { FormatoImagem } from '../io/imagens';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
+import type { ConfigSimetria } from '../brushes/simetria';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import type { EfeitosCamada, Grupo, PropriedadesCamada } from '../document/camadas';
@@ -32,12 +33,16 @@ export interface EstiloTraco {
 export interface ComandoTraco extends EstiloTraco {
   tipo: 'TracarPincel';
   pontos: Point[];
+  /** Pontos de UM eixo; o executor pinta as outras cópias. */
+  simetria?: ConfigSimetria;
 }
 
 export interface ComandoPincel {
   tipo: 'Pincelar';
   configuracao: ConfiguracaoPincel;
   marcas: MarcaPincel[];
+  /** Marcas de UM eixo; o executor pinta as outras cópias. */
+  simetria?: ConfigSimetria;
 }
 
 export interface ComandoForma {

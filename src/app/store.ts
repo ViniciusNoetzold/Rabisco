@@ -1,8 +1,9 @@
+import type { ModoSimetria } from '../brushes/simetria';
 import type { CurvaPressao } from '../brushes/pressao';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { DensidadeSpray, TipoPincel } from '../brushes/catalogo';
-import type { ToolId } from '../layers/types';
+import type { Point, ToolId } from '../layers/types';
 import { obterForma } from '../shapes/catalogo';
 import type { FormaPropria } from '../shapes/presets';
 import { ESTILO_TEXTO_PADRAO, type EstiloTexto } from '../tools/texto';
@@ -95,6 +96,16 @@ interface EditorState {
   pressaoVelocidade: boolean;
   /** Pontas finas no começo e no fim da pincelada, 0–100%. */
   afinar: number;
+  /** Simetria dos traços de lápis, pincéis e borrachas. */
+  simetria: ModoSimetria;
+  /** Fatias da simetria radial, 2–24. */
+  eixosSimetria: number;
+  /** Mandala: espelha dentro de cada fatia do radial. */
+  espelharFatias: boolean;
+  /** Centro em px do documento; nulo = meio do papel (acompanha o tamanho do papel). */
+  centroSimetria: Point | null;
+  /** Linhas-guia da simetria sobre o papel. */
+  guiasSimetria: boolean;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
@@ -136,6 +147,11 @@ interface EditorState {
         | 'curvaPressao'
         | 'pressaoVelocidade'
         | 'afinar'
+        | 'simetria'
+        | 'eixosSimetria'
+        | 'espelharFatias'
+        | 'centroSimetria'
+        | 'guiasSimetria'
         | 'guiasInteligentes'
       >
     >,
@@ -185,6 +201,11 @@ export const useEditor = create<EditorState>()(
     curvaPressao: 'linear',
     pressaoVelocidade: false,
     afinar: 0,
+    simetria: 'nenhuma',
+    eixosSimetria: 6,
+    espelharFatias: false,
+    centroSimetria: null,
+    guiasSimetria: true,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

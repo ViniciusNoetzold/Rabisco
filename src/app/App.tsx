@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { alternarSimetria } from './components/SimetriaControles';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
 import type { DadosFormaPropria, FormaPropria } from '../shapes/presets';
 // O banco local (Dexie) carrega depois da primeira pintura da janela.
@@ -271,6 +272,12 @@ export default function App() {
       if (key === 'delete' || key === 'backspace') {
         event.preventDefault();
         editor.current?.deleteSelection();
+      }
+      if (key === 's' && event.shiftKey && !event.altKey) {
+        // Shift+S: liga/desliga a simetria (S sozinho continua sendo a seleção).
+        event.preventDefault();
+        notify(alternarSimetria());
+        return;
       }
       if (key === 'a' && !event.altKey) {
         event.preventDefault();

@@ -5,7 +5,9 @@ import {
   mesclagemDoPincel,
   opacidadeDoPincel,
 } from '../brushes/motor';
+import { copiasDosPontos } from '../brushes/simetria';
 import type { Rect } from '../layers/types';
+import { unirAreas } from './desenho';
 import type { ComandoPincel } from './comandos';
 
 export function nomeDaPincelada({ configuracao }: ComandoPincel): string {
@@ -13,8 +15,22 @@ export function nomeDaPincelada({ configuracao }: ComandoPincel): string {
   return PINCEIS.find(({ id }) => id === configuracao.tipo)!.nome;
 }
 
-export function areaDaPincelada({ configuracao, marcas }: ComandoPincel): Rect | null {
-  if (!marcas.length) return null;
+/** A área de cada cópia simétrica (só a original sem simetria). */
+export function areasDaPincelada({ configuracao, marcas, simetria }: ComandoPincel): Rect[] {
+  if (!marcas.length) return [];
+  return copiasDosPontos(marcas, simetria).map((copia) => areaDasMarcas(configuracao, copia));
+}
+
+/** União das áreas de todas as cópias simétricas. */
+export function areaDaPincelada(comando: ComandoPincel): Rect | null {
+  const areas = areasDaPincelada(comando);
+  return areas.length ? areas.reduce(unirAreas) : null;
+}
+
+function areaDasMarcas(
+  configuracao: ComandoPincel['configuracao'],
+  marcas: ComandoPincel['marcas'],
+): Rect {
   const margem = margemDoPincel(configuracao);
   let esquerda = Infinity;
   let direita = -Infinity;
@@ -34,7 +50,7 @@ export function areaDaPincelada({ configuracao, marcas }: ComandoPincel): Rect |
 /** A máscara contém apenas a área editada. O marcador recebe opacidade uma vez por traço. */
 export function desenharPincelada(
   destino: CanvasRenderingContext2D,
-  { configuracao, marcas }: ComandoPincel,
+  { configuracao, marcas, simetria }: ComandoPincel,
   area: Rect,
 ) {
   const mascara = document.createElement('canvas');
@@ -45,7 +61,10 @@ export function desenharPincelada(
 
   try {
     grafico.translate(-area.x, -area.y);
-    criarPintorPincel(grafico, configuracao).pintar(marcas);
+    // Um pintor por cópia: cada uma tem as mesmas cerdas e o mesmo spray da original. Tudo
+    // cai na mesma máscara, então o marcador recebe a opacidade uma vez só, como num traço.
+    for (const copia of copiasDosPontos(marcas, simetria))
+      criarPintorPincel(grafico, configuracao).pintar(copia);
     destino.save();
     try {
       destino.globalAlpha = opacidadeDoPincel(configuracao.tipo);

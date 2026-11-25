@@ -2157,3 +2157,41 @@ input[type='range']::-webkit-slider-thumb {
   stroke-width: 1;
   stroke-dasharray: 2 2;
 }
+
+/* Grupo "Simetria" da aba Exibir (0.4): três linhas estreitas, para caber em 1024 px. */
+.simetria-controles {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.simetria-controles > label {
+  display: grid;
+  grid-template-columns: 38px auto;
+  align-items: center;
+  gap: 4px;
+}
+.simetria-controles select {
+  width: 150px;
+  font-size: 12px;
+}
+.simetria-controles input[type='number'] {
+  width: 42px;
+}
+.simetria-opcoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.simetria-opcoes label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.simetria-opcoes button {
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 12px;
+}

@@ -59,7 +59,20 @@ async function recolherEstadoDoAutosave(pagina, aguardar = true) {
   throw new Error(`O editor não ficou disponível no ensaio. Estado do autosave: "${estado}".`);
 }
 
-async function criarPapel(pagina, { largura, altura }) {
+/** Liga a simetria radial de PERF_SIMETRIA fatias ou a desliga (o balde clica no meio do papel,
+ * onde fica a alça do centro). */
+async function definirSimetria(pagina, ligada) {
+  await pagina.getByRole('tab', { name: 'Exibir' }).click();
+  const modo = pagina.getByRole('combobox', { name: 'Modo de simetria' });
+  await modo.selectOption(ligada ? 'radial' : 'nenhuma');
+  if (ligada)
+    await pagina
+      .getByRole('spinbutton', { name: 'Fatias da simetria radial' })
+      .fill(String(process.env.PERF_SIMETRIA));
+  await pagina.getByRole('tab', { name: 'Início' }).click();
+}
+
+async function criarPapel(pagina, { largura, altura }, simetria = true) {
   await pagina.keyboard.press('Control+n');
   const dialogo = pagina.getByRole('dialog');
   await dialogo.getByLabel('Largura (px)', { exact: true }).fill(String(largura));
@@ -80,6 +93,8 @@ async function criarPapel(pagina, { largura, altura }) {
     await pagina
       .getByRole('slider', { name: 'Estabilizar traço' })
       .fill(String(process.env.PERF_ESTABILIZAR));
+  // PERF_SIMETRIA=12 mede os traços com a simetria radial de N fatias ligada (0.4).
+  if (process.env.PERF_SIMETRIA) await definirSimetria(pagina, simetria);
   await tela.focus();
   return estado;
 }
@@ -202,7 +217,7 @@ async function medirPapel(browser, papel) {
     const spray = await traco(pagina, autosave, 'a', 'spray', 'Aerógrafo / Spray', -60);
     const depoisDosTracos = await memoriaEmRepouso(pagina, cdp);
 
-    autosave.estado = await criarPapel(pagina, papel);
+    autosave.estado = await criarPapel(pagina, papel, false);
     await pagina.keyboard.press('f');
     const { x, y } = await pontoNaAreaVisivel(pagina);
     const balde = await medir(pagina, autosave, async () => {
@@ -258,7 +273,7 @@ async function medirCamadas(browser) {
     await pagina.goto(`${endereco}/?medir=1`);
     await aguardarSalvamento(pagina);
     const papel = { largura: 4000, altura: 4000 };
-    const autosave = { estado: await criarPapel(pagina, papel) };
+    const autosave = { estado: await criarPapel(pagina, papel, false) };
     const lista = pagina.getByRole('listbox', { name: 'Lista de camadas' });
     const historico = (rotulo) =>
       pagina.locator('.history-list').getByText(rotulo, { exact: true });

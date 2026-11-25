@@ -109,6 +109,10 @@ Diálogos, editor e biblioteca de formas, editor de cores, codificadores de imag
 
 Como ler: o "trabalho do JavaScript" é o tempo síncrono do comando; o Canvas 2D adia o desenho das camadas para o quadro seguinte, por isso a coluna "até a tela atualizar" mede do clique até dois quadros depois (o piso, num monitor de 60 Hz, é ~33 ms). A primeira troca de visibilidade depois de montar as camadas é a mais lenta; as seguintes ficam no piso. As camadas ocupam ~1,2 GB de memória de canvas (fora do heap JS), que é o limite prático indicado no README.
 
+### 0.4, Passo 3 — 25/11/2026 (estabilizador e simetria radial de 12 fatias)
+
+`PERF_ESTABILIZAR=40 PERF_SIMETRIA=12 npm run perf -- --rotulo=passo-3-04`: cada movimento do pincel custa 0,3 ms (p95) em 1024 × 640 e 4000 × 4000 e 0,2 ms em 8192 × 4096 — a prévia desenha as 12 cópias sem pesar. Soltar o traço (o executor pinta as 12 cópias) custa 18 ms em 1024 × 640 e 45–53 ms nos papéis grandes, depois da primeira pincelada. O balde e o cenário de 20 camadas rodam com a simetria desligada (o balde do ensaio clica no meio do papel, onde fica a alça do centro).
+
 ### 0.4, Passo 1 — 25/11/2026 (estabilizador ligado)
 
 `PERF_ESTABILIZAR=40 npm run perf -- --rotulo=passo-1-04`: cada movimento do pincel custa 0,2 ms (p95) em 1024 × 640 e 0,3 ms em 4000 × 4000 e 8192 × 4096 com o estabilizador em 40 — igual a sem ele. O histórico ao soltar segue os números da 0.3 (a primeira pincelada num papel grande ainda tem o atraso único, pendência do Passo 8).

@@ -9,6 +9,7 @@ import { Icon, RibbonGroup, type RunAction } from './Primitives';
 import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
 import { SprayControls, StrokeThickness } from './StrokeThickness';
 import { TextTools } from './TextTools';
+import { SimetriaControles } from './SimetriaControles';
 import { ControlesDeBalde, ControlesDeBorracha } from './ContextPixelTools';
 import { SelectionMenu } from './SelectionMenu';
 import { nivelSeguinte } from '../../canvas/zoom';
@@ -305,6 +306,9 @@ export function Ribbon({
           </>
         ) : (
           <>
+            <RibbonGroup title="Simetria" chave="simetria" prioridade={4} icone="arrow-switch">
+              <SimetriaControles />
+            </RibbonGroup>
             <RibbonGroup title="Zoom" chave="zoom" prioridade={3} icone="magnifier">
               <div className="view-buttons">
                 <button

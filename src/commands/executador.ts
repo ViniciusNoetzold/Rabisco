@@ -57,7 +57,8 @@ import {
   type AlteracaoPixels,
   type EntradaComando,
 } from './history';
-import { areaDaPincelada, desenharPincelada, nomeDaPincelada } from './pincelada';
+import { areasDaPincelada, desenharPincelada, nomeDaPincelada } from './pincelada';
+import { copiasDosPontos } from '../brushes/simetria';
 
 const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
 const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
@@ -173,10 +174,9 @@ export class Executador {
       case 'TracarPincel':
         return this.tracar(comando);
       case 'Pincelar': {
-        const limites = areaDaPincelada(comando);
-        const area = limites && limitarArea(limites, this.doc);
-        if (!area) return null;
-        return this.pintar(comando, nomeDaPincelada(comando), area, (ctx) =>
+        // Uma parte por cópia simétrica: o histórico guarda só os recortes das cópias.
+        const partes = areasDaPincelada(comando);
+        return this.pintar(comando, nomeDaPincelada(comando), partes, (ctx, area) =>
           desenharPincelada(ctx, comando, area),
         );
       }
@@ -772,27 +772,34 @@ export class Executador {
       !this.doc.activeLayer.fundo
         ? { ...original, transparente: true }
         : original;
-    const [inicio, ...pontos] = comando.pontos;
-    if (!inicio) return null;
-    let area = areaDoSegmento(inicio, inicio, comando);
-    let anterior = inicio;
-    for (const ponto of pontos) {
-      area = unirAreas(area, areaDoSegmento(anterior, ponto, comando));
-      anterior = ponto;
-    }
+    if (!comando.pontos.length) return null;
+    // Com simetria, o comando traz um eixo só e as cópias saem daqui: um item no histórico,
+    // com a união das áreas como área afetada.
+    const copias = copiasDosPontos(comando.pontos, comando.simetria);
+    const partes = copias.map(([inicio, ...pontos]) => {
+      let area = areaDoSegmento(inicio, inicio, comando);
+      let anterior = inicio;
+      for (const ponto of pontos) {
+        area = unirAreas(area, areaDoSegmento(anterior, ponto, comando));
+        anterior = ponto;
+      }
+      return area;
+    });
     if (comando.ferramenta === 'eraser' && comando.substituirCor) {
-      const recorte = limitarArea(area, this.doc);
+      const recorte = limitarArea(partes.reduce(unirAreas), this.doc);
       if (!recorte) return null;
       const depois = this.doc.lerPixels(recorte);
-      aplicarBorrachaDeCor(depois, recorte, comando.pontos, comando);
-      return this.escrever(comando, 'Borracha de cor', recorte, depois);
+      for (const copia of copias) aplicarBorrachaDeCor(depois, recorte, copia, comando);
+      return this.escrever(comando, 'Borracha de cor', recorte, depois, partes);
     }
-    return this.pintar(comando, NOMES_TRACO[comando.ferramenta], area, (ctx) => {
-      desenharSegmento(ctx, inicio, inicio, comando);
-      anterior = inicio;
-      for (const ponto of pontos) {
-        desenharSegmento(ctx, anterior, ponto, comando);
-        anterior = ponto;
+    return this.pintar(comando, NOMES_TRACO[comando.ferramenta], partes, (ctx) => {
+      for (const [inicio, ...pontos] of copias) {
+        desenharSegmento(ctx, inicio, inicio, comando);
+        let anterior = inicio;
+        for (const ponto of pontos) {
+          desenharSegmento(ctx, anterior, ponto, comando);
+          anterior = ponto;
+        }
       }
     });
   }
@@ -834,30 +841,36 @@ export class Executador {
     });
   }
 
+  /**
+   * Pinta na camada ativa e guarda antes/depois. `limites` pode ser uma lista de partes (as
+   * cópias de um traço simétrico): a pintura recebe a união, mas o histórico guarda só o
+   * recorte de cada parte quando isso economiza memória.
+   */
   private pintar(
     comando: Comando,
     label: string,
-    limites: Rect,
-    pintarNaCamada: (ctx: CanvasRenderingContext2D) => void,
+    limites: Rect | readonly Rect[],
+    pintarNaCamada: (ctx: CanvasRenderingContext2D, area: Rect) => void,
   ): EntradaComando | null {
-    const area = limitarArea(limites, this.doc);
-    if (!area) return null;
+    const recortes = this.recortesParaGuardar(Array.isArray(limites) ? limites : [limites]);
+    if (!recortes) return null;
+    const { uniao, partes } = recortes;
     const alvo = this.doc.alvoAtivo();
-    const before = this.doc.lerPixels(area, alvo);
-    let after: PixelBuffer;
+    const befores = partes.map((parte) => this.doc.lerPixels(parte, alvo));
+    let afters: PixelBuffer[];
     try {
-      pintarNaCamada(this.doc.contexto(alvo));
-      after = this.doc.lerPixels(area, alvo);
+      pintarNaCamada(this.doc.contexto(alvo), uniao);
+      afters = partes.map((parte) => this.doc.lerPixels(parte, alvo));
     } catch (erro) {
-      this.doc.aplicarPixels(before, area.x, area.y, alvo);
+      for (let i = partes.length - 1; i >= 0; i--)
+        this.doc.aplicarPixels(befores[i], partes[i].x, partes[i].y, alvo);
       throw erro;
     }
     if (this.preservaAlfa(alvo)) {
-      after = preservarAlfa(before, after);
-      this.doc.aplicarPixels(after, area.x, area.y, alvo);
+      afters = afters.map((after, i) => preservarAlfa(befores[i], after));
+      afters.forEach((after, i) => this.doc.aplicarPixels(after, partes[i].x, partes[i].y, alvo));
     }
-    if (pixelsIguais(before, after)) return null;
-    return this.registrarPixels(comando, label, [{ alvo, rect: area, before, after }]);
+    return this.registrarPartes(comando, label, alvo, partes, befores, afters);
   }
 
   private escrever(
@@ -865,13 +878,56 @@ export class Executador {
     label: string,
     area: Rect,
     novos: PixelBuffer,
+    partesDoTraco?: readonly Rect[],
   ): EntradaComando | null {
     const alvo = this.doc.alvoAtivo();
     const before = this.doc.lerPixels(area, alvo);
     const after = this.preservaAlfa(alvo) ? preservarAlfa(before, novos) : novos;
     if (pixelsIguais(before, after)) return null;
     this.doc.aplicarPixels(after, area.x, area.y, alvo);
-    return this.registrarPixels(comando, label, [{ alvo, rect: area, before, after }]);
+    const recortes = partesDoTraco && this.recortesParaGuardar(partesDoTraco);
+    if (!recortes || recortes.partes.length === 1)
+      return this.registrarPixels(comando, label, [{ alvo, rect: area, before, after }]);
+    const local = (parte: Rect) => ({ ...parte, x: parte.x - area.x, y: parte.y - area.y });
+    return this.registrarPartes(
+      comando,
+      label,
+      alvo,
+      recortes.partes,
+      recortes.partes.map((parte) => recortarPixels(before, local(parte))),
+      recortes.partes.map((parte) => recortarPixels(after, local(parte))),
+    );
+  }
+
+  /**
+   * As partes dentro do papel e a união delas. Se as partes somadas não economizarem ao menos
+   * 40% da união (cópias encostadas), guarda a união como um recorte só.
+   */
+  private recortesParaGuardar(limites: readonly Rect[]): { uniao: Rect; partes: Rect[] } | null {
+    const partes = limites
+      .map((parte) => limitarArea(parte, this.doc))
+      .filter((parte): parte is Rect => parte !== null);
+    if (!partes.length) return null;
+    const uniao = partes.reduce(unirAreas);
+    const soma = partes.reduce((total, { width, height }) => total + width * height, 0);
+    return {
+      uniao,
+      partes: partes.length > 1 && soma < uniao.width * uniao.height * 0.6 ? partes : [uniao],
+    };
+  }
+
+  private registrarPartes(
+    comando: Comando,
+    label: string,
+    alvo: Alvo,
+    partes: readonly Rect[],
+    befores: readonly PixelBuffer[],
+    afters: readonly PixelBuffer[],
+  ): EntradaComando | null {
+    const alteracoes = partes
+      .map((rect, i) => ({ alvo, rect, before: befores[i], after: afters[i] }))
+      .filter(({ before, after }) => !pixelsIguais(before, after));
+    return alteracoes.length ? this.registrarPixels(comando, label, alteracoes) : null;
   }
 
   private preservaAlfa(alvo: Alvo): boolean {

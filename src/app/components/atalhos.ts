@@ -28,6 +28,7 @@ export const ATALHOS = [
   ['Espaço e arraste / botão do meio', 'Deslocar a visualização'],
   ['− / +, [ / ]', 'Diminuir / aumentar a espessura'],
   ['Alt+[ / Alt+]', 'Estabilizar menos / mais o traço'],
+  ['Shift+S', 'Ligar / desligar a simetria'],
   ['X', 'Trocar Cor 1 e Cor 2'],
   ['P / B / A', 'Lápis / pincel / aerógrafo'],
   ['E / F / I', 'Borracha / balde / conta-gotas'],

@@ -1,0 +1,26 @@
+/* Simetria e mandala (0.4): linhas-guia finas e a alça do centro sobre o papel. */
+.guias-simetria {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* As linhas param na borda do papel; a alça do centro fica dentro dele. */
+  overflow: hidden;
+  z-index: 3;
+}
+.guias-simetria line {
+  stroke: #7a5cc7;
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  opacity: 0.55;
+}
+.guias-simetria .centro-simetria {
+  fill: rgb(255 255 255 / 85%);
+  stroke: #7a5cc7;
+  stroke-width: 2;
+  pointer-events: all;
+  cursor: move;
+  touch-action: none;
+}
+.guias-simetria .centro-simetria:hover {
+  fill: #e9e2fa;
+}

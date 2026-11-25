@@ -54,6 +54,38 @@ describe('comandos serializáveis', () => {
     );
   });
 
+  it('traço simétrico: as cópias saem do executor em um único item do histórico', () => {
+    const doc = documentoEmMemoria();
+    const editor = new Executador(doc);
+    const comando: Comando = {
+      tipo: 'TracarPincel',
+      ferramenta: 'brush',
+      cor: '#3083c5',
+      espessura: 4,
+      pontos: [{ x: 10, y: 12 }],
+      simetria: { modo: 'quatro', eixos: 6, espelhar: false, centro: { x: 25, y: 20 } },
+    };
+    expect(editor.executar(JSON.parse(JSON.stringify(comando)))).toBe(true);
+    for (const [x, y] of [
+      [10, 12],
+      [40, 12],
+      [10, 28],
+      [40, 28],
+    ])
+      expect(lerPixel(doc.raster, x, y)).toEqual(AZUL);
+    // A área afetada é a união das quatro cópias.
+    expect(editor.ultimaAlteracao).toEqual({ x: 7, y: 9, width: 36, height: 22 });
+    expect(editor.historico.entries).toEqual([{ label: 'Pincelada' }]);
+    // O histórico guarda um recorte de 6 × 6 por cópia, não a união de 36 × 22.
+    expect(editor.historico.memoryBytes).toBe(4 * 8 * 6 * 6);
+    expect(editor.desfazer()).toBe(true);
+    for (const [x, y] of [
+      [10, 12],
+      [40, 28],
+    ])
+      expect(lerPixel(doc.raster, x, y)).toEqual(BRANCO);
+  });
+
   it('executa um traço em um único item com leitura e restauração restritas à área', () => {
     const doc = documentoEmMemoria();
     const editor = new Executador(doc);
