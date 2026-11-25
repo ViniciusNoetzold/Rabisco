@@ -7,29 +7,33 @@
 ## 0. Nome do projeto
 
 ### Nome principal: **Rabisco**
-- Palavra brasileira, curta, simpática, fácil de lembrar e que já diz o que o app faz: *rabiscar sem medo*.
+
+- Palavra brasileira, curta, simpática, fácil de lembrar e que já diz o que o app faz: _rabiscar sem medo_.
 - Combina com a proposta "fácil de desenhar", não intimida iniciantes.
 - Funciona como marca: **Rabisco**, **Rabisco AI**, **Rabisco 7** (versão com visual estilo Windows 7).
 - Mascote sugerido: **"Rabi"**, um lápis/borracha que é o tutor de IA (lembra os assistentes antigos, mas com personagem próprio).
-- Tagline: *"O paint de sempre, com uma IA no pincel."*
+- Tagline: _"O paint de sempre, com uma IA no pincel."_
 
 ### Alternativas (caso o nome esteja ocupado)
-| Nome | Ideia |
-|---|---|
-| **Pincel Aero** | Faz referência ao visual "Aero" (vidro/brilho) da era Win7 |
-| **Garatuja** | Sinônimo de rabisco, bem brasileiro e único |
-| **Tinta7** | Curto, direto, remete ao "7" |
-| **Pixel & Prosa** | Desenho + IA que conversa |
-| **Rabiscódromo** | Divertido, bom para comunidade/galeria |
 
-> ⚠️ Antes de fechar: pesquisar no INPI, domínio (.com / .com.br / .app), GitHub e lojas de apps. **Não usar "Paint", "MS Paint", "Windows" nem logos/ícones da Microsoft no nome ou na marca** — o visual deve ser *inspirado* na época, com arte própria.
+| Nome              | Ideia                                                      |
+| ----------------- | ---------------------------------------------------------- |
+| **Pincel Aero**   | Faz referência ao visual "Aero" (vidro/brilho) da era Win7 |
+| **Garatuja**      | Sinônimo de rabisco, bem brasileiro e único                |
+| **Tinta7**        | Curto, direto, remete ao "7"                               |
+| **Pixel & Prosa** | Desenho + IA que conversa                                  |
+| **Rabiscódromo**  | Divertido, bom para comunidade/galeria                     |
+
+> ⚠️ Antes de fechar: pesquisar no INPI, domínio (.com / .com.br / .app), GitHub e lojas de apps. **Não usar "Paint", "MS Paint", "Windows" nem logos/ícones da Microsoft no nome ou na marca** — o visual deve ser _inspirado_ na época, com arte própria.
 
 ---
 
 ## 1. Visão em uma frase
-Um editor de imagens no navegador (e desktop) com **a simplicidade e a "cara" do Paint do Windows 7** — faixa de ferramentas (ribbon), cores grandes, ferramentas clássicas — somado a **camadas editáveis, colagem, estilos alternativos (ASCII, pixel art, dithering)** e uma **IA interna** que gera/transforma imagens *usando as próprias ferramentas do app* e que também **ensina a desenhar**.
+
+Um editor de imagens no navegador (e desktop) com **a simplicidade e a "cara" do Paint do Windows 7** — faixa de ferramentas (ribbon), cores grandes, ferramentas clássicas — somado a **camadas editáveis, colagem, estilos alternativos (ASCII, pixel art, dithering)** e uma **IA interna** que gera/transforma imagens _usando as próprias ferramentas do app_ e que também **ensina a desenhar**.
 
 ## 2. Pilares
+
 1. **Nostalgia funcional** — parece o paint clássico, mas mais gostoso de usar (suavização de traço, pressão de caneta, zoom fluido).
 2. **Fácil de desenhar** — estabilizador de traço, régua/simetria, formas que "se ajeitam", desfazer ilimitado.
 3. **Camadas e colagem** — importar imagens, recortar, sobrepor, desenhar por cima.
@@ -44,107 +48,117 @@ Um editor de imagens no navegador (e desktop) com **a simplicidade e a "cara" do
 > Legenda de licença: ✅ permissiva (MIT/Apache/BSD — pode usar em projeto fechado/comercial) · ⚠️ copyleft (GPL/AGPL — só se o Rabisco também for open source com a mesma licença, ou usada como serviço separado) · ⛔ não-comercial.
 
 ### 3.1 Base do app / stack
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **TypeScript + Vite** | Linguagem e build rápido | ✅ |
-| **React** (ou **Svelte/SolidJS**) | Interface (ribbon, painéis, diálogos) | ✅ |
-| **Zustand** + **Immer** | Estado global + histórico de desfazer/refazer | ✅ |
-| **Tauri 2** | Versão desktop leve (Windows/Mac/Linux) a partir do mesmo código web | ✅ |
-| **vite-plugin-pwa** | Instalar como app e funcionar offline | ✅ |
-| **Dexie.js** / **idb-keyval** | Salvar projetos e preferências no IndexedDB | ✅ |
-| **Comlink** + Web Workers | Rodar filtros e IA local sem travar a tela | ✅ |
+
+| Ferramenta                        | Para quê                                                             | Licença |
+| --------------------------------- | -------------------------------------------------------------------- | ------- |
+| **TypeScript + Vite**             | Linguagem e build rápido                                             | ✅      |
+| **React** (ou **Svelte/SolidJS**) | Interface (ribbon, painéis, diálogos)                                | ✅      |
+| **Zustand** + **Immer**           | Estado global + histórico de desfazer/refazer                        | ✅      |
+| **Tauri 2**                       | Versão desktop leve (Windows/Mac/Linux) a partir do mesmo código web | ✅      |
+| **vite-plugin-pwa**               | Instalar como app e funcionar offline                                | ✅      |
+| **Dexie.js** / **idb-keyval**     | Salvar projetos e preferências no IndexedDB                          | ✅      |
+| **Comlink** + Web Workers         | Rodar filtros e IA local sem travar a tela                           | ✅      |
 
 ### 3.2 Visual "Windows 7"
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **7.css** (khang-nd) | CSS que recria janelas, botões, abas, barras do Win7 (baseado em XP.css/98.css) | ✅ MIT |
-| **98.css / XP.css** | Temas extras ("modo retrô 98", "modo XP") | ✅ MIT |
-| **Fugue Icons** (Yusuke Kamiyamane) | +3000 ícones 16px no estilo exato da era Win7 | ✅ CC BY 3.0 (exige crédito) |
-| **Silk Icons** (famfamfam) | Ícones clássicos dos anos 2000 | ✅ CC BY 2.5 (exige crédito) |
-| **Selawik** | Fonte open source métrica-compatível com Segoe UI | ✅ OFL |
-| Ribbon | Não há boa lib pronta → **construir componente próprio** com 7.css | — |
+
+| Ferramenta                          | Para quê                                                                        | Licença                      |
+| ----------------------------------- | ------------------------------------------------------------------------------- | ---------------------------- |
+| **7.css** (khang-nd)                | CSS que recria janelas, botões, abas, barras do Win7 (baseado em XP.css/98.css) | ✅ MIT                       |
+| **98.css / XP.css**                 | Temas extras ("modo retrô 98", "modo XP")                                       | ✅ MIT                       |
+| **Fugue Icons** (Yusuke Kamiyamane) | +3000 ícones 16px no estilo exato da era Win7                                   | ✅ CC BY 3.0 (exige crédito) |
+| **Silk Icons** (famfamfam)          | Ícones clássicos dos anos 2000                                                  | ✅ CC BY 2.5 (exige crédito) |
+| **Selawik**                         | Fonte open source métrica-compatível com Segoe UI                               | ✅ OFL                       |
+| Ribbon                              | Não há boa lib pronta → **construir componente próprio** com 7.css              | —                            |
 
 ### 3.3 Motor de desenho / canvas
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **Canvas 2D + OffscreenCanvas** | Base raster (pixels), simples e rápida | nativo |
-| **PixiJS v8** (WebGL/WebGPU) | Renderização acelerada de camadas grandes, blend modes, zoom fluido | ✅ MIT |
-| **perfect-freehand** | Traços com pressão bonitos e suaves | ✅ MIT |
-| **lazy-brush** | Estabilizador de traço ("pincel preguiçoso") — chave para "fácil de desenhar" | ✅ MIT |
-| **simplify-js** | Simplificar/suavizar curvas | ✅ BSD |
-| **Pointer Events API** | Pressão, inclinação de caneta, toque | nativo |
-| **Paper.js** ou **Fabric.js** | Camadas vetoriais opcionais (formas/textos editáveis depois) | ✅ MIT |
-| **opentype.js** | Texto com fontes customizadas, contornos | ✅ MIT |
-| **q-floodfill** | Balde de tinta rápido com tolerância | ✅ MIT |
+
+| Ferramenta                      | Para quê                                                                      | Licença |
+| ------------------------------- | ----------------------------------------------------------------------------- | ------- |
+| **Canvas 2D + OffscreenCanvas** | Base raster (pixels), simples e rápida                                        | nativo  |
+| **PixiJS v8** (WebGL/WebGPU)    | Renderização acelerada de camadas grandes, blend modes, zoom fluido           | ✅ MIT  |
+| **perfect-freehand**            | Traços com pressão bonitos e suaves                                           | ✅ MIT  |
+| **lazy-brush**                  | Estabilizador de traço ("pincel preguiçoso") — chave para "fácil de desenhar" | ✅ MIT  |
+| **simplify-js**                 | Simplificar/suavizar curvas                                                   | ✅ BSD  |
+| **Pointer Events API**          | Pressão, inclinação de caneta, toque                                          | nativo  |
+| **Paper.js** ou **Fabric.js**   | Camadas vetoriais opcionais (formas/textos editáveis depois)                  | ✅ MIT  |
+| **opentype.js**                 | Texto com fontes customizadas, contornos                                      | ✅ MIT  |
+| **q-floodfill**                 | Balde de tinta rápido com tolerância                                          | ✅ MIT  |
 
 **Projetos de referência para estudar (não copiar arte):**
+
 - **JS Paint** (1j01) — remake fiel do paint clássico em web, MIT. Ótimo para estudar ferramentas originais (seleção livre, spray, curva em 2 cliques).
-- **Klecks** (motor do Kleki, bitbof) — MIT, camadas, pressão, estabilizador, gestos de toque. *O nome/marca "Kleki" não é coberto pela licença.*
+- **Klecks** (motor do Kleki, bitbof) — MIT, camadas, pressão, estabilizador, gestos de toque. _O nome/marca "Kleki" não é coberto pela licença._
 - **miniPaint** (viliusle) — editor web com camadas e filtros (confirmar licença no repo oficial).
 - **Pixelorama** (Godot, MIT) — referência para modo pixel art e animação.
 - **Krita / GIMP / Pinta** — referência de UX para camadas, máscaras e pincéis (Krita e GIMP são GPL).
 
 ### 3.4 Processamento de imagem (transformações "clássicas", sem IA)
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **OpenCV.js** | Detecção de bordas, desfoque, perspectiva, contornos | ✅ Apache 2.0 |
-| **glfx.js** / shaders WebGL próprios | Filtros em tempo real (brilho, curvas, matiz, ondas) | ✅ MIT |
-| **Pica** | Redimensionar com alta qualidade | ✅ MIT |
-| **image-q** / **RgbQuant.js** | Reduzir paleta + dithering (Floyd-Steinberg, Atkinson…) → modo retrô/pixel | ✅ MIT |
-| **UPNG.js / gifenc / gif.js** | Exportar PNG otimizado e GIF animado | ✅ MIT |
+
+| Ferramenta                           | Para quê                                                                   | Licença       |
+| ------------------------------------ | -------------------------------------------------------------------------- | ------------- |
+| **OpenCV.js**                        | Detecção de bordas, desfoque, perspectiva, contornos                       | ✅ Apache 2.0 |
+| **glfx.js** / shaders WebGL próprios | Filtros em tempo real (brilho, curvas, matiz, ondas)                       | ✅ MIT        |
+| **Pica**                             | Redimensionar com alta qualidade                                           | ✅ MIT        |
+| **image-q** / **RgbQuant.js**        | Reduzir paleta + dithering (Floyd-Steinberg, Atkinson…) → modo retrô/pixel | ✅ MIT        |
+| **UPNG.js / gifenc / gif.js**        | Exportar PNG otimizado e GIF animado                                       | ✅ MIT        |
 
 ### 3.5 Importação / exportação / formatos
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **ag-psd** | Ler e gravar **PSD com camadas** (interop com Photoshop/Photopea) | ✅ MIT |
-| **OpenRaster (.ora)** via **JSZip** | Formato aberto de camadas (compatível com Krita/GIMP/MyPaint) | ✅ |
-| Formato próprio **.rabisco** | ZIP com `manifest.json` + PNG por camada + histórico IA | — |
-| **heic2any** | Importar fotos HEIC de iPhone | ✅ MIT |
-| **jsPDF** | Exportar PDF (para imprimir) | ✅ MIT |
-| Clipboard API | Colar imagem direto do Ctrl+V (essencial para colagem) | nativo |
+
+| Ferramenta                          | Para quê                                                          | Licença |
+| ----------------------------------- | ----------------------------------------------------------------- | ------- |
+| **ag-psd**                          | Ler e gravar **PSD com camadas** (interop com Photoshop/Photopea) | ✅ MIT  |
+| **OpenRaster (.ora)** via **JSZip** | Formato aberto de camadas (compatível com Krita/GIMP/MyPaint)     | ✅      |
+| Formato próprio **.rabisco**        | ZIP com `manifest.json` + PNG por camada + histórico IA           | —       |
+| **heic2any**                        | Importar fotos HEIC de iPhone                                     | ✅ MIT  |
+| **jsPDF**                           | Exportar PDF (para imprimir)                                      | ✅ MIT  |
+| Clipboard API                       | Colar imagem direto do Ctrl+V (essencial para colagem)            | nativo  |
 
 ### 3.6 Estilos alternativos
-| Estilo | Ferramenta / técnica | Licença |
-|---|---|---|
-| **ASCII art** | Algoritmo próprio (luminância → caracteres) em Worker; **figlet.js** para títulos em letras ASCII | ✅ MIT |
-| **ANSI / colorido** | Mesmo algoritmo com cor por célula; exportar `.txt`, `.html`, `.png` | — |
-| **Pixel art** | Grade, paleta limitada, pincel 1px sem antialiasing, **image-q** para pixelizar fotos | ✅ |
-| **Dithering retrô** | image-q (Floyd-Steinberg, Atkinson, Bayer) — "modo Game Boy", "modo CGA" | ✅ |
-| **Pontilhismo / mosaico / meio-tom** | Shaders próprios | — |
-| **Simetria / mandala** | Espelhamento N-eixos no motor de traço | — |
+
+| Estilo                               | Ferramenta / técnica                                                                              | Licença |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- | ------- |
+| **ASCII art**                        | Algoritmo próprio (luminância → caracteres) em Worker; **figlet.js** para títulos em letras ASCII | ✅ MIT  |
+| **ANSI / colorido**                  | Mesmo algoritmo com cor por célula; exportar `.txt`, `.html`, `.png`                              | —       |
+| **Pixel art**                        | Grade, paleta limitada, pincel 1px sem antialiasing, **image-q** para pixelizar fotos             | ✅      |
+| **Dithering retrô**                  | image-q (Floyd-Steinberg, Atkinson, Bayer) — "modo Game Boy", "modo CGA"                          | ✅      |
+| **Pontilhismo / mosaico / meio-tom** | Shaders próprios                                                                                  | —       |
+| **Simetria / mandala**               | Espelhamento N-eixos no motor de traço                                                            | —       |
 
 ### 3.7 IA local (roda no navegador, sem chave)
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **Transformers.js** (Hugging Face) + **ONNX Runtime Web** (WebGPU) | Rodar modelos no navegador | ✅ Apache 2.0 |
-| **SAM / SlimSAM / MobileSAM** | "Varinha mágica inteligente": clicar e selecionar o objeto | ✅ Apache 2.0 |
-| **MODNet** ou **BiRefNet** (ONNX) | Remover fundo | ✅ (conferir cada peso; **RMBG-1.4 é ⛔ não-comercial**; **@imgly/background-removal é ⚠️ AGPL**) |
-| **LaMa** (via ONNX) | Apagar objetos e preencher o buraco (inpainting) | ✅ Apache 2.0 |
-| **UpscalerJS** / **Real-ESRGAN** | Aumentar resolução | ✅ MIT / BSD |
-| **Depth Anything (small)** | Mapa de profundidade → efeito desfoque, relevo, 3D falso | ✅ Apache 2.0 (versão small) |
-| **WebLLM** (MLC) | LLM pequeno local para o tutor offline | ✅ Apache 2.0 |
+
+| Ferramenta                                                         | Para quê                                                   | Licença                                                                                           |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Transformers.js** (Hugging Face) + **ONNX Runtime Web** (WebGPU) | Rodar modelos no navegador                                 | ✅ Apache 2.0                                                                                     |
+| **SAM / SlimSAM / MobileSAM**                                      | "Varinha mágica inteligente": clicar e selecionar o objeto | ✅ Apache 2.0                                                                                     |
+| **MODNet** ou **BiRefNet** (ONNX)                                  | Remover fundo                                              | ✅ (conferir cada peso; **RMBG-1.4 é ⛔ não-comercial**; **@imgly/background-removal é ⚠️ AGPL**) |
+| **LaMa** (via ONNX)                                                | Apagar objetos e preencher o buraco (inpainting)           | ✅ Apache 2.0                                                                                     |
+| **UpscalerJS** / **Real-ESRGAN**                                   | Aumentar resolução                                         | ✅ MIT / BSD                                                                                      |
+| **Depth Anything (small)**                                         | Mapa de profundidade → efeito desfoque, relevo, 3D falso   | ✅ Apache 2.0 (versão small)                                                                      |
+| **WebLLM** (MLC)                                                   | LLM pequeno local para o tutor offline                     | ✅ Apache 2.0                                                                                     |
 
 ### 3.8 IA local "pesada" (opcional, roda no PC do usuário)
-| Ferramenta | Para quê | Licença |
-|---|---|---|
-| **ComfyUI** (API local) | Geração/edição avançada por nós (SDXL, FLUX, ControlNet) | ⚠️ GPL-3 — usar como **serviço separado** via HTTP, não embutir |
-| **IOPaint** (ex-lama-cleaner) | Servidor local de inpainting/outpainting | ✅ Apache 2.0 |
-| **Ollama** | LLM local para o tutor (Llama, Qwen, Gemma; modelos de visão) | ✅ MIT |
-| **FLUX.1 [schnell]** | Modelo de imagem rápido e aberto | ✅ Apache 2.0 (**FLUX.1 [dev]/Kontext são ⛔ não-comerciais**) |
-| **Stable Diffusion XL / SD 1.5** + ControlNet | Gerar a partir do rabisco (sketch → imagem) | ✅ OpenRAIL (com restrições de uso) |
+
+| Ferramenta                                    | Para quê                                                      | Licença                                                         |
+| --------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
+| **ComfyUI** (API local)                       | Geração/edição avançada por nós (SDXL, FLUX, ControlNet)      | ⚠️ GPL-3 — usar como **serviço separado** via HTTP, não embutir |
+| **IOPaint** (ex-lama-cleaner)                 | Servidor local de inpainting/outpainting                      | ✅ Apache 2.0                                                   |
+| **Ollama**                                    | LLM local para o tutor (Llama, Qwen, Gemma; modelos de visão) | ✅ MIT                                                          |
+| **FLUX.1 [schnell]**                          | Modelo de imagem rápido e aberto                              | ✅ Apache 2.0 (**FLUX.1 [dev]/Kontext são ⛔ não-comerciais**)  |
+| **Stable Diffusion XL / SD 1.5** + ControlNet | Gerar a partir do rabisco (sketch → imagem)                   | ✅ OpenRAIL (com restrições de uso)                             |
 
 ### 3.9 Provedores de API com camada gratuita (BYOK — o usuário cola a chave)
+
 > Os limites mudam com frequência — o app deve mostrar o link oficial de preços de cada um e nunca prometer números fixos.
 
-| Provedor | O que oferece | Observação |
-|---|---|---|
-| **AI Horde (Stable Horde)** | Geração SD/SDXL/FLUX por rede voluntária | **Funciona sem cadastro** com a chave anônima `0000000000` (fila mais lenta); conta grátis dá prioridade. Ótimo "padrão de fábrica". |
-| **Cloudflare Workers AI** | FLUX (schnell/klein), SDXL, LLMs, visão | Camada grátis diária (~10k "neurons"/dia segundo fontes); requer conta + token. |
-| **Google AI Studio (Gemini)** | Gemini (texto/visão) para o tutor; modelos de imagem ("Nano Banana") | Texto/visão tem camada grátis; **imagem: fontes divergem** sobre gratuidade — verificar na página oficial. |
-| **Hugging Face Inference Providers** | Milhares de modelos (imagem, segmentação, LLM) | Créditos grátis mensais com conta. |
-| **Pollinations.ai** | Geração de imagem via URL simples | Historicamente grátis/sem chave; confirmar termos atuais. |
-| **Groq / OpenRouter (modelos :free)** | LLMs rápidos para o tutor e para o "agente que desenha" | Camadas grátis com limite de taxa. |
-| **Stability AI, fal.ai, Replicate, OpenAI** | Qualidade alta, edição, inpainting | Pagos/créditos iniciais — suporte opcional. |
+| Provedor                                    | O que oferece                                                        | Observação                                                                                                                           |
+| ------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **AI Horde (Stable Horde)**                 | Geração SD/SDXL/FLUX por rede voluntária                             | **Funciona sem cadastro** com a chave anônima `0000000000` (fila mais lenta); conta grátis dá prioridade. Ótimo "padrão de fábrica". |
+| **Cloudflare Workers AI**                   | FLUX (schnell/klein), SDXL, LLMs, visão                              | Camada grátis diária (~10k "neurons"/dia segundo fontes); requer conta + token.                                                      |
+| **Google AI Studio (Gemini)**               | Gemini (texto/visão) para o tutor; modelos de imagem ("Nano Banana") | Texto/visão tem camada grátis; **imagem: fontes divergem** sobre gratuidade — verificar na página oficial.                           |
+| **Hugging Face Inference Providers**        | Milhares de modelos (imagem, segmentação, LLM)                       | Créditos grátis mensais com conta.                                                                                                   |
+| **Pollinations.ai**                         | Geração de imagem via URL simples                                    | Historicamente grátis/sem chave; confirmar termos atuais.                                                                            |
+| **Groq / OpenRouter (modelos :free)**       | LLMs rápidos para o tutor e para o "agente que desenha"              | Camadas grátis com limite de taxa.                                                                                                   |
+| **Stability AI, fal.ai, Replicate, OpenAI** | Qualidade alta, edição, inpainting                                   | Pagos/créditos iniciais — suporte opcional.                                                                                          |
 
 ---
 
@@ -384,12 +398,14 @@ MVP 0.1 – Shell visual Win7 (7.css), canvas único, lápis, pincel, borracha, 
 ---
 
 ## 5. Decisões que ainda são suas
+
 1. **Licença do Rabisco**: open source (MIT → atrai contribuidores; GPL → poderia aproveitar código de GIMP/Krita/ComfyUI) ou fechado/freemium?
 2. **Web primeiro ou desktop primeiro?** (Recomendo **web/PWA primeiro** e Tauri depois — mesmo código.)
 3. **Público infantil?** Se sim, o modo infantil vira obrigatório e há cuidados legais extras (LGPD/ECA Digital).
 4. **Nome final** — checar disponibilidade de "Rabisco" (há apps com nomes parecidos).
 
 ## 6. Fontes consultadas
+
 - [7.css (khang-nd) — npm](https://www.npmjs.com/package/7.css) · [README 7.css](https://unpkg.com/7.css@0.13.0/README.md)
 - [JS Paint (1j01)](https://github.com/1j01/jspaint) · [Klecks (bitbof)](https://github.com/bitbof/klecks) · [miniPaint](https://awesome.ecosyste.ms/projects/github.com%2Fviliusle%2FminiPaint)
 - [AI Horde (Haidra-Org)](https://awesome.ecosyste.ms/projects/github.com%2Fhaidra-org%2Fai-horde) · [AI Horde README](https://github.com/db0/AI-Horde)

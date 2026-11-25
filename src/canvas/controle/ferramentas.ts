@@ -183,6 +183,7 @@ export class ControleFerramentas {
       altura: doc.height,
       camadaAtiva: doc.activeLayerId,
       camadaParaTransformar: () => this.camadaParaTransformar(),
+      guiasDeEncaixe: () => this.guiasDeEncaixe(),
       ocultarCamadaAtiva: (ocultar) => {
         const camada = doc.activeLayer;
         if (Boolean(camada.foraDaTela) === ocultar) return;
@@ -211,6 +212,27 @@ export class ControleFerramentas {
     };
   }
 
+  /**
+   * Bordas e centro do papel e das outras camadas visíveis. Para não travar em papéis grandes
+   * com muitas camadas, as outras camadas só entram até ~40 milhões de pixels somados.
+   */
+  private guiasDeEncaixe() {
+    const { doc } = this.nucleo;
+    const x = [0, doc.width / 2, doc.width];
+    const y = [0, doc.height / 2, doc.height];
+    let orcamento = 40_000_000;
+    for (const camada of doc.layers) {
+      if (camada.id === doc.activeLayerId || !camada.visible || camada.fundo) continue;
+      orcamento -= doc.width * doc.height;
+      if (orcamento < 0) break;
+      const limites = limitesDosPixels(doc.lerPixels(undefined, { camada: camada.id }));
+      if (!limites) continue;
+      x.push(limites.x, limites.x + limites.width / 2, limites.x + limites.width);
+      y.push(limites.y, limites.y + limites.height / 2, limites.y + limites.height);
+    }
+    return { x, y };
+  }
+
   /** Recorta os pixels não transparentes da camada ativa (com a máscara aplicada à prévia). */
   private camadaParaTransformar() {
     const { doc } = this.nucleo;
@@ -219,31 +241,11 @@ export class ControleFerramentas {
       this.nucleo.avisar('Esta camada está bloqueada. Desbloqueie para transformar.');
       return null;
     }
-    const { data, width, height } = doc.lerPixels(undefined, { camada: camada.id });
-    let esquerda = width;
-    let topo = height;
-    let direita = -1;
-    let base = -1;
-    for (let y = 0; y < height; y++) {
-      const linha = y * width * 4;
-      for (let x = 0; x < width; x++) {
-        if (!data[linha + x * 4 + 3]) continue;
-        if (x < esquerda) esquerda = x;
-        if (x > direita) direita = x;
-        if (y < topo) topo = y;
-        base = y;
-      }
-    }
-    if (direita < 0) {
+    const limites = limitesDosPixels(doc.lerPixels(undefined, { camada: camada.id }));
+    if (!limites) {
       this.nucleo.avisar('A camada está vazia: não há o que transformar.');
       return null;
     }
-    const limites = {
-      x: esquerda,
-      y: topo,
-      width: direita - esquerda + 1,
-      height: base - topo + 1,
-    };
     const conteudo = document.createElement('canvas');
     conteudo.width = limites.width;
     conteudo.height = limites.height;
@@ -284,4 +286,24 @@ export class ControleFerramentas {
       });
     }
   }
+}
+
+/** Retângulo que contém os pixels não transparentes, ou `null` se a imagem estiver vazia. */
+export function limitesDosPixels({ data, width, height }: ImageData) {
+  let esquerda = width;
+  let topo = height;
+  let direita = -1;
+  let base = -1;
+  for (let y = 0; y < height; y++) {
+    const linha = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if (!data[linha + x * 4 + 3]) continue;
+      if (x < esquerda) esquerda = x;
+      if (x > direita) direita = x;
+      if (y < topo) topo = y;
+      base = y;
+    }
+  }
+  if (direita < 0) return null;
+  return { x: esquerda, y: topo, width: direita - esquerda + 1, height: base - topo + 1 };
 }

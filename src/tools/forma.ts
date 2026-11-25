@@ -1,5 +1,6 @@
 import type { Point, Rect } from '../layers/types';
-import { areaDaForma, desenharForma } from '../shapes/render';
+import { novoId } from '../document/camadas';
+import { areaDaForma, desenharForma, obterDefinicaoForma } from '../shapes/render';
 import type { ConfiguracaoForma, IdForma } from '../shapes/tipos';
 import {
   alcaDeRotacao,
@@ -157,7 +158,24 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
     function confirmar(ctx: ToolCtx) {
       const configuracao = obterFormaPendente(ctx);
       descartar();
-      if (configuracao) ctx.executar({ tipo: 'AplicarForma', configuracao });
+      if (!configuracao) return;
+      if (!ctx.opcoes.formasEmNovaCamada) {
+        ctx.executar({ tipo: 'AplicarForma', configuracao });
+        return;
+      }
+      // Um item só no histórico: a camada nova e a forma dentro dela.
+      ctx.executar({
+        tipo: 'Lote',
+        rotulo: obterDefinicaoForma(configuracao).nome,
+        comandos: [
+          {
+            tipo: 'NovaCamada',
+            id: novoId('camada'),
+            nome: `Forma: ${obterDefinicaoForma(configuracao).nome}`,
+          },
+          { tipo: 'AplicarForma', configuracao },
+        ],
+      });
     }
 
     function proximoVertice(evento: EventoFerramenta): Point {

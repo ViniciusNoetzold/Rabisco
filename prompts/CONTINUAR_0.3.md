@@ -1,7 +1,7 @@
-# Continuar o Rabisco — onde paramos (24/11/2026, 16h)
+# Continuar o Rabisco — onde paramos (25/11/2026)
 
 Repositório: https://github.com/ViniciusNoetzold/Rabisco (branch `main`).
-Validação do último envio: 124 testes unitários, 59 fluxos E2E no Edge e build de produção aprovados.
+Validação do último envio: 124 testes unitários, 62 fluxos E2E no Edge e build de produção aprovados.
 
 ## O que já está pronto
 
@@ -9,9 +9,9 @@ Validação do último envio: 124 testes unitários, 59 fluxos E2E no Edge e bui
 - **0.3 (camadas e colagem), em andamento:**
   - Passo 1: modelo de camadas, grupos, máscaras, 16 modos de mesclagem, bloqueios, recorte, efeitos, histórico de estrutura, autosave por camada. ✅
   - Passo 2: painel de Camadas (miniaturas, olho, cadeado, renomear, arrastar, opacidade, modo, atalhos). ✅
-  - Passo 3: borracha transparente, travar transparência, aviso em camada oculta ou bloqueada, texto em camada própria, amostrar todas as camadas, Copiar mesclado (Ctrl+Shift+C). ✅ (falta: opção "formas em nova camada")
-  - Passo 4: efeitos (contorno e sombra) na interface, "Virar adesivo", máscara a partir da seleção, aplicar e excluir máscara. ✅ (falta: UI de grupos — agrupar, desagrupar, recolher; os comandos já existem no executor)
-  - Passo 5: colagem vira camada nova, várias imagens soltas viram várias camadas, Mover (V), transformação livre (Ctrl+T: mover, escalar, girar). ✅ (falta: distorcer, perspectiva, guias de encaixe e alinhar/distribuir)
+  - Passo 3: borracha transparente, travar transparência, aviso em camada oculta ou bloqueada, texto em camada própria, amostrar todas as camadas, Copiar mesclado (Ctrl+Shift+C). ✅ (inclui formas em nova camada)
+  - Passo 4: efeitos (contorno e sombra) na interface, "Virar adesivo", máscara a partir da seleção, aplicar e excluir máscara. ✅ (inclui grupos no painel: agrupar Ctrl+G, recolher, olho, renomear, desagrupar)
+  - Passo 5: colagem vira camada nova, várias imagens soltas viram várias camadas, Mover (V), transformação livre (Ctrl+T: mover, escalar, girar). ✅ (inclui distorcer por canto e guias de encaixe; falta alinhar/distribuir várias camadas)
   - Passo 6: formato .rabisco, PSD e ORA. ❌ Não começado.
   - Passo 7: desempenho com 20 camadas, README e roteiro manual. ❌ Não começado.
 
@@ -36,9 +36,8 @@ Termine a 0.3 nesta ordem:
 1. Passo 6: formato .rabisco (ZIP com manifest.json, PNG por camada e por máscara, miniatura),
    Salvar (Ctrl+S) em .rabisco, Abrir .rabisco, PSD e ORA (abrir e salvar), exportar camadas
    como PNGs e lista de arquivos recentes. Testes de ida e volta para os três formatos.
-2. O que faltou dos Passos 3–5: formas em nova camada (opção no ribbon), UI de grupos no
-   painel (agrupar Ctrl+G — mover a grade para Ctrl+' —, desagrupar, recolher, olho do grupo),
-   distorcer pelos cantos (Ctrl) e guias de encaixe magenta na transformação livre.
+2. O que ainda falta dos Passos 3–5: alinhar e distribuir várias camadas (precisa de
+   seleção múltipla no painel).
 3. Passo 7: `npm run perf` com 20 camadas de 4000 × 4000, README "Camadas e colagem",
    roteiro manual de 10 minutos, ROADMAP marcando a 0.3 como concluída.
 Depois disso, o próximo prompt é a 0.4 (estabilizador, simetria, formas inteligentes) e, em

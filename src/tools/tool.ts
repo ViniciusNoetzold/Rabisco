@@ -43,6 +43,8 @@ export interface ToolCtx {
   camadaParaTransformar(): { conteudo: HTMLCanvasElement; limites: Rect } | null;
   /** Tira a camada ativa da tela enquanto a prévia da transformação aparece por cima. */
   ocultarCamadaAtiva(ocultar: boolean): void;
+  /** Linhas de encaixe: bordas e centro do papel e das outras camadas visíveis. */
+  guiasDeEncaixe(): { x: number[]; y: number[] };
   readonly opcoes: {
     cor1: string;
     cor2: string;
@@ -52,6 +54,8 @@ export interface ToolCtx {
     toleranciaBalde: number;
     preenchimentoGlobal: boolean;
     amostrarTudo: boolean;
+    formasEmNovaCamada: boolean;
+    guiasInteligentes: boolean;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
     gotasSpray: 1 | 2;

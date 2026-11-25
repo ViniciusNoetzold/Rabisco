@@ -80,6 +80,10 @@ interface EditorState {
   amostrarTudo: boolean;
   /** O texto confirmado entra numa camada própria. */
   textoEmNovaCamada: boolean;
+  /** Cada forma confirmada entra numa camada própria. */
+  formasEmNovaCamada: boolean;
+  /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
+  guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
   setPincel: (tipo: TipoPincel) => void;
   setForma: (forma: FormaId) => void;
@@ -112,6 +116,8 @@ interface EditorState {
         | 'preenchimentoGlobal'
         | 'amostrarTudo'
         | 'textoEmNovaCamada'
+        | 'formasEmNovaCamada'
+        | 'guiasInteligentes'
       >
     >,
   ) => void;
@@ -153,6 +159,8 @@ export const useEditor = create<EditorState>()(
     preenchimentoGlobal: false,
     amostrarTudo: false,
     textoEmNovaCamada: true,
+    formasEmNovaCamada: false,
+    guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {
         if (tool === 'eyedropper' && state.tool !== tool) state.ultimaFerramenta = state.tool;

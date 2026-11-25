@@ -288,5 +288,6 @@ Comece pelo PASSO 1.
 ```
 
 ## Dica de uso
+
 - Depois de cada passo, teste com `npm run dev` antes de mandar "ok, próximo".
 - Se algo não ficar como você imaginou, descreva o que viu antes de liberar o passo seguinte. É mais barato corrigir no passo em que o problema apareceu.

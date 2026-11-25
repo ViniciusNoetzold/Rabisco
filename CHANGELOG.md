@@ -14,10 +14,18 @@
 - Balde e conta-gotas ganharam "Amostrar todas as camadas": a área ou a cor vêm do que se vê, mas o balde pinta só na camada ativa.
 - Já no Passo 1: borracha transparente fora do papel, travar transparência e aviso ao pintar em camada oculta ou bloqueada. Falta "Copiar mesclado" (Ctrl+Shift+C) e a opção de formas em nova camada.
 
+### Passos 3 a 5 — O que faltava
+
+- **Formas em nova camada:** opção no painel de Camadas. Cada forma confirmada entra numa camada própria ("Forma: Retângulo"…), num único item do histórico.
+- **Grupos no painel:** "Agrupar" (Ctrl+G) põe a camada ativa num grupo novo, e outras camadas entram nele arrastadas. O cabeçalho do grupo tem setinha para recolher, olho (oculta o grupo inteiro), nome editável com duplo clique e "desagrupar". As camadas do grupo aparecem recuadas. A grade passou de Ctrl+G para Ctrl+'.
+- **Distorcer:** na transformação livre, Ctrl+arraste num canto move só aquele canto (encaixar uma imagem em perspectiva numa parede, numa tela…). A imagem é deformada por uma malha de triângulos (8 × 8 na prévia, 24 × 24 ao confirmar). No histórico aparece como "Distorcer".
+- **Guias de encaixe:** ao mover na transformação livre, as bordas e o centro da camada grudam nas bordas e no centro do papel e das outras camadas visíveis, com uma linha magenta. Shift desliga na hora; a opção "Guias de encaixe" na aba Exibir desliga de vez.
+- A aba Exibir mostra as opções em duas colunas, para caber a quarta.
+- Testes E2E novos: formas em nova camada e grupos, distorcer por um canto e encaixe no centro do papel. Total: 124 unitários e 62 E2E.
+
 ### Passo 5 — Transformação livre
 
 - Ctrl+T (ou "Transformar" no painel de Camadas) mostra a caixa dos pixels da camada ativa com 8 alças e uma alça de giro. Arrastar por dentro move, as alças escalam a partir do centro (Shift mantém a proporção) e a bolinha gira (Shift de 15° em 15°). A prévia aparece no lugar da camada. Enter, um clique fora ou trocar de ferramenta confirmam num único item do histórico ("Transformação livre"), e Esc cancela. A máscara acompanha os pixels.
-- Falta deste passo: distorcer pelos cantos, perspectiva e guias de encaixe.
 
 ### Passo 5 (parcial) — Colagem em camadas e ferramenta Mover
 

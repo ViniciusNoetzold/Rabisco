@@ -395,6 +395,18 @@ export class EditorController implements EditorApi, NucleoEditor {
     return this.executar(comando);
   }
 
+  /** Ctrl+G: põe a camada ativa num grupo novo. */
+  agruparAtiva() {
+    const ativa = this.doc.activeLayer;
+    if (ativa.grupo) return false;
+    return this.executarCamada({
+      tipo: 'AgruparCamadas',
+      ids: [ativa.id],
+      grupoId: novoId('grupo'),
+      nome: `Grupo ${this.doc.grupos.length + 1}`,
+    });
+  }
+
   novaCamada() {
     const total = this.doc.layers.length;
     return this.executarCamada({

@@ -235,3 +235,101 @@ test('transformação livre: escala pela alça, move, confirma com Enter e desfa
   await expect.poll(() => pixel(page, 230, 220)).toEqual(vermelho);
   await expect.poll(() => pixel(page, 380, 220)).toEqual(BRANCO);
 });
+
+test('formas em nova camada e grupos: agrupar, recolher, ocultar e desagrupar', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  const lista = page.getByRole('listbox', { name: 'Lista de camadas' });
+  await page.getByRole('checkbox', { name: 'Formas em nova camada' }).check();
+  await page.locator('.drawing-canvas').focus();
+  await page.keyboard.press('r');
+  await riscar(page, [100, 100], [200, 160]);
+  await page.keyboard.press('Enter');
+  await expect(lista.getByRole('option')).toHaveCount(2);
+  await expect(lista.getByRole('option', { selected: true })).toContainText('Forma: Retângulo');
+  const contorno = await pixel(page, 100, 130);
+  expect(contorno).not.toEqual(BRANCO);
+
+  await page.keyboard.press('Control+g');
+  await expect(lista.getByText('Grupo 1')).toBeVisible();
+  await lista.getByRole('button', { name: 'Ocultar grupo Grupo 1' }).click();
+  await expect.poll(() => pixel(page, 100, 130)).toEqual(BRANCO);
+  await lista.getByRole('button', { name: 'Mostrar grupo Grupo 1' }).click();
+  await expect.poll(() => pixel(page, 100, 130)).toEqual(contorno);
+  await lista.getByRole('button', { name: 'Recolher Grupo 1' }).click();
+  await expect(lista.getByRole('option')).toHaveCount(1);
+  await lista.getByRole('button', { name: 'Abrir Grupo 1' }).click();
+  await expect(lista.getByRole('option')).toHaveCount(2);
+  await lista.getByRole('button', { name: 'Desagrupar Grupo 1' }).click();
+  await expect(lista.getByText('Grupo 1')).toHaveCount(0);
+  await expect(lista.getByRole('option')).toHaveCount(2);
+});
+
+async function blocoVermelho(page: Page) {
+  await page.getByRole('button', { name: '＋ Nova' }).click();
+  await page.locator('.drawing-canvas').focus();
+  await page.getByRole('button', { name: 'Usar cor #e24b4b', exact: true }).click();
+  await page.keyboard.press('b');
+  for (const y of [200, 210, 220, 230, 240]) await riscar(page, [200, y], [260, y]);
+}
+
+test('distorcer: Ctrl+arraste num canto move só aquele canto', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await blocoVermelho(page);
+  await page.keyboard.press('Control+t');
+  // O canto inferior direito do bloco fica em ~(263, 243). Levá-lo para (400, 400).
+  const de = await pontoNaTela(page, 263, 243);
+  const para = await pontoNaTela(page, 400, 400);
+  await page.mouse.move(de.x, de.y);
+  await page.keyboard.down('Control');
+  await page.mouse.down();
+  await page.mouse.move(para.x, para.y, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Control');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.history-list').getByText('Distorcer')).toHaveCount(1);
+  // O canto superior esquerdo continua no lugar; a área perto do canto novo ficou pintada.
+  await expect.poll(() => pixel(page, 203, 202)).not.toEqual(BRANCO);
+  await expect.poll(() => pixel(page, 370, 370)).not.toEqual(BRANCO);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 370, 370)).toEqual(BRANCO);
+});
+
+test('guias de encaixe: o centro da camada gruda no centro do papel', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await blocoVermelho(page);
+  const limites = () =>
+    page.evaluate(() => {
+      const tela = document.querySelector<HTMLCanvasElement>('.drawing-canvas')!;
+      const { data, width, height } = tela
+        .getContext('2d')!
+        .getImageData(0, 0, tela.width, tela.height);
+      let esquerda = width;
+      let direita = 0;
+      for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) continue;
+          esquerda = Math.min(esquerda, x);
+          direita = Math.max(direita, x);
+        }
+      return { centro: (esquerda + direita + 1) / 2 };
+    });
+  const antes = await limites();
+  await page.keyboard.press('Control+t');
+  // Arrasta até ficar 3 px fora do centro do papel (512): a guia puxa para o centro exato.
+  const deslocamento = 512 - antes.centro + 3;
+  const de = await pontoNaTela(page, 215, 210);
+  const para = await pontoNaTela(page, 215 + deslocamento, 210);
+  await page.mouse.move(de.x, de.y);
+  await page.mouse.down();
+  await page.mouse.move(para.x, para.y, { steps: 10 });
+  await page.mouse.up();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.history-list').getByText('Transformação livre')).toHaveCount(1);
+  await expect.poll(async () => Math.abs((await limites()).centro - 512)).toBeLessThanOrEqual(1);
+});

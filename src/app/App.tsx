@@ -252,7 +252,9 @@ export default function App() {
           x: () => run(() => editor.current?.copy(true)),
           '0': () => editor.current?.fit(),
           r: () => state.set({ ruler: !state.ruler }),
-          g: () => state.set({ grid: !state.grid }),
+          // Ctrl+G agrupa camadas (0.3); a grade passou para Ctrl+'.
+          g: () => editor.current?.agruparAtiva(),
+          "'": () => state.set({ grid: !state.grid }),
           pageup: () => state.set({ zoom: nivelSeguinte(state.zoom, 1) }),
           pagedown: () => state.set({ zoom: nivelSeguinte(state.zoom, -1) }),
           '+': () => state.set({ zoom: nivelSeguinte(state.zoom, 1) }),

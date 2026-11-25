@@ -613,9 +613,11 @@ input[type='range']::-webkit-slider-thumb {
   line-height: 27px;
 }
 .view-checks {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  /* Duas colunas: quatro opções cabem na altura do grupo. */
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 16px;
+  align-content: start;
   padding: 4px 15px;
 }
 .view-checks label {
@@ -1986,4 +1988,29 @@ input[type='range']::-webkit-slider-thumb {
   background: linear-gradient(#e6f2fb, #cfe4f5);
   color: #14324a;
   font-weight: 600;
+}
+
+/* Grupos no painel de camadas (0.3). */
+.camadas-lista li.camada-grupo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d4c65;
+  background: #eef4f9;
+  border-bottom: 1px solid #dde7ef;
+}
+.camada-grupo button {
+  border: 1px solid transparent !important;
+  background: none !important;
+  box-shadow: none !important;
+  min-width: 0;
+  padding: 1px 3px !important;
+  font-size: 12px;
+  line-height: 1;
+}
+.camadas-lista li.camada-item.no-grupo {
+  padding-left: 18px;
 }

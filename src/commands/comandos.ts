@@ -138,6 +138,8 @@ export type ComandoCamada =
       id: string;
       matriz: [number, number, number, number, number, number];
     }
+  /** Leva a área `origem` da camada para o quadrilátero `cantos` (SE, SD, ID, IE). */
+  | { tipo: 'DistorcerCamada'; id: string; origem: Rect; cantos: [Point, Point, Point, Point] }
   | { tipo: 'MesclarVisiveis'; novoId: string }
   | { tipo: 'AchatarImagem' }
   | { tipo: 'AgruparCamadas'; ids: string[]; grupoId: string; nome: string }

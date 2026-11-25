@@ -338,6 +338,7 @@ export function Ribbon({
                     ['grid', 'Linhas de grade'],
                     ['ruler', 'Régua'],
                     ['sidebar', 'Painel do ateliê'],
+                    ['guiasInteligentes', 'Guias de encaixe'],
                   ] as const
                 ).map(([key, label]) => (
                   <label key={key}>

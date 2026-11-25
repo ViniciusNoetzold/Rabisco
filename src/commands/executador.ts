@@ -6,6 +6,7 @@ import {
   type PropriedadesCamada,
 } from '../document/camadas';
 import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
+import { desenharDistorcido } from '../document/distorcer';
 import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
 import type { RabiscoDocument } from '../document/model';
 import {
@@ -497,6 +498,54 @@ export class Executador {
             contexto.imageSmoothingQuality = 'high';
             contexto.setTransform(...comando.matriz);
             contexto.drawImage(copia, 0, 0);
+            contexto.restore();
+          }
+        });
+      }
+      case 'DistorcerCamada': {
+        const camada = doc.camada(comando.id);
+        const numeros = [
+          comando.origem.x,
+          comando.origem.y,
+          comando.origem.width,
+          comando.origem.height,
+          ...comando.cantos.flatMap(({ x, y }) => [x, y]),
+        ];
+        if (!camada || numeros.some((valor) => !Number.isFinite(valor))) return null;
+        const origem = limitarArea(comando.origem, doc);
+        if (!origem) return null;
+        if (camada.locked || camada.bloqueioPosicao) {
+          this.motivoRecusa = 'bloqueada';
+          return null;
+        }
+        const alvos = this.alvosDa(comando.id);
+        return this.alterarDocumento(comando, 'Distorcer', alvos, () => {
+          for (const alvo of alvos) {
+            const recorte = document.createElement('canvas');
+            recorte.width = origem.width;
+            recorte.height = origem.height;
+            recorte
+              .getContext('2d')!
+              .drawImage(
+                doc.canvasDo(alvo),
+                origem.x,
+                origem.y,
+                origem.width,
+                origem.height,
+                0,
+                0,
+                origem.width,
+                origem.height,
+              );
+            const contexto = doc.contexto(alvo);
+            contexto.save();
+            if (alvo.mascara) {
+              contexto.fillStyle = '#ffffff';
+              contexto.fillRect(0, 0, doc.width, doc.height);
+            } else contexto.clearRect(0, 0, doc.width, doc.height);
+            contexto.imageSmoothingEnabled = true;
+            contexto.imageSmoothingQuality = 'high';
+            desenharDistorcido(contexto, recorte, origem, comando.cantos, 24);
             contexto.restore();
           }
         });

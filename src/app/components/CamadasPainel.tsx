@@ -3,6 +3,7 @@ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import { useEditor } from '../store';
 import {
   MODOS_MESCLAGEM,
+  type Grupo,
   type EfeitosCamada,
   novoId,
   type ModoMesclagem,
@@ -45,9 +46,26 @@ function Miniatura({
 /** Painel de camadas: lista (a de cima primeiro), propriedades da ativa e ações. */
 export function CamadasPainel({ info, editor }: CamadasPainelProps) {
   const { estrutura, revisao } = info;
+  const formasEmNovaCamada = useEditor((estado) => estado.formasEmNovaCamada);
   const [renomeando, setRenomeando] = useState<string | null>(null);
   const [arrastada, setArrastada] = useState<string | null>(null);
   const camadas = [...estrutura.camadas].reverse();
+  // Grupos aparecem como cabeçalho acima da camada mais alta deles; recolhidos escondem as camadas.
+  const gruposPorId = new Map(estrutura.grupos.map((grupo) => [grupo.id, grupo]));
+  const vistos = new Set<string>();
+  const linhas = camadas.flatMap((camada) => {
+    const grupo = camada.grupo ? gruposPorId.get(camada.grupo) : undefined;
+    const itens: (
+      | { tipo: 'grupo'; grupo: Grupo }
+      | { tipo: 'camada'; camada: PropriedadesCamada }
+    )[] = [];
+    if (grupo && !vistos.has(grupo.id)) {
+      vistos.add(grupo.id);
+      itens.push({ tipo: 'grupo', grupo });
+    }
+    if (!grupo?.recolhido) itens.push({ tipo: 'camada', camada });
+    return itens;
+  });
   const ativa = estrutura.camadas.find((camada) => camada.id === estrutura.ativa);
   const api = () => editor.current;
   const alterar = (id: string, propriedades: Partial<PropriedadesCamada>) =>
@@ -59,7 +77,10 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
         Camadas <span>{estrutura.camadas.length}</span>
       </div>
       <ul className="camadas-lista" role="listbox" aria-label="Lista de camadas">
-        {camadas.map((camada) => {
+        {linhas.map((linha) => {
+          if (linha.tipo === 'grupo')
+            return <CabecalhoGrupo key={linha.grupo.id} grupo={linha.grupo} api={api} />;
+          const { camada } = linha;
           const selecionada = camada.id === estrutura.ativa;
           return (
             <li
@@ -67,7 +88,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
               role="option"
               aria-selected={selecionada}
               tabIndex={selecionada ? 0 : -1}
-              className={`camada-item ${selecionada ? 'selecionada' : ''} ${arrastada === camada.id ? 'arrastando' : ''}`}
+              className={`camada-item ${camada.grupo ? 'no-grupo' : ''} ${selecionada ? 'selecionada' : ''} ${arrastada === camada.id ? 'arrastando' : ''}`}
               style={camada.etiqueta ? { borderLeftColor: camada.etiqueta } : undefined}
               draggable
               onDragStart={() => setArrastada(camada.id)}
@@ -231,6 +252,16 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
               />
               Recortar pela de baixo
             </label>
+            <label title="Cada forma confirmada entra numa camada própria">
+              <input
+                type="checkbox"
+                checked={formasEmNovaCamada}
+                onChange={(evento) =>
+                  useEditor.getState().set({ formasEmNovaCamada: evento.target.checked })
+                }
+              />
+              Formas em nova camada
+            </label>
           </div>
         </div>
       )}
@@ -244,6 +275,14 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
           onClick={() => api()?.novaCamada()}
         >
           ＋ Nova
+        </button>
+        <button
+          type="button"
+          title="Põe a camada ativa num grupo novo (Ctrl+G). Arraste outras camadas para dentro."
+          disabled={!ativa || Boolean(ativa.grupo)}
+          onClick={() => ativa && api()?.agruparAtiva()}
+        >
+          Agrupar
         </button>
         <button
           type="button"
@@ -464,5 +503,67 @@ function EfeitosDaCamada({
         )}
       </div>
     </details>
+  );
+}
+
+/** Cabeçalho de um grupo: recolher, mostrar ou ocultar, renomear e desagrupar. */
+function CabecalhoGrupo({ grupo, api }: { grupo: Grupo; api: () => EditorApi | null }) {
+  const [renomeando, setRenomeando] = useState(false);
+  const alterar = (propriedades: Partial<Omit<Grupo, 'id'>>) =>
+    api()?.executarCamada({ tipo: 'AlterarGrupo', id: grupo.id, propriedades });
+  return (
+    <li className="camada-grupo" role="presentation">
+      <button
+        type="button"
+        className="grupo-seta"
+        aria-expanded={!grupo.recolhido}
+        aria-label={grupo.recolhido ? `Abrir ${grupo.name}` : `Recolher ${grupo.name}`}
+        onClick={() => alterar({ recolhido: !grupo.recolhido })}
+      >
+        {grupo.recolhido ? '▸' : '▾'}
+      </button>
+      <button
+        type="button"
+        className="camada-olho"
+        aria-label={grupo.visible ? `Ocultar grupo ${grupo.name}` : `Mostrar grupo ${grupo.name}`}
+        aria-pressed={grupo.visible}
+        onClick={() => alterar({ visible: !grupo.visible })}
+      >
+        {grupo.visible ? '👁' : '–'}
+      </button>
+      <span aria-hidden="true">📁</span>
+      {renomeando ? (
+        <input
+          className="camada-nome-campo"
+          aria-label="Nome do grupo"
+          defaultValue={grupo.name}
+          autoFocus
+          maxLength={60}
+          onBlur={(evento) => {
+            const nome = evento.target.value.trim();
+            if (nome && nome !== grupo.name) alterar({ name: nome });
+            setRenomeando(false);
+          }}
+          onKeyDown={(evento) => {
+            evento.stopPropagation();
+            if (evento.key === 'Enter') evento.currentTarget.blur();
+            if (evento.key === 'Escape') setRenomeando(false);
+          }}
+        />
+      ) : (
+        <span className="camada-nome" onDoubleClick={() => setRenomeando(true)}>
+          {grupo.name}
+        </span>
+      )}
+      <button
+        type="button"
+        className="grupo-desagrupar"
+        title="Desagrupar (as camadas continuam no lugar)"
+        aria-label={`Desagrupar ${grupo.name}`}
+        onClick={() => api()?.executarCamada({ tipo: 'Desagrupar', grupoId: grupo.id })}
+      >
+        ⊘
+      </button>
+    </li>
   );
 }

@@ -7,9 +7,10 @@
 
 - [ ] Salvar e abrir **.rabisco** (camadas, máscaras, efeitos, grupos), **PSD** e **ORA** — precisa aprovar fflate e ag-psd
 - [ ] Exportar cada camada como PNG; lista de **arquivos recentes** no menu Arquivo
-- [ ] **Grupos** no painel (agrupar, desagrupar, recolher, olho do grupo; os comandos já existem)
-- [ ] "Formas em nova camada" (opção como a do texto)
-- [ ] Transformação livre: **distorcer pelos cantos**, perspectiva, **guias de encaixe**, alinhar e distribuir
+- [x] **Grupos** no painel (agrupar, desagrupar, recolher, olho do grupo) — 0.3
+- [x] "Formas em nova camada" — 0.3
+- [x] Transformação livre: **distorcer pelos cantos** e **guias de encaixe** — 0.3
+- [ ] Alinhar e distribuir várias camadas (precisa de seleção múltipla no painel)
 - [ ] Medir 20 camadas de 4000 × 4000 com `npm run perf`; README e roteiro manual da 0.3
 
 ## Desenho (0.4 e depois)

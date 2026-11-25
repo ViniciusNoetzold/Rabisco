@@ -303,6 +303,7 @@ Comece pelo PASSO 1.
 ---
 
 ## Dicas de uso
+
 - Depois de cada passo, rode o app (`npm run dev`) e teste com as próprias mãos antes de liberar o próximo.
 - Quando a IA pedir aprovação de dependência, as sugeridas são todas MIT: **JSZip** ou **fflate** (ZIP) e **ag-psd** (PSD).
 - Se a IA disser que passou tudo, peça a saída do `npm run test:e2e:estavel` e do `npm run perf`. Os números do CHANGELOG precisam bater com essas saídas.
