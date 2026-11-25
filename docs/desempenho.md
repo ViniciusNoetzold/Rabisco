@@ -88,3 +88,23 @@ Pendências que continuam: a primeira pincelada depois de criar o papel (sincron
 | Aviso de tamanho do Vite             | sim                   | não                   |
 
 Diálogos, editor e biblioteca de formas, editor de cores, codificadores de imagem e impressão continuam em arquivos carregados só quando usados.
+
+### 0.3 — 25/11/2026 (20 camadas de 4000 × 4000)
+
+`PERF_SO_CAMADAS=1 npm run perf -- --rotulo=camadas-03` cria um papel de 4000 × 4000, 19 camadas novas com um traço e modos variados (multiplicar, tela, sobrepor, normal, luz suave), e então mede uma pincelada na camada 10, ocultar uma camada, subir uma camada e desfazer.
+
+| Medida                                                                 |          Resultado | Meta da 0.3 |
+| ---------------------------------------------------------------------- | -----------------: | ----------- |
+| Montar as 20 camadas (19 × nova camada + traço + modo, pela interface) |            7459 ms | —           |
+| Pincel, cada movimento (p95)                                           |             0,2 ms | < 8 ms ✅   |
+| Pincel, histórico ao soltar                                            |            10,1 ms | —           |
+| Ocultar camada: trabalho do JavaScript                                 |             0,9 ms | —           |
+| Ocultar camada: até a tela atualizar (mediana de 6, dois quadros)      |            34,1 ms | < 100 ms ✅ |
+| Ocultar camada: até a tela atualizar (pior caso, a primeira vez)       |           148,7 ms | < 100 ms ❌ |
+| Subir camada (Ctrl+]): trabalho do JavaScript                          |             1,3 ms | —           |
+| Desfazer                                                               |             0,8 ms | —           |
+| Tarefas acima de 200 ms                                                |                  0 | nenhuma ✅  |
+| Autosave da pincelada                                                  | 2 blocos (0 bytes) | —           |
+| Heap JS em repouso                                                     |          135,0 MiB | —           |
+
+Como ler: o "trabalho do JavaScript" é o tempo síncrono do comando; o Canvas 2D adia o desenho das camadas para o quadro seguinte, por isso a coluna "até a tela atualizar" mede do clique até dois quadros depois (o piso, num monitor de 60 Hz, é ~33 ms). A primeira troca de visibilidade depois de montar as camadas é a mais lenta; as seguintes ficam no piso. As camadas ocupam ~1,2 GB de memória de canvas (fora do heap JS), que é o limite prático indicado no README.

@@ -2036,3 +2036,29 @@ input[type='range']::-webkit-slider-thumb {
   white-space: nowrap;
   max-width: 220px;
 }
+
+.camada-alinhar {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #465e71;
+}
+
+/* Listas do painel de camadas cabem na largura do painel. */
+.camada-propriedades > label,
+.camada-alinhar {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+.camada-alinhar {
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+.camada-propriedades select,
+.camada-propriedades input[type='range'],
+.camada-alinhar select {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}

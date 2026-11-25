@@ -52,6 +52,7 @@ export interface EditorApi {
   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>): boolean;
   novaCamada(): boolean;
   agruparAtiva(): boolean;
+  alinharAtiva(lado: 'esquerda' | 'centro-h' | 'direita' | 'topo' | 'centro-v' | 'base'): boolean;
   copiarMesclado(): Promise<void>;
   adicionarMascara(id: string): boolean;
   importarComoCamada(pixels: PixelBuffer, nome: string): boolean;

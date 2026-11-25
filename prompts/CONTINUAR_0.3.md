@@ -1,19 +1,19 @@
-# Continuar o Rabisco — onde paramos (25/11/2026)
+# Continuar o Rabisco — 0.3 concluída (25/11/2026)
 
 Repositório: https://github.com/ViniciusNoetzold/Rabisco (branch `main`).
-Validação do último envio: 124 testes unitários, 67 fluxos E2E no Edge e build de produção aprovados.
+Validação do último envio: 124 testes unitários, 68 fluxos E2E no Edge e build de produção aprovados.
 
 ## O que já está pronto
 
 - **0.1, 0.2 e 0.2.1** completas (ver CHANGELOG.md e docs/desempenho.md).
-- **0.3 (camadas e colagem), em andamento:**
+- **0.3 (camadas e colagem): concluída.**
   - Passo 1: modelo de camadas, grupos, máscaras, 16 modos de mesclagem, bloqueios, recorte, efeitos, histórico de estrutura, autosave por camada. ✅
   - Passo 2: painel de Camadas (miniaturas, olho, cadeado, renomear, arrastar, opacidade, modo, atalhos). ✅
   - Passo 3: borracha transparente, travar transparência, aviso em camada oculta ou bloqueada, texto em camada própria, amostrar todas as camadas, Copiar mesclado (Ctrl+Shift+C). ✅ (inclui formas em nova camada)
   - Passo 4: efeitos (contorno e sombra) na interface, "Virar adesivo", máscara a partir da seleção, aplicar e excluir máscara. ✅ (inclui grupos no painel: agrupar Ctrl+G, recolher, olho, renomear, desagrupar)
   - Passo 5: colagem vira camada nova, várias imagens soltas viram várias camadas, Mover (V), transformação livre (Ctrl+T: mover, escalar, girar). ✅ (inclui distorcer por canto e guias de encaixe; falta alinhar/distribuir várias camadas)
   - Passo 6: .rabisco (Ctrl+S), PSD, ORA, camadas em PNG e arquivos recentes. ✅
-  - Passo 7: desempenho com 20 camadas, README e roteiro manual. ❌ Não começado.
+  - Passo 7: 20 camadas medidas, alinhar ao papel, README, roteiro manual e versão 0.3. ✅
 
 ## Pendências conhecidas
 
@@ -31,13 +31,12 @@ prompts/CONTINUAR_0.3.md antes de começar. Mesmas regras: um passo por vez, su�
 números reais no CHANGELOG. Dependências novas só com minha aprovação (sugestões, todas MIT:
 fflate ou JSZip para ZIP, ag-psd para PSD).
 
-Termine a 0.3 nesta ordem:
-1. O que ainda falta dos Passos 3–5: alinhar e distribuir várias camadas (precisa de
-   seleção múltipla no painel).
-2. Passo 7: `npm run perf` com 20 camadas de 4000 × 4000, README "Camadas e colagem",
-   roteiro manual de 10 minutos, ROADMAP marcando a 0.3 como concluída.
-Depois disso, o próximo prompt é a 0.4 (estabilizador, simetria, formas inteligentes) e, em
-seguida, a 0.5 (filtros, ASCII, pixel art, dithering) e a 0.6 (IA com chave do usuário).
+A 0.3 está concluída. Pendências que ficaram para depois (ver docs/MELHORIAS.md):
+- Distribuir várias camadas (precisa de seleção múltipla no painel).
+- A primeira troca de visibilidade com 20 camadas grandes leva ~150 ms (as seguintes, ~34 ms).
+
+Próximo: planejar a 0.4 (estabilizador de traço, simetria, formas que se ajeitam sozinhas)
+junto com quem idealizou, escrever o prompt da 0.4 em prompts/ e seguir passo a passo.
 ```
 
 ## Como rodar e ver na rede

@@ -10,8 +10,8 @@ Um editor de desenho no navegador com a simplicidade e a cara do paint da era Wi
 mais camadas, colagens e, em breve, uma IA que gera imagens com as próprias ferramentas do app
 e ensina a desenhar.
 
-![Versão](https://img.shields.io/badge/versão-0.3_em_andamento-3083c5)
-![Testes](https://img.shields.io/badge/testes-124_unitários_·_59_E2E-70a54a)
+![Versão](https://img.shields.io/badge/versão-0.3-3083c5)
+![Testes](https://img.shields.io/badge/testes-124_unitários_·_68_E2E-70a54a)
 ![Local-first](https://img.shields.io/badge/seus_desenhos-ficam_no_seu_dispositivo-f6c94d)
 ![Idioma](https://img.shields.io/badge/interface-português_do_Brasil-e24b4b)
 
@@ -43,7 +43,8 @@ e ensina a desenhar.
 - Camadas com opacidade, **16 modos de mesclagem**, bloqueios, máscaras e recorte
 - **Contorno e sombra** que dá para editar depois, e o botão **✨ Virar adesivo**
 - Cole ou arraste imagens: cada uma vira uma camada
-- **Mover** e **transformação livre** (escalar e girar)
+- **Mover**, **transformação livre** (escalar, girar, distorcer) e **guias de encaixe**
+- **Grupos**, alinhar ao papel e **salvar com camadas** em `.rabisco`, **PSD** e **ORA**
 - Desfazer e refazer para tudo, inclusive criar, mesclar e excluir camadas
 
 </td>
@@ -55,7 +56,9 @@ e ensina a desenhar.
 
 - Papel de até 8192 px, que cresce pelas alças, como no paint
 - Girar, inverter, redimensionar e inclinar
-- Abre PNG, JPEG, BMP, GIF, WebP e ICO; salva PNG, JPEG, BMP, GIF e WebP
+- Abre e salva **.rabisco** (com tudo), **PSD** (Photoshop/Photopea) e **ORA** (Krita, GIMP)
+- Imagens: abre PNG, JPEG, BMP, GIF, WebP e ICO; exporta PNG, JPEG, BMP, GIF e WebP
+- Arquivos recentes no menu Arquivo
 - Imprimir, réguas, grade, zoom de 12,5% a 800% e tela inteira
 
 </td>
@@ -126,29 +129,29 @@ A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](d
 
 ## 🗺️ Roteiro
 
-| Versão  | O quê                                                                                                                  |  Situação   |
-| ------- | ---------------------------------------------------------------------------------------------------------------------- | :---------: |
-| 0.1     | Janela Aero, ferramentas básicas, PNG e autosave                                                                       |     ✅      |
-| 0.2     | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas                      |     ✅      |
-| 0.2.1   | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                             |     ✅      |
-| **0.3** | **Camadas, máscaras, efeitos, colagem, transformação livre**, formato `.rabisco`, PSD e ORA                            | 🚧 quase lá |
-| 0.4     | Estabilizador de traço, simetria, formas que se ajeitam sozinhas                                                       |     🔜      |
-| 0.5     | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                           |     🔜      |
-| 0.6     | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova |     🔜      |
-| 0.7     | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                      |     🔜      |
-| 0.8     | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                       |     🔜      |
-| 0.9     | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                       |     🔜      |
-| 1.0     | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade                                                   |     🔜      |
+| Versão | O quê                                                                                                                  | Situação |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | :------: |
+| 0.1    | Janela Aero, ferramentas básicas, PNG e autosave                                                                       |    ✅    |
+| 0.2    | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas                      |    ✅    |
+| 0.2.1  | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                             |    ✅    |
+| 0.3    | Camadas, máscaras, efeitos, colagem, transformação livre, `.rabisco`, PSD e ORA                                        |    ✅    |
+| 0.4    | Estabilizador de traço, simetria, formas que se ajeitam sozinhas                                                       |    🔜    |
+| 0.5    | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                           |    🔜    |
+| 0.6    | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova |    🔜    |
+| 0.7    | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                      |    🔜    |
+| 0.8    | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                       |    🔜    |
+| 0.9    | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                       |    🔜    |
+| 1.0    | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade                                                   |    🔜    |
 
 **Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
-Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) e **onde a 0.3 parou** em [prompts/CONTINUAR_0.3.md](prompts/CONTINUAR_0.3.md).
+Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) e o **ponto de continuação** em [prompts/CONTINUAR_0.3.md](prompts/CONTINUAR_0.3.md).
 
 ## 🧪 Testes e desempenho
 
 ```powershell
 npm test                    # 124 testes unitários (Vitest)
-npm run test:e2e            # 59 fluxos no navegador (Playwright + Edge)
+npm run test:e2e            # 68 fluxos no navegador (Playwright + Edge)
 npm run test:e2e:estavel    # a suíte E2E três vezes seguidas
 npm run perf -- --rotulo=x  # mede pincel, spray, balde, desfazer, memória e autosave
 ```

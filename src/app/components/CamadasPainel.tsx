@@ -266,6 +266,27 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
         </div>
       )}
 
+      {ativa && (
+        <label className="camada-alinhar">
+          Alinhar ao papel
+          <select
+            aria-label="Alinhar ao papel"
+            value=""
+            onChange={(evento) => {
+              const lado = evento.target.value as Parameters<EditorApi['alinharAtiva']>[0];
+              if (lado) api()?.alinharAtiva(lado);
+            }}
+          >
+            <option value="">Escolha…</option>
+            <option value="esquerda">À esquerda</option>
+            <option value="centro-h">Ao centro (horizontal)</option>
+            <option value="direita">À direita</option>
+            <option value="topo">Ao topo</option>
+            <option value="centro-v">Ao meio (vertical)</option>
+            <option value="base">À base</option>
+          </select>
+        </label>
+      )}
       {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
 
       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">

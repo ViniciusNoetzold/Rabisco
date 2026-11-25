@@ -241,6 +241,89 @@ async function medirPapel(browser, papel) {
   }
 }
 
+/**
+ * 20 camadas de 4000 × 4000 (meta da 0.3): um traço em cada, modos variados, depois pincelada
+ * na camada 10, ocultar uma camada, subir uma camada e desfazer.
+ */
+async function medirCamadas(browser) {
+  const contexto = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  try {
+    const pagina = await contexto.newPage();
+    const cdp = await contexto.newCDPSession(pagina);
+    await pagina.goto(`${endereco}/?medir=1`);
+    await aguardarSalvamento(pagina);
+    const papel = { largura: 4000, altura: 4000 };
+    const autosave = { estado: await criarPapel(pagina, papel) };
+    const lista = pagina.getByRole('listbox', { name: 'Lista de camadas' });
+    const historico = (rotulo) =>
+      pagina.locator('.history-list').getByText(rotulo, { exact: true });
+    const modos = ['multiplicar', 'tela', 'sobrepor', 'normal', 'luz-suave'];
+    const { x, y } = await pontoNaAreaVisivel(pagina);
+    const inicioMontagem = performance.now();
+    for (let i = 1; i < 20; i++) {
+      await pagina.keyboard.press('Control+Shift+N');
+      await expect(lista.getByRole('option')).toHaveCount(i + 1);
+      await pagina.keyboard.press('b');
+      await pagina.mouse.move(x - 80, y - 60 + i * 6);
+      await pagina.mouse.down();
+      await pagina.mouse.move(x + 80, y - 60 + i * 6, { steps: 4 });
+      await pagina.mouse.up();
+      await pagina
+        .getByRole('combobox', { name: 'Modo de mesclagem' })
+        .selectOption(modos[i % modos.length]);
+    }
+    const montagemMs = Math.round(performance.now() - inicioMontagem);
+    await recolherEstadoDoAutosave(pagina);
+    const depoisDaMontagem = await memoriaEmRepouso(pagina, cdp);
+
+    // Camada 10 de baixo para cima (a lista mostra a de cima primeiro).
+    await lista.getByRole('option').nth(10).click();
+    await pagina.locator('.drawing-canvas').focus();
+    const pincel = await traco(pagina, autosave, 'b', 'pincel', 'Pincelada', 120);
+    const visibilidade = await medir(pagina, autosave, async () => {
+      await lista
+        .getByRole('button', { name: /^Ocultar / })
+        .nth(5)
+        .click();
+      await expect(historico('Ocultar camada')).toHaveCount(1);
+    });
+    // Tempo até a tela atualizar: clique no olho e espera dois quadros (desenho real das camadas).
+    const ateQuadro = [];
+    for (let i = 0; i < 6; i++) {
+      ateQuadro.push(
+        await pagina.evaluate(async (indice) => {
+          const botoes = document.querySelectorAll('.camadas-lista .camada-olho');
+          const inicio = performance.now();
+          botoes[indice].click();
+          await new Promise((resolver) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolver)),
+          );
+          return performance.now() - inicio;
+        }, 5),
+      );
+    }
+    visibilidade.operacoes['ate-o-quadro'] = resumir(ateQuadro);
+    const mover = await medir(pagina, autosave, async () => {
+      await pagina.locator('.drawing-canvas').focus();
+      await pagina.keyboard.press('Control+]');
+      await expect(historico('Mover camada')).toHaveCount(1);
+    });
+    const desfazer = await medir(pagina, autosave, async () => {
+      await pagina.keyboard.press('Control+z');
+      await expect(historico('Mover camada')).toHaveCount(0);
+    });
+    return {
+      ...papel,
+      camadas: 20,
+      montagemMs,
+      memoria: { depoisDaMontagem, depoisDasOperacoes: await memoriaEmRepouso(pagina, cdp) },
+      fases: { pincel, visibilidade, mover, desfazer },
+    };
+  } finally {
+    await contexto.close();
+  }
+}
+
 const ms = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -314,11 +397,18 @@ try {
       resultados: [],
     };
     console.log('Ensaio do Rabisco', relatorio.data, relatorio.maquina, relatorio.navegador);
-    for (const papel of papeis) {
-      const resultado = await medirPapel(browser, papel);
-      relatorio.resultados.push(resultado);
-      imprimir(resultado);
-    }
+    // PERF_SO_CAMADAS=1 pula os três papéis e mede só o cenário de 20 camadas.
+    if (!process.env.PERF_SO_CAMADAS)
+      for (const papel of papeis) {
+        const resultado = await medirPapel(browser, papel);
+        relatorio.resultados.push(resultado);
+        imprimir(resultado);
+      }
+    const camadas = await medirCamadas(browser);
+    relatorio.resultados.push(camadas);
+    console.log(`
+20 camadas: montagem em ${camadas.montagemMs} ms`);
+    imprimir(camadas);
     const pasta = join(raiz, 'output', 'perf');
     await mkdir(pasta, { recursive: true });
     const arquivo = join(pasta, `${rotulo}.json`);

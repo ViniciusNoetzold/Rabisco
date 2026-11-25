@@ -1,6 +1,8 @@
 # Histórico de alterações
 
-## 0.3 em desenvolvimento
+## 0.3.0 — 2026-11-25
+
+Camadas, colagem e arquivos com camadas. Validação: 124 testes unitários, 68 fluxos E2E e build de produção aprovados.
 
 ### Passo 4 — Máscaras, recorte e efeitos na interface
 
@@ -13,6 +15,13 @@
 - O texto confirmado entra numa camada própria ("Texto: …"), num único item do histórico. Dá para desligar em Texto › Fundo › "Em nova camada".
 - Balde e conta-gotas ganharam "Amostrar todas as camadas": a área ou a cor vêm do que se vê, mas o balde pinta só na camada ativa.
 - Já no Passo 1: borracha transparente fora do papel, travar transparência e aviso ao pintar em camada oculta ou bloqueada. Falta "Copiar mesclado" (Ctrl+Shift+C) e a opção de formas em nova camada.
+
+### Passo 7 — Desempenho, alinhar e fechamento
+
+- **Alinhar ao painel**: no painel de Camadas, "Alinhar ao papel" leva a camada ativa à esquerda, ao centro, à direita, ao topo, ao meio ou à base, num item do histórico. Distribuir várias camadas fica para quando o painel tiver seleção múltipla.
+- `npm run perf` ganhou o cenário de 20 camadas de 4000 × 4000 (`PERF_SO_CAMADAS=1` roda só ele): movimento do pincel 0,2 ms (p95), ocultar camada 34,1 ms até a tela atualizar (mediana; 148,7 ms na primeira vez) e nenhuma tarefa longa. Detalhes em [docs/desempenho.md](docs/desempenho.md).
+- Comandos de camada passaram a ser medidos ("camada" no relatório).
+- Versão 0.3 na janela e no Sobre. Roteiro manual da 0.3 no guia de uso.
 
 ### Passo 6 — Arquivos com camadas
 

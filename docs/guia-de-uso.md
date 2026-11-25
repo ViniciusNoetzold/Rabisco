@@ -69,3 +69,21 @@ Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no 
 - A primeira pincelada depois de criar ou abrir um papel grande tem um atraso único (127 ms em 4000 × 4000), e o balde no papel inteiro leva cerca de 1 s em 4000 × 4000. Os dois estão registrados como pendências em [docs/desempenho.md](docs/desempenho.md).
 - A leitura e a escrita diretas na área de transferência do sistema exigem HTTPS ou localhost e permissão do navegador. Na prévia HTTP da rede, use `Ctrl+V`, **Colar de…** ou arraste o arquivo. O botão **Colar** também usa a cópia interna.
 - Instalação PWA, camadas múltiplas, IA, efeitos e Tauri estão no roteiro. A área de texto é editável até a confirmação, quando vira pixels no papel.
+
+## Roteiro manual da 0.3 (10 minutos)
+
+1. Crie três camadas (Ctrl+Shift+N), pinte em cada uma e renomeie com duplo clique.
+2. Oculte e mostre uma camada; Alt+clique no olho para ver só ela.
+3. Mude o modo de uma camada para Multiplicar e a opacidade para 50%.
+4. Arraste uma camada para baixo de outra na lista e desfaça.
+5. Faça uma seleção com o laço e clique em **Máscara**; pinte de preto na máscara e veja sumir.
+6. Arraste três fotos de uma vez para a janela: cada uma vira uma camada.
+7. Numa foto, **✨ Virar adesivo**; noutra, Ctrl+T para escalar, girar e, com Ctrl, distorcer um canto. Veja a linha magenta ao passar pelo centro.
+8. Agrupe duas camadas (Ctrl+G), recolha o grupo e oculte-o pelo olho do cabeçalho.
+9. Digite um texto e confira que ele ganhou uma camada própria.
+10. **Alinhar ao papel › Ao centro** na camada ativa.
+11. Ctrl+S: salve o `.rabisco`. Crie um desenho novo e reabra pelo menu **Arquivo › Recentes**.
+12. Em **Salvar como**, salve em PSD e em ORA e abra os dois de novo (ou no Photopea / Krita).
+13. Exporte **Cada camada em PNG** e confira o `.zip`.
+14. Mescle duas camadas (Ctrl+Shift+M) e desfaça.
+15. Recarregue a página: as camadas voltam do autosave.

@@ -3,15 +3,17 @@
 > Lista viva, além do roteiro por versões ([ROADMAP.md](../ROADMAP.md)). Quando um item for
 > feito, marque com ✅ e a versão. Onde a 0.3 parou: [prompts/CONTINUAR_0.3.md](../prompts/CONTINUAR_0.3.md).
 
-## Terminar a 0.3 (próximo)
+## 0.3 — concluída
 
 - [x] Salvar e abrir **.rabisco**, **PSD** e **ORA** — 0.3
 - [x] Exportar cada camada como PNG; **arquivos recentes** no menu Arquivo — 0.3
 - [x] **Grupos** no painel (agrupar, desagrupar, recolher, olho do grupo) — 0.3
 - [x] "Formas em nova camada" — 0.3
 - [x] Transformação livre: **distorcer pelos cantos** e **guias de encaixe** — 0.3
-- [ ] Alinhar e distribuir várias camadas (precisa de seleção múltipla no painel)
-- [ ] Medir 20 camadas de 4000 × 4000 com `npm run perf`; README e roteiro manual da 0.3
+- [x] Alinhar a camada ao papel — 0.3
+- [ ] Distribuir várias camadas (precisa de seleção múltipla no painel)
+- [x] Medir 20 camadas de 4000 × 4000; README e roteiro manual da 0.3 — 0.3
+- [ ] Primeira troca de visibilidade com 20 camadas grandes (~150 ms; as seguintes ~34 ms)
 
 ## Desenho (0.4 e depois)
 

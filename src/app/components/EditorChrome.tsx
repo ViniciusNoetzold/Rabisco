@@ -112,7 +112,7 @@ export function EditorChrome({
         <button className="learn-link" onClick={() => onDialog('help')}>
           <span className="little-spark">✧</span> Uma ajudinha?
         </button>
-        <span className="version-label">Versão 0.2.1</span>
+        <span className="version-label">Versão 0.3</span>
       </nav>
     </>
   );

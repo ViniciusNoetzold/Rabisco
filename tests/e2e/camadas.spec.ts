@@ -333,3 +333,17 @@ test('guias de encaixe: o centro da camada gruda no centro do papel', async ({ p
   await expect(page.locator('.history-list').getByText('Transformação livre')).toHaveCount(1);
   await expect.poll(async () => Math.abs((await limites()).centro - 512)).toBeLessThanOrEqual(1);
 });
+
+test('alinhar ao papel: centraliza a camada e desfaz em um passo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await blocoVermelho(page);
+  await page.getByRole('combobox', { name: 'Alinhar ao papel' }).selectOption('centro-h');
+  await page.getByRole('combobox', { name: 'Alinhar ao papel' }).selectOption('centro-v');
+  // O bloco (~66 × 46 px) fica no centro do papel de 1024 × 640.
+  await expect.poll(() => pixel(page, 512, 320)).not.toEqual(BRANCO);
+  await expect.poll(() => pixel(page, 230, 220)).toEqual(BRANCO);
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 230, 220)).not.toEqual(BRANCO);
+});

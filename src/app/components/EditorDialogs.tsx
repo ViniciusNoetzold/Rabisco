@@ -253,7 +253,7 @@ export function EditorDialogs({
             <Logo large />
             <p className="about-tagline">Um pequeno ateliê. Infinitas possibilidades.</p>
             <p>
-              Versão 0.2.1 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
+              Versão 0.3.0 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
             </p>
             <div className="about-credits">
               <h3>Feito com ferramentas abertas</h3>

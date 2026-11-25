@@ -19,7 +19,7 @@ import type { EventoFerramenta } from '../tools/tool';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import * as arquivos from './controle/arquivos';
 import { ControleColagem } from './controle/colagem';
-import { ControleFerramentas } from './controle/ferramentas';
+import { ControleFerramentas, limitesDosPixels } from './controle/ferramentas';
 import { ControlePapel } from './controle/papel';
 import type { NucleoEditor } from './controle/nucleo';
 import { Persistencia } from './controle/persistencia';
@@ -473,7 +473,37 @@ export class EditorController implements EditorApi, NucleoEditor {
   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>) {
     if (!this.disponivel()) return false;
     this.ferramentas.confirmarPendente();
-    return this.executar(comando);
+    return medicaoAtiva
+      ? medirOperacao('camada', () => this.executar(comando))
+      : this.executar(comando);
+  }
+
+  /** Alinha os pixels da camada ativa a uma borda ou ao centro do papel. */
+  alinharAtiva(lado: 'esquerda' | 'centro-h' | 'direita' | 'topo' | 'centro-v' | 'base') {
+    const camada = this.doc.activeLayer;
+    const limites = limitesDosPixels(this.doc.lerPixels(undefined, { camada: camada.id }));
+    if (!limites) {
+      this.avisar('A camada está vazia: não há o que alinhar.');
+      return false;
+    }
+    const { width, height } = this.doc;
+    const dx =
+      lado === 'esquerda'
+        ? -limites.x
+        : lado === 'direita'
+          ? width - (limites.x + limites.width)
+          : lado === 'centro-h'
+            ? Math.round((width - limites.width) / 2) - limites.x
+            : 0;
+    const dy =
+      lado === 'topo'
+        ? -limites.y
+        : lado === 'base'
+          ? height - (limites.y + limites.height)
+          : lado === 'centro-v'
+            ? Math.round((height - limites.height) / 2) - limites.y
+            : 0;
+    return this.executarCamada({ tipo: 'DeslocarCamada', id: camada.id, dx, dy });
   }
 
   /** Ctrl+G: põe a camada ativa num grupo novo. */
