@@ -82,6 +82,12 @@ interface EditorState {
   textoEmNovaCamada: boolean;
   /** Cada forma confirmada entra numa camada própria. */
   formasEmNovaCamada: boolean;
+  /** Estabilizador de traço (0 desliga; é o comprimento da corda em px de tela, até 100). */
+  estabilizar: number;
+  /** Amortecimento extra do estabilizador, 0–100%. */
+  suavizar: number;
+  /** Ao soltar, o fim do traço alcança onde o ponteiro parou. */
+  alcancarFim: boolean;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
@@ -117,6 +123,9 @@ interface EditorState {
         | 'amostrarTudo'
         | 'textoEmNovaCamada'
         | 'formasEmNovaCamada'
+        | 'estabilizar'
+        | 'suavizar'
+        | 'alcancarFim'
         | 'guiasInteligentes'
       >
     >,
@@ -160,6 +169,9 @@ export const useEditor = create<EditorState>()(
     amostrarTudo: false,
     textoEmNovaCamada: true,
     formasEmNovaCamada: false,
+    estabilizar: 0,
+    suavizar: 0,
+    alcancarFim: true,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

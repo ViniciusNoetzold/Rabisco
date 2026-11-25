@@ -75,6 +75,11 @@ async function criarPapel(pagina, { largura, altura }) {
   await expect(zoom).toHaveAttribute('aria-valuetext', '50%');
   await zoom.fill('3');
   await expect(zoom).toHaveAttribute('aria-valuetext', '100%');
+  // PERF_ESTABILIZAR=40 mede o traço com o estabilizador ligado (0.4).
+  if (process.env.PERF_ESTABILIZAR)
+    await pagina
+      .getByRole('slider', { name: 'Estabilizar traço' })
+      .fill(String(process.env.PERF_ESTABILIZAR));
   await tela.focus();
   return estado;
 }

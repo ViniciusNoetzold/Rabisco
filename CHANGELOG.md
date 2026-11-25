@@ -1,5 +1,17 @@
 # Histórico de alterações
 
+## 0.4 em desenvolvimento — "Desenhar fica fácil"
+
+### Passo 1 — Estabilizador de traço
+
+- **Estabilizar** (0–100) no cartão "Seu traço": o pincel segue o ponteiro como se puxado por uma corda do comprimento escolhido (em px de tela), então o tremor da mão não chega ao papel. **Suavizar** (0–100%) amortece ainda mais cada passo, para curvas redondas no mouse. "Terminar onde a mão parou" faz o fim do traço alcançar o ponteiro ao soltar.
+- Vale para lápis, os 9 pincéis, spray, borracha e borracha de cor (formas, seleção e balde não). Durante o traço, uma corda tracejada liga o ponteiro à ponta do pincel.
+- Alt+[ e Alt+] ajustam o estabilizador em passos de 10, com aviso do valor.
+- O comando do histórico guarda os pontos já estabilizados: o traço refeito pelo JSON sai igual.
+- Medido: numa linha com tremor de ±10 px, o desvio médio da reta caiu de 3,65 px para 0,90 px com Estabilizar 40. Com o estabilizador ligado, cada movimento do pincel custa 0,3 ms (p95) em 4000 × 4000 e 8192 × 4096 (meta: < 4 ms).
+- Algoritmo próprio (sem a biblioteca lazy-brush), em `src/brushes/estabilizador.ts`. `npm run perf` aceita `PERF_ESTABILIZAR=40`.
+- Testes: 6 unitários do estabilizador e 2 E2E (tremor medido com e sem, corda visível, atalhos). Total: 130 unitários e 70 E2E.
+
 ## 0.3.0 — 2026-11-25
 
 Camadas, colagem e arquivos com camadas. Validação: 124 testes unitários, 68 fluxos E2E e build de produção aprovados.

@@ -285,6 +285,14 @@ export default function App() {
         state.setTool(ferramenta.id);
       }
       if (key === 'x') state.swapColors();
+      if (event.altKey && (key === '[' || key === ']')) {
+        // Alt+[ / Alt+]: estabilizador em passos de 10.
+        event.preventDefault();
+        const valor = Math.max(0, Math.min(100, state.estabilizar + (key === ']' ? 10 : -10)));
+        state.set({ estabilizar: valor });
+        notify(valor ? `Estabilizar: ${valor}` : 'Estabilizador desligado');
+        return;
+      }
       if (['[', ']', '-', '+', '='].includes(key)) {
         event.preventDefault();
         const passo = key === '[' || key === '-' ? -1 : 1;

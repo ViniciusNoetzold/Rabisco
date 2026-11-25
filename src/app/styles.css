@@ -2062,3 +2062,53 @@ input[type='range']::-webkit-slider-thumb {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Corda do estabilizador de traço (0.4). */
+.corda-estabilizador {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+.corda-estabilizador line {
+  stroke: #2f7fc1;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.8;
+}
+.corda-estabilizador circle {
+  fill: none;
+  stroke: #2f7fc1;
+  stroke-width: 1.5;
+}
+
+/* Estabilizador no cartão "Seu traço" (0.4). */
+.estabilizador-controles {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #465e71;
+}
+.estabilizador-controles > label {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+}
+.estabilizador-controles input[type='range'] {
+  min-width: 0;
+  width: 100%;
+  height: 15px;
+}
+.estabilizador-controles .estabilizador-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.estabilizador-controles > label.estabilizador-alcancar {
+  display: flex;
+  gap: 4px;
+}

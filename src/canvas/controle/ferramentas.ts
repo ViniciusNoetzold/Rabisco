@@ -1,4 +1,5 @@
 import { useEditor } from '../../app/store';
+import { Estabilizador, FERRAMENTAS_ESTABILIZAVEIS } from '../../brushes/estabilizador';
 import { prepararRecorteDaArea } from '../../document/selecao';
 import type { Point, ToolId } from '../../layers/types';
 import type { EventoFerramenta, Tool, ToolCtx } from '../../tools/tool';
@@ -18,6 +19,10 @@ type EstadoEditor = ReturnType<typeof useEditor.getState>;
 export class ControleFerramentas {
   private readonly ferramentas = criarFerramentas();
   private gesto: { ponteiro: number; ferramenta: Tool } | null = null;
+  /** Ligado durante um traço com "Estabilizar" acima de zero. */
+  private estabilizador: Estabilizador | null = null;
+  /** A corda do estabilizador, desenhada sobre o papel (SVG, fora dos canvas). */
+  private corda: SVGSVGElement | null = null;
 
   constructor(
     private readonly nucleo: NucleoEditor,
@@ -43,6 +48,11 @@ export class ControleFerramentas {
     const id = atalhoContaGotas ? 'eyedropper' : useEditor.getState().tool;
     const ferramenta = this.ferramentas[id];
     this.gesto = { ponteiro, ferramenta };
+    const { estabilizar, suavizar, zoom } = useEditor.getState();
+    this.estabilizador =
+      estabilizar > 0 && FERRAMENTAS_ESTABILIZAVEIS.has(id)
+        ? new Estabilizador(evento.ponto, estabilizar / zoom, suavizar / 100)
+        : null;
     ferramenta.onPointerDown(this.contexto(), evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     return true;
@@ -56,6 +66,12 @@ export class ControleFerramentas {
     }
     if (this.gesto.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
+    if (this.estabilizador) {
+      const ponta = this.estabilizador.mover(evento.ponto);
+      this.mostrarCorda(evento.ponto, this.estabilizador.ponta);
+      if (!ponta) return;
+      evento = { ...evento, ponto: ponta };
+    }
     ferramenta.onPointerMove(this.contexto(), evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
   }
@@ -69,7 +85,17 @@ export class ControleFerramentas {
     if (this.gesto?.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
     this.gesto = null;
+    const estabilizador = this.estabilizador;
+    this.estabilizador = null;
+    this.mostrarCorda(null);
     try {
+      if (evento && estabilizador) {
+        if (useEditor.getState().alcancarFim) {
+          // O fim do traço vai até onde a mão parou, em passos, sem um salto reto.
+          for (const ponto of estabilizador.alcancar(evento.ponto))
+            ferramenta.onPointerMove(this.contexto(), { ...evento, ponto });
+        } else evento = { ...evento, ponto: estabilizador.ponta };
+      }
       if (evento) ferramenta.onPointerUp(this.contexto(), evento);
       else ferramenta.onCancel?.(this.contexto());
     } finally {
@@ -231,6 +257,34 @@ export class ControleFerramentas {
       y.push(limites.y, limites.y + limites.height / 2, limites.y + limites.height);
     }
     return { x, y };
+  }
+
+  /** Linha fina do ponteiro até a ponta do pincel, e um anel na ponta. `null` esconde. */
+  private mostrarCorda(ponteiro: Point | null, ponta?: Point) {
+    if (!ponteiro || !ponta) {
+      this.corda?.remove();
+      this.corda = null;
+      return;
+    }
+    const { zoom } = useEditor.getState();
+    const palco = this.superficie.tela.parentElement;
+    if (!palco) return;
+    if (!this.corda) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.classList.add('corda-estabilizador');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.innerHTML = '<line /><circle r="4" />';
+      palco.append(svg);
+      this.corda = svg;
+    }
+    const linha = this.corda.querySelector('line')!;
+    const anel = this.corda.querySelector('circle')!;
+    linha.setAttribute('x1', String(ponteiro.x * zoom));
+    linha.setAttribute('y1', String(ponteiro.y * zoom));
+    linha.setAttribute('x2', String(ponta.x * zoom));
+    linha.setAttribute('y2', String(ponta.y * zoom));
+    anel.setAttribute('cx', String(ponta.x * zoom));
+    anel.setAttribute('cy', String(ponta.y * zoom));
   }
 
   /** Recorta os pixels não transparentes da camada ativa (com a máscara aplicada à prévia). */

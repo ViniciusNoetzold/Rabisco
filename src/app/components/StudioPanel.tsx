@@ -65,6 +65,49 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
           />
           <span>Grosso</span>
         </label>
+        <div className="estabilizador-controles" role="group" aria-label="Estabilizador de traço">
+          <label title="Segura o tremor da mão: o pincel segue o ponteiro como se puxado por uma corda (Alt+[ / Alt+])">
+            <span>Estabilizar</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={state.estabilizar}
+              aria-label="Estabilizar traço"
+              aria-valuetext={state.estabilizar ? `${state.estabilizar}` : 'desligado'}
+              onChange={(event) => state.set({ estabilizar: Number(event.target.value) })}
+            />
+            <span className="estabilizador-valor" aria-hidden="true">
+              {state.estabilizar || 'não'}
+            </span>
+          </label>
+          <label title="Amortece ainda mais cada passo do pincel (curvas mais redondas)">
+            <span>Suavizar</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={state.suavizar}
+              disabled={!state.estabilizar}
+              aria-label="Suavizar traço"
+              onChange={(event) => state.set({ suavizar: Number(event.target.value) })}
+            />
+            <span className="estabilizador-valor" aria-hidden="true">
+              {state.suavizar}%
+            </span>
+          </label>
+          <label className="estabilizador-alcancar">
+            <input
+              type="checkbox"
+              checked={state.alcancarFim}
+              disabled={!state.estabilizar}
+              onChange={(event) => state.set({ alcancarFim: event.target.checked })}
+            />
+            Terminar onde a mão parou
+          </label>
+        </div>
         <div className="current-color">
           <span style={{ background: state.color1 }} />
           <span>

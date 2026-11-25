@@ -16,6 +16,10 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Salvar com camadas:** Ctrl+S salva o desenho inteiro em **.rabisco** (camadas, grupos, máscaras, efeitos). Em **Salvar como** (Ctrl+Shift+S) há também **PSD** (Photoshop/Photopea), **ORA** (Krita, GIMP, MyPaint) e "Cada camada em PNG (.zip)". **Abrir** (Ctrl+O) aceita esses três formatos além das imagens. Os 10 últimos arquivos ficam em **Arquivo › Recentes**.
 - A borracha apaga para transparência nas camadas novas e pinta a Cor 2 no Papel. O texto entra numa camada própria (dá para desligar na aba Texto). Balde e conta-gotas podem **amostrar todas as camadas**. **Copiar mesclado** (Ctrl+Shift+C) copia o que se vê.
 
+## Desenhar fácil (0.4)
+
+- **Estabilizar** (cartão "Seu traço", ou Alt+[ / Alt+]): o pincel segue o ponteiro como se puxado por uma corda; quanto maior o valor, mais o tremor da mão some. A corda tracejada aparece enquanto você desenha. **Suavizar** arredonda ainda mais as curvas. "Terminar onde a mão parou" leva o fim do traço até o ponteiro.
+
 ## Ferramentas clássicas
 
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.

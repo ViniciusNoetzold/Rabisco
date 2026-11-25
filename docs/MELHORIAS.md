@@ -17,7 +17,7 @@
 
 ## Desenho (0.4 — ver prompts/PROMPT_0.4.md)
 
-- [ ] **Estabilizador de traço** ajustável (0–100)
+- [x] **Estabilizador de traço** ajustável (0–100) — 0.4
 - [ ] **Simetria** vertical, horizontal e radial (mandala)
 - [ ] **Formas inteligentes**: segurar no fim do traço e ele vira linha, círculo ou retângulo perfeito
 - [ ] Régua e guias magnéticas
