@@ -6,7 +6,7 @@ const armazenamentoDeFormas = () => import('../storage/formas');
 import { useEditor } from './store';
 import type { PixelBuffer, Point } from '../layers/types';
 import { imagemDaTransferencia, lerImagemClipboard } from '../io/clipboard';
-import { TIPOS_IMAGEM } from '../io/formatosImagem';
+import { TIPOS_ABRIR, TIPOS_IMAGEM } from '../io/formatosImagem';
 import { dimensoesValidas } from '../document/dimensoes';
 import { toolRegistry } from '../tools/toolRegistry';
 import { CarregandoDiscreto, Icon } from './components/Primitives';
@@ -240,7 +240,8 @@ export default function App() {
         const actions: Record<string, () => void> = {
           z: () => (event.shiftKey ? editor.current?.redo() : editor.current?.undo()),
           y: () => editor.current?.redo(),
-          s: () => (event.shiftKey ? setDialog('save-as') : run(() => editor.current?.save())),
+          s: () =>
+            event.shiftKey ? setDialog('save-as') : run(() => editor.current?.salvarRabisco()),
           p: () => setDialog('print'),
           o: () => fileInput.current?.click(),
           n: () => setDialog('new'),
@@ -434,7 +435,7 @@ export default function App() {
         ref={fileInput}
         className="visually-hidden"
         type="file"
-        accept={TIPOS_IMAGEM}
+        accept={TIPOS_ABRIR}
         aria-label="Abrir arquivo de imagem"
         onChange={(event) => {
           const file = event.target.files?.[0];

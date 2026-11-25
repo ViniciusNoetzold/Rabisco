@@ -31,6 +31,7 @@ export interface EditorApi {
   redo(): void;
   save(): Promise<void>;
   salvarComo(opcoes: OpcoesExportacao): Promise<void>;
+  salvarRabisco(): Promise<void>;
   imprimir(opcoes: OpcoesImpressao): Promise<void>;
   open(file: File): Promise<void>;
   newDocument(name: string, width: number, height: number): void;

@@ -14,6 +14,17 @@
 - Balde e conta-gotas ganharam "Amostrar todas as camadas": a área ou a cor vêm do que se vê, mas o balde pinta só na camada ativa.
 - Já no Passo 1: borracha transparente fora do papel, travar transparência e aviso ao pintar em camada oculta ou bloqueada. Falta "Copiar mesclado" (Ctrl+Shift+C) e a opção de formas em nova camada.
 
+### Passo 6 — Arquivos com camadas
+
+- **Formato .rabisco**: um ZIP com `manifest.json` (versão do formato, tamanho, DPI e toda a estrutura: camadas, grupos, modos, opacidade, bloqueios, máscaras e efeitos), um PNG por camada e por máscara, `preview.png` e `thumbnail.png`. **Ctrl+S** e "Salvar (.rabisco)" salvam o desenho inteiro; abrir o arquivo devolve tudo como estava.
+- **PSD** (Photoshop e Photopea): salva e abre camadas, nomes, visibilidade, opacidade, modos, grupos, máscaras e recorte. Contorno e sombra do Rabisco entram aplicados aos pixels. Ao abrir, efeitos do Photoshop e camadas de ajuste são avisados, e textos viram pixels.
+- **OpenRaster (.ora)** (Krita, GIMP, MyPaint): salva e abre camadas, grupos, modos, opacidade e visibilidade. Máscaras e efeitos entram aplicados aos pixels.
+- **Cada camada em PNG (.zip)**, em "Salvar como". Formatos achatados (PNG, JPEG…) avisam que as camadas serão unidas. O botão rápido virou "Exportar PNG", e o menu Arquivo ganhou "Exportar PNG".
+- **Arquivos recentes** no menu Arquivo: os 10 últimos abertos ou salvos, com miniatura, reabrem com um clique; "Limpar recentes" esvazia a lista (até 64 MB por arquivo, guardados neste navegador).
+- Segurança ao abrir: até 512 MB descompactados, no máximo 200 camadas, caminhos sem `..` nem barra invertida, manifest validado campo a campo (nada é usado cru), cada PNG precisa ter o tamanho do papel e ids repetidos são corrigidos. Arquivo quebrado mostra um aviso e o desenho atual continua.
+- Bibliotecas novas, aprovadas: **fflate** 0.8.3 (MIT) e **ag-psd** 34.2.3 (MIT, com pako MIT/Zlib e base64-js MIT). Só carregam quando usadas: 26 KB para .rabisco/.ora e 376 KB a mais só para PSD. O verificador de licenças passou a entender expressões compostas (A AND B, A OR B) e aceita Zlib.
+- Testes E2E: ida e volta em .rabisco, PSD e ORA (camadas, nomes, modo, máscara e pixels conferidos), arquivo quebrado recusado e Ctrl+S com Recentes. Total: 124 unitários e 67 E2E.
+
 ### Passos 3 a 5 — O que faltava
 
 - **Formas em nova camada:** opção no painel de Camadas. Cada forma confirmada entra numa camada própria ("Forma: Retângulo"…), num único item do histórico.

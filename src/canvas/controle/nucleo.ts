@@ -1,6 +1,7 @@
 import type { Comando } from '../../commands/comandos';
 import type { Executador } from '../../commands/executador';
 import type { RabiscoDocument } from '../../document/model';
+import type { DocumentoComCamadas } from '../../io/camadas';
 
 /** O que os módulos do editor compartilham com o coordenador (EditorController). */
 export interface NucleoEditor {
@@ -15,4 +16,6 @@ export interface NucleoEditor {
   notificar(): void;
   avisar(mensagem: string): void;
   fit(): void;
+  /** Troca o documento inteiro por um arquivo com camadas aberto (o histórico recomeça). */
+  substituirDocumento(dados: DocumentoComCamadas): void;
 }

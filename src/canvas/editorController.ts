@@ -7,7 +7,8 @@ import {
 import { serializarImagem, type ComandoCamada } from '../commands/comandos';
 import { redimensionarEInclinar } from '../document/transformacoes';
 import { Executador } from '../commands/executador';
-import { chaveDoAlvo, novoId } from '../document/camadas';
+import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
+import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { RabiscoDocument } from '../document/model';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
@@ -27,6 +28,8 @@ import { SuperficieTela } from './controle/superficie';
 import type { DocumentInfo, EditorApi } from './editorTypes';
 import { medicaoAtiva, medirOperacao } from './medicao';
 import { ZOOM_MIN } from './zoom';
+
+const FORMATOS_COM_CAMADAS = new Set<string>(['rabisco', 'ora', 'psd', 'camadas-png']);
 
 const MENSAGENS_RECUSA = {
   bloqueada: 'Esta camada está bloqueada. Desbloqueie no painel Camadas para pintar nela.',
@@ -63,7 +66,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   private ajustandoZoom = false;
 
   constructor(
-    tela: HTMLCanvasElement,
+    private readonly tela: HTMLCanvasElement,
     previa: HTMLCanvasElement,
     private readonly workspace: HTMLDivElement,
     camadaColagem: HTMLDivElement,
@@ -249,9 +252,31 @@ export class EditorController implements EditorApi, NucleoEditor {
     this.avisar('PNG exportado. Seu rabisco está pronto para levar.');
   }
 
+  /** Ctrl+S: o desenho inteiro, com camadas, num arquivo .rabisco. */
+  async salvarRabisco() {
+    if (!this.pronto) return;
+    this.ferramentas.confirmarPendente();
+    const blob = await arquivos.salvarCamadas(this.doc, 'rabisco');
+    void this.registrarRecente(blob, `${this.doc.name}.rabisco`);
+    this.avisar('Arquivo .rabisco salvo, com todas as camadas. Abra-o de novo em Arquivo › Abrir.');
+  }
+
   async salvarComo(opcoes: OpcoesExportacao) {
     if (!this.pronto) return;
-    await arquivos.salvarComo(this.doc, this.telaParaSaida(), opcoes);
+    if (FORMATOS_COM_CAMADAS.has(opcoes.formato)) {
+      this.ferramentas.confirmarPendente();
+      await arquivos.salvarCamadas(this.doc, opcoes.formato as FormatoCamadas, opcoes.nome);
+      this.avisar(
+        opcoes.formato === 'camadas-png'
+          ? 'Camadas exportadas: um PNG por camada, num arquivo .zip.'
+          : `${opcoes.formato.toUpperCase()} salvo com as camadas.`,
+      );
+      return;
+    }
+    await arquivos.salvarComo(this.doc, this.telaParaSaida(), {
+      ...opcoes,
+      formato: opcoes.formato as Exclude<typeof opcoes.formato, FormatoCamadas>,
+    });
     this.avisar(`${opcoes.formato.toUpperCase()} exportado.`);
   }
 
@@ -260,8 +285,30 @@ export class EditorController implements EditorApi, NucleoEditor {
     await arquivos.imprimir(this.doc, this.telaParaSaida(), opcoes);
   }
 
-  open(arquivo: File) {
-    return this.papel.abrir(arquivo);
+  async open(arquivo: File) {
+    await this.papel.abrir(arquivo);
+    void this.registrarRecente(arquivo, arquivo.name);
+  }
+
+  /** Guarda o arquivo na lista de recentes do menu Arquivo, com uma miniatura do desenho. */
+  private async registrarRecente(dados: Blob, arquivo: string) {
+    try {
+      const miniatura = document.createElement('canvas');
+      const escala = Math.min(1, 64 / this.doc.width, 48 / this.doc.height);
+      miniatura.width = Math.max(1, Math.round(this.doc.width * escala));
+      miniatura.height = Math.max(1, Math.round(this.doc.height * escala));
+      miniatura.getContext('2d')!.drawImage(this.tela, 0, 0, miniatura.width, miniatura.height);
+      const { adicionarRecente } = await import('../storage/recentes');
+      await adicionarRecente({
+        nome: this.doc.name,
+        arquivo,
+        abertoEm: Date.now(),
+        miniatura: miniatura.toDataURL('image/png'),
+        dados,
+      });
+    } catch {
+      // A lista de recentes é uma conveniência: falhar aqui não atrapalha abrir ou salvar.
+    }
   }
 
   newDocument(nome: string, largura: number, altura: number) {
@@ -384,6 +431,40 @@ export class EditorController implements EditorApi, NucleoEditor {
     const daImagem = this.colagem.ativa ? this.colagem.referencia() : this.selecao.referencia();
     if (daImagem) return daImagem;
     return this.ultimaForma ? referenciaDaForma(this.ultimaForma) : null;
+  }
+
+  /** Arquivo com camadas aberto: troca o documento e recomeça o histórico. */
+  substituirDocumento(dados: DocumentoComCamadas) {
+    const { doc } = this;
+    doc.name = dados.nome;
+    doc.dpi = dados.dpi;
+    doc.preencherPapel(dados.largura, dados.altura, 'transparent');
+    doc.aplicarEstrutura(dados.estrutura);
+    for (const [chave, canvas] of dados.pixels) {
+      const alvo = alvoDaChave(chave);
+      if (!doc.existe(alvo)) continue;
+      const contexto = doc.contexto(alvo);
+      contexto.clearRect(0, 0, doc.width, doc.height);
+      contexto.drawImage(canvas, 0, 0);
+    }
+    this.comandos.historico.clear();
+    this.superficie.compor();
+    for (const camada of doc.layers) {
+      this.persistencia.marcar(chaveDoAlvo({ camada: camada.id }), null);
+      if (camada.mascara)
+        this.persistencia.marcar(chaveDoAlvo({ camada: camada.id, mascara: true }), null);
+    }
+    this.persistencia.marcarDescricao();
+    this.revisao++;
+    this.fit();
+    this.notificar();
+    const camadas = doc.layers.length;
+    this.avisar(
+      [
+        `"${dados.nome}" aberto com ${camadas} ${camadas === 1 ? 'camada' : 'camadas'}.`,
+        ...dados.avisos,
+      ].join(' '),
+    );
   }
 
   // ---- Camadas ---------------------------------------------------------------------------

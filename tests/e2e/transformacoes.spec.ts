@@ -66,7 +66,7 @@ test('muda o tamanho e o DPI por propriedades e recupera ambos do autosave e do 
   await page.keyboard.press('Escape');
 
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Salvar PNG (Ctrl+S)', exact: true }).click();
+  await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click();
   const arquivo = await download;
   const partes: Buffer[] = [];
   for await (const parte of (await arquivo.createReadStream())!) partes.push(Buffer.from(parte));

@@ -2014,3 +2014,25 @@ input[type='range']::-webkit-slider-thumb {
 .camadas-lista li.camada-item.no-grupo {
   padding-left: 18px;
 }
+
+/* Arquivos recentes no menu Arquivo (0.3). */
+.menu-secao {
+  margin: 4px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5c788e;
+}
+.menu-recente img {
+  width: 32px;
+  height: 24px;
+  object-fit: contain;
+  border: 1px solid #c6d3de;
+  background: #fff;
+  flex-shrink: 0;
+}
+.menu-recente span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}

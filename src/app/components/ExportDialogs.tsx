@@ -5,7 +5,13 @@ import './export-dialogs.css';
 
 export type { OpcoesExportacao } from '../../io/imagens';
 
-const FORMATOS: Record<FormatoExportacao, string> = {
+type FormatoSaida = OpcoesExportacao['formato'];
+
+const FORMATOS: Record<FormatoSaida, string> = {
+  rabisco: 'Rabisco com camadas (.rabisco)',
+  psd: 'Photoshop com camadas (.psd)',
+  ora: 'OpenRaster com camadas (.ora — Krita, GIMP, MyPaint)',
+  'camadas-png': 'Cada camada em PNG (.zip)',
   png: 'PNG (.png)',
   jpeg: 'JPEG (.jpg)',
   bmp: 'BMP de 24 bits (.bmp)',
@@ -13,7 +19,13 @@ const FORMATOS: Record<FormatoExportacao, string> = {
   webp: 'WebP (.webp)',
 };
 
-const AVISOS: Partial<Record<FormatoExportacao, string>> = {
+const ACHATADOS =
+  'As camadas serão unidas numa imagem só. Para continuar editando depois, salve também em .rabisco.';
+
+const AVISOS: Partial<Record<FormatoSaida, string>> = {
+  psd: 'Grupos, máscaras, modos e opacidade vão para o PSD. Camadas com contorno ou sombra entram com o efeito aplicado aos pixels.',
+  ora: 'Máscaras e efeitos entram aplicados aos pixels; grupos, modos e opacidade são mantidos.',
+  'camadas-png': 'Um PNG por camada, com máscara e efeitos aplicados, dentro de um .zip.',
   jpeg: 'A transparência será preenchida com branco. A compressão pode alterar detalhes e cores.',
   bmp: 'A transparência será preenchida com branco.',
   gif: 'O GIF usa até 256 cores e converte a semitransparência em pixels totalmente transparentes ou opacos.',
@@ -80,7 +92,7 @@ export function SalvarComo({
   salvar(opcoes: OpcoesExportacao): Promise<void>;
 }) {
   const [nomeArquivo, definirNome] = useState(nome);
-  const [formato, definirFormato] = useState<FormatoExportacao>('png');
+  const [formato, definirFormato] = useState<FormatoSaida>('png');
   const [qualidade, definirQualidade] = useState(92);
   const idFormato = useId();
   const ajustarQualidade = formato === 'jpeg' || formato === 'webp';
@@ -109,7 +121,7 @@ export function SalvarComo({
         <select
           id={idFormato}
           value={formato}
-          onChange={(evento) => definirFormato(evento.target.value as FormatoExportacao)}
+          onChange={(evento) => definirFormato(evento.target.value as FormatoSaida)}
         >
           {Object.entries(FORMATOS).map(([tipo, rotulo]) => (
             <option value={tipo} key={tipo}>

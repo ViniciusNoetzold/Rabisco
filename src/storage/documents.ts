@@ -3,6 +3,7 @@ import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 import type { FormaPropria } from '../shapes/presets';
 import type { CorPersonalizada } from './cores';
 import type { BlocoSalvo, PapelSalvo } from './papel';
+import type { ArquivoRecente } from './recentes';
 
 export interface DocumentSnapshot {
   id: 'current';
@@ -21,6 +22,7 @@ class DocumentDatabase extends Dexie {
   cores!: Table<CorPersonalizada, number>;
   papeis!: Table<PapelSalvo, 'current'>;
   blocos!: Table<BlocoSalvo, string>;
+  recentes!: Table<ArquivoRecente, number>;
 
   constructor() {
     super('rabisco-documentos');
@@ -35,6 +37,15 @@ class DocumentDatabase extends Dexie {
       cores: 'slot',
       papeis: 'id',
       blocos: 'id, documento',
+    });
+    // 0.3: arquivos recentes no menu Arquivo.
+    this.version(5).stores({
+      documents: 'id',
+      formas: 'id',
+      cores: 'slot',
+      papeis: 'id',
+      blocos: 'id, documento',
+      recentes: '++id, abertoEm, arquivo',
     });
   }
 }

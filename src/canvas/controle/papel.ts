@@ -5,7 +5,7 @@ import {
   type OpcoesTransformacao,
   type OrientacaoImagem,
 } from '../../commands/comandos';
-import { lerArquivoDeImagem } from './arquivos';
+import { lerArquivoComCamadas, lerArquivoDeImagem, temCamadas } from './arquivos';
 import type { ControleColagem } from './colagem';
 import type { ControleFerramentas } from './ferramentas';
 import type { NucleoEditor } from './nucleo';
@@ -26,6 +26,15 @@ export class ControlePapel {
   ) {}
 
   async abrir(arquivo: File) {
+    if (await temCamadas(arquivo)) {
+      const dados = await lerArquivoComCamadas(arquivo);
+      if (!this.nucleo.disponivel()) return;
+      this.colagem.descartar();
+      this.ferramentas.descartarPendente();
+      this.selecao.definirSemAvisar(null);
+      this.nucleo.substituirDocumento(dados);
+      return;
+    }
     const imagem = await lerArquivoDeImagem(arquivo);
     if (!this.nucleo.disponivel()) return;
     this.colagem.descartar();

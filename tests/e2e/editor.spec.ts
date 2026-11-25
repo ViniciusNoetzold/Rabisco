@@ -246,7 +246,7 @@ test('abre um PNG e exporta arquivo com dimensões e assinatura válidas', async
   await expect(page.locator('.drawing-canvas')).toHaveAttribute('height', '18');
   expect(await pixel(page, 12, 9)).toEqual([226, 75, 75, 255]);
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Salvar PNG (Ctrl+S)', exact: true }).click();
+  await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('teste-cor.png');
   const stream = await download.createReadStream();

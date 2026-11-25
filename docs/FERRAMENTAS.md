@@ -72,15 +72,15 @@
 
 ## 6. Arquivos e formatos
 
-| Ferramenta             | Para quê                                      |    Licença     | Situação                                   |
-| ---------------------- | --------------------------------------------- | :------------: | ------------------------------------------ |
-| Codificadores próprios | BMP, GIF, ICO; PNG com DPI                    |       —        | 🟢 desde 0.2                               |
-| fflate (ou JSZip)      | ZIP do formato `.rabisco` e do ORA            |     ✅ MIT     | 🔵 0.3, passo 6 (**precisa de aprovação**) |
-| ag-psd                 | Abrir e salvar PSD com camadas                |     ✅ MIT     | 🔵 0.3, passo 6 (**precisa de aprovação**) |
-| OpenRaster (.ora)      | Camadas compatíveis com Krita, GIMP e MyPaint | formato aberto | 🔵 0.3, passo 6                            |
-| gifenc / gif.js        | GIF animado (quadros por camada)              |     ✅ MIT     | ⚪                                         |
-| heic2any               | Fotos HEIC do iPhone                          |     ✅ MIT     | ⚪                                         |
-| jsPDF                  | Exportar PDF                                  |     ✅ MIT     | ⚪ (hoje há impressão)                     |
+| Ferramenta             | Para quê                                      |    Licença     | Situação                |
+| ---------------------- | --------------------------------------------- | :------------: | ----------------------- |
+| Codificadores próprios | BMP, GIF, ICO; PNG com DPI                    |       —        | 🟢 desde 0.2            |
+| fflate (ou JSZip)      | ZIP do formato `.rabisco` e do ORA            |     ✅ MIT     | 🟢 desde 0.3 (aprovada) |
+| ag-psd                 | Abrir e salvar PSD com camadas                |     ✅ MIT     | 🟢 desde 0.3 (aprovada) |
+| OpenRaster (.ora)      | Camadas compatíveis com Krita, GIMP e MyPaint | formato aberto | 🔵 0.3, passo 6         |
+| gifenc / gif.js        | GIF animado (quadros por camada)              |     ✅ MIT     | ⚪                      |
+| heic2any               | Fotos HEIC do iPhone                          |     ✅ MIT     | ⚪                      |
+| jsPDF                  | Exportar PDF                                  |     ✅ MIT     | ⚪ (hoje há impressão)  |
 
 ## 7. IA no navegador (sem chave)
 

@@ -1,7 +1,7 @@
 # Continuar o Rabisco — onde paramos (25/11/2026)
 
 Repositório: https://github.com/ViniciusNoetzold/Rabisco (branch `main`).
-Validação do último envio: 124 testes unitários, 62 fluxos E2E no Edge e build de produção aprovados.
+Validação do último envio: 124 testes unitários, 67 fluxos E2E no Edge e build de produção aprovados.
 
 ## O que já está pronto
 
@@ -12,7 +12,7 @@ Validação do último envio: 124 testes unitários, 62 fluxos E2E no Edge e bui
   - Passo 3: borracha transparente, travar transparência, aviso em camada oculta ou bloqueada, texto em camada própria, amostrar todas as camadas, Copiar mesclado (Ctrl+Shift+C). ✅ (inclui formas em nova camada)
   - Passo 4: efeitos (contorno e sombra) na interface, "Virar adesivo", máscara a partir da seleção, aplicar e excluir máscara. ✅ (inclui grupos no painel: agrupar Ctrl+G, recolher, olho, renomear, desagrupar)
   - Passo 5: colagem vira camada nova, várias imagens soltas viram várias camadas, Mover (V), transformação livre (Ctrl+T: mover, escalar, girar). ✅ (inclui distorcer por canto e guias de encaixe; falta alinhar/distribuir várias camadas)
-  - Passo 6: formato .rabisco, PSD e ORA. ❌ Não começado.
+  - Passo 6: .rabisco (Ctrl+S), PSD, ORA, camadas em PNG e arquivos recentes. ✅
   - Passo 7: desempenho com 20 camadas, README e roteiro manual. ❌ Não começado.
 
 ## Pendências conhecidas
@@ -20,7 +20,6 @@ Validação do último envio: 124 testes unitários, 62 fluxos E2E no Edge e bui
 - A primeira pincelada depois de criar ou abrir um papel grande tem um atraso único (127 ms em 4000 × 4000).
 - O balde no papel inteiro leva ~1 s em 4000 × 4000 (roda na thread principal; ideal: Web Worker).
 - Durante o traço, a prévia aparece por cima de todas as camadas (mesmo as que estão acima da ativa); ao soltar, a composição fica correta.
-- Exportar PNG, JPEG etc. achata as camadas; elas só ficam guardadas no autosave do navegador até o Passo 6.
 
 ## Prompt para a próxima sessão
 
@@ -33,12 +32,9 @@ números reais no CHANGELOG. Dependências novas só com minha aprovação (suge
 fflate ou JSZip para ZIP, ag-psd para PSD).
 
 Termine a 0.3 nesta ordem:
-1. Passo 6: formato .rabisco (ZIP com manifest.json, PNG por camada e por máscara, miniatura),
-   Salvar (Ctrl+S) em .rabisco, Abrir .rabisco, PSD e ORA (abrir e salvar), exportar camadas
-   como PNGs e lista de arquivos recentes. Testes de ida e volta para os três formatos.
-2. O que ainda falta dos Passos 3–5: alinhar e distribuir várias camadas (precisa de
+1. O que ainda falta dos Passos 3–5: alinhar e distribuir várias camadas (precisa de
    seleção múltipla no painel).
-3. Passo 7: `npm run perf` com 20 camadas de 4000 × 4000, README "Camadas e colagem",
+2. Passo 7: `npm run perf` com 20 camadas de 4000 × 4000, README "Camadas e colagem",
    roteiro manual de 10 minutos, ROADMAP marcando a 0.3 como concluída.
 Depois disso, o próximo prompt é a 0.4 (estabilizador, simetria, formas inteligentes) e, em
 seguida, a 0.5 (filtros, ASCII, pixel art, dithering) e a 0.6 (IA com chave do usuário).

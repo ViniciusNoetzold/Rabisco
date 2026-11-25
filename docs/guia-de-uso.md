@@ -13,6 +13,7 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Grupos:** **Agrupar** (Ctrl+G) põe a camada ativa num grupo; arraste outras camadas para dentro. No cabeçalho do grupo: setinha para recolher, olho para ocultar o grupo todo, duplo clique para renomear e ⊘ para desagrupar.
 - **Formas em nova camada:** marque a opção no painel de Camadas e cada forma confirmada ganha uma camada própria.
 - **Mover (V)** arrasta a camada inteira. **Transformação livre (Ctrl+T)**: arraste por dentro para mover, as alças para escalar (Shift mantém a proporção) e a bolinha de cima para girar (Shift de 15° em 15°). **Ctrl+arraste num canto distorce** (só aquele canto anda). Ao mover, a camada **encaixa** nas bordas e no centro do papel e das outras camadas (linha magenta; Shift solta; a aba Exibir desliga). Enter confirma, Esc cancela.
+- **Salvar com camadas:** Ctrl+S salva o desenho inteiro em **.rabisco** (camadas, grupos, máscaras, efeitos). Em **Salvar como** (Ctrl+Shift+S) há também **PSD** (Photoshop/Photopea), **ORA** (Krita, GIMP, MyPaint) e "Cada camada em PNG (.zip)". **Abrir** (Ctrl+O) aceita esses três formatos além das imagens. Os 10 últimos arquivos ficam em **Arquivo › Recentes**.
 - A borracha apaga para transparência nas camadas novas e pinta a Cor 2 no Papel. O texto entra numa camada própria (dá para desligar na aba Texto). Balde e conta-gotas podem **amostrar todas as camadas**. **Copiar mesclado** (Ctrl+Shift+C) copia o que se vê.
 
 ## Ferramentas clássicas

@@ -46,7 +46,7 @@ export function EditorChrome({
         <div className="quick-access" aria-label="Acesso rápido">
           {quick(
             'disk',
-            'Salvar PNG (Ctrl+S)',
+            'Exportar PNG',
             () => run(() => editor.current?.save()),
             info.saving === 'loading',
           )}
@@ -77,7 +77,9 @@ export function EditorChrome({
         <FileMenu
           onNew={() => onDialog('new')}
           onOpen={onOpen}
-          onSave={() => run(() => editor.current?.save())}
+          onSave={() => run(() => editor.current?.salvarRabisco())}
+          onExportPng={() => run(() => editor.current?.save())}
+          onOpenRecent={(arquivo) => run(() => editor.current?.open(arquivo))}
           onSaveAs={() => onDialog('save-as')}
           onPrint={() => onDialog('print')}
           onAbout={() => onDialog('about')}

@@ -5,11 +5,19 @@ import path from 'node:path';
 const root = process.cwd();
 const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'));
 const sections = [await readFile(path.join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8')];
+// Só licenças permissivas entram no app (ver docs/FERRAMENTAS.md). Zlib: a do pako (ag-psd).
+const PERMITIDAS = ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'Zlib'];
+
+/** Expressões SPDX simples: "A AND B" exige todas permitidas; "A OR B" basta uma. */
+function licencaPermitida(expressao = '') {
+  const limpa = expressao.replace(/[()]/g, '').trim();
+  if (/ OR /.test(limpa)) return limpa.split(/ OR /).some((parte) => licencaPermitida(parte));
+  return limpa.split(/ AND /).every((parte) => PERMITIDAS.includes(parte.trim()));
+}
+
 for (const [location, item] of Object.entries(lock.packages)) {
   if (!location || item.dev) continue;
-  if (
-    !['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD'].includes(item.license)
-  ) {
+  if (!licencaPermitida(item.license)) {
     throw new Error(`Revise a licença de ${location}: ${item.license}`);
   }
   const directory = path.join(root, location);

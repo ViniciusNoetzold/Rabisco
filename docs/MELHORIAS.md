@@ -5,8 +5,8 @@
 
 ## Terminar a 0.3 (próximo)
 
-- [ ] Salvar e abrir **.rabisco** (camadas, máscaras, efeitos, grupos), **PSD** e **ORA** — precisa aprovar fflate e ag-psd
-- [ ] Exportar cada camada como PNG; lista de **arquivos recentes** no menu Arquivo
+- [x] Salvar e abrir **.rabisco**, **PSD** e **ORA** — 0.3
+- [x] Exportar cada camada como PNG; **arquivos recentes** no menu Arquivo — 0.3
 - [x] **Grupos** no painel (agrupar, desagrupar, recolher, olho do grupo) — 0.3
 - [x] "Formas em nova camada" — 0.3
 - [x] Transformação livre: **distorcer pelos cantos** e **guias de encaixe** — 0.3
@@ -55,6 +55,6 @@
 - [ ] Idiomas: inglês e espanhol
 - [ ] Acessibilidade: leitor de tela no painel de camadas, alto contraste, tamanho da interface
 - [ ] Temas: Aero 7, Clássico 98, Luna XP, escuro
-- [ ] Mais de um documento aberto (abas) e "Arquivos recentes"
+- [ ] Mais de um documento aberto (abas)
 - [ ] Definir a **licença** do código e verificar a marca "Rabisco"
 - [ ] CI no GitHub (testes a cada envio) e página pública (GitHub Pages) para experimentar

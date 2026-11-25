@@ -15,7 +15,7 @@ export type FormatoImagem = 'png' | 'jpeg' | 'bmp' | 'gif' | 'webp' | 'ico';
 export type FormatoExportacao = Exclude<FormatoImagem, 'ico'>;
 export interface OpcoesExportacao {
   nome: string;
-  formato: FormatoExportacao;
+  formato: FormatoExportacao | import('./camadas').FormatoCamadas;
   qualidade: number;
 }
 export interface ImagemAberta extends OpenedPng {
