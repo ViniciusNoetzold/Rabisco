@@ -127,9 +127,17 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
     let curva: Point[] | null = null;
     let poligono: PoligonoEmCurso | null = null;
     let gesto: GestoForma | null = null;
+    /** Formas inteligentes: cor, espessura e pincel do traço que virou forma. */
+    let estiloFixo: Partial<ConfiguracaoForma> | null = null;
 
     function descartar() {
       pendente = curva = poligono = gesto = null;
+      estiloFixo = null;
+    }
+
+    function configurarAqui(geometria: GeometriaForma, ctx: ToolCtx): ConfiguracaoForma {
+      const base = configurar(geometria, ctx);
+      return estiloFixo ? { ...base, ...estiloFixo } : base;
     }
 
     function temPendente() {
@@ -152,7 +160,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
         poligono && poligono.vertices.length >= 3
           ? geometriaPorPontos('polygon', poligono.vertices)
           : geometriaAtual();
-      return geometria ? configurar(geometria, ctx) : null;
+      return geometria ? configurarAqui(geometria, ctx) : null;
     }
 
     function confirmar(ctx: ToolCtx) {
@@ -249,6 +257,14 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
       obterFormaPendente,
       descartarPendente: descartar,
       commitPendente: confirmar,
+      adotarForma(geometria, estilo) {
+        descartar();
+        pendente = geometria;
+        estiloFixo = estilo;
+      },
+      tocaNaForma(ctx, ponto) {
+        return Boolean(pendente && operacaoNoPonto(pendente, ponto, ctx));
+      },
       onPointerDown(ctx, evento) {
         const { ponto } = evento;
         if (curva) {
@@ -315,7 +331,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
         const area = pontos.length
           ? caixaDosPontos(pontos)
           : geometria
-            ? areaDaForma(configurar(geometria, ctx))
+            ? areaDaForma(configurarAqui(geometria, ctx))
             : null;
         if (!area) return null;
         const margem = 40 / ctx.opcoes.zoom;
@@ -336,7 +352,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
         }
         const geometria = geometriaAtual();
         if (!geometria) return;
-        desenharForma(grafico, configurar(geometria, ctx));
+        desenharForma(grafico, configurarAqui(geometria, ctx));
         if (pendente) desenharAlcas(grafico, pendente, ctx);
         else if (curva) {
           const [inicio, fim, primeiro, segundo] = pontosDaCurva();

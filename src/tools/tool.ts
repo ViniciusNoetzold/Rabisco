@@ -7,6 +7,7 @@ import type {
   TipoPincel,
 } from '../brushes/catalogo';
 import type { Point, Rect, ToolId } from '../layers/types';
+import type { GeometriaForma } from './geometriaForma';
 import type {
   ConfiguracaoForma,
   EstiloContorno,
@@ -106,6 +107,10 @@ export interface Tool {
   obterFormaPendente?(ctx: ToolCtx): ConfiguracaoForma | null;
   descartarPendente?(): void;
   commitPendente?(ctx: ToolCtx): void;
+  /** Formas inteligentes: recebe a forma reconhecida no traço como forma pendente. */
+  adotarForma?(geometria: GeometriaForma, estilo: Partial<ConfiguracaoForma>): void;
+  /** O ponto toca a forma pendente (alças ou dentro dela)? */
+  tocaNaForma?(ctx: ToolCtx, ponto: Point): boolean;
 }
 
 type Identidade = Pick<Tool, 'id' | 'nome' | 'icone' | 'atalho' | 'opcoes'>;

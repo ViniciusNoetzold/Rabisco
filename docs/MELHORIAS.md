@@ -22,7 +22,9 @@
 - [x] **Simetria** vertical, horizontal, quatro quadrantes e radial com caleidoscópio (mandala) — 0.4
 - [ ] Simetria também nas formas e no texto (hoje vale para lápis, pincéis, spray e borrachas)
 - [ ] Pincéis de caligrafia com o ângulo da ponta espelhado nas cópias simétricas
-- [ ] **Formas inteligentes**: segurar no fim do traço e ele vira linha, círculo ou retângulo perfeito
+- [x] **Formas inteligentes**: segurar no fim do traço e ele vira linha, círculo, retângulo, triângulo, seta ou polígono — 0.4
+- [ ] Formas inteligentes também com a simetria ligada (cada cópia vira a forma)
+- [ ] Formas inteligentes: seta de linha (hoje vira a seta cheia do catálogo, só com contorno) e estrela
 - [ ] Régua e guias magnéticas
 - [ ] Rotação do canvas (girar a vista, não a imagem)
 - [ ] Prévia do traço respeitando as camadas de cima (hoje aparece por cima de tudo durante o gesto)

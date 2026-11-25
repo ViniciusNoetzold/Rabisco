@@ -106,6 +106,10 @@ interface EditorState {
   centroSimetria: Point | null;
   /** Linhas-guia da simetria sobre o papel. */
   guiasSimetria: boolean;
+  /** Segurar parado no fim do traço de lápis ou pincel o transforma em forma certinha. */
+  formasInteligentes: boolean;
+  /** Quanto tempo segurar parado, em ms. */
+  esperaFormaInteligente: number;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
@@ -152,6 +156,8 @@ interface EditorState {
         | 'espelharFatias'
         | 'centroSimetria'
         | 'guiasSimetria'
+        | 'formasInteligentes'
+        | 'esperaFormaInteligente'
         | 'guiasInteligentes'
       >
     >,
@@ -206,6 +212,8 @@ export const useEditor = create<EditorState>()(
     espelharFatias: false,
     centroSimetria: null,
     guiasSimetria: true,
+    formasInteligentes: true,
+    esperaFormaInteligente: 500,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

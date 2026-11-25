@@ -2,6 +2,16 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 4 — Formas inteligentes ("segura que ajeita")
+
+- Termine um traço de **lápis ou pincel** e **segure parado** (0,5 s por padrão): se ele parece uma forma, vira **linha, círculo, elipse, quadrado, retângulo, triângulo, seta ou polígono** (até 8 lados). Em dúvida, nada muda.
+- A forma reconhecida é uma **forma editável do Rabisco**, com as mesmas alças da 0.2 (mover, redimensionar, girar), na cor, espessura e pincel do traço (giz, marcador e aquarela viram o contorno do mesmo estilo), sem preenchimento. **Enter** confirma, **Esc** volta ao traço exatamente como foi desenhado, clicar fora confirma e já volta a desenhar com o lápis ou pincel.
+- Feedback: a forma dá um leve "pulo" (desligado com "reduzir movimento" no sistema) e a dica "Virou um círculo! Enter confirma, Esc desfaz.".
+- Liga/desliga com o ícone ao lado do campo de espessura (lápis e pincel) e no cartão "Seu traço", com o tempo de espera ajustável (0,3–1,5 s).
+- Reconhecedor próprio em `src/shapes/reconhecer.ts`: Ramer–Douglas–Peucker para linha e seta, cantos pela virada da direção em trechos curtos (resistente ao tremor), elipse pelos eixos principais e erro do raio normalizado, ângulos retos para o retângulo e o tamanho do caminho comparado ao perímetro contra rabiscos.
+- Com a simetria ligada, as formas inteligentes ficam desligadas (anotado em MELHORIAS).
+- Testes: 7 unitários do reconhecedor (círculo com ruído, oval, retângulo torto, quase quadrado, triângulo, seta, linha trêmula e rabiscos que **não** viram forma) e 3 E2E (círculo à mão vira elipse e Enter confirma; retângulo com o pincel e Esc volta ao traço; soltar sem segurar e a opção desligada). Total: 151 unitários e 79 E2E.
+
 ### Passo 3 — Simetria e mandala
 
 - Grupo **Simetria** na aba Exibir e atalho **Shift+S** (liga no último modo usado e desliga). Modos: espelho esquerda/direita, cima/baixo, quatro quadrantes e **radial** com 2 a 24 fatias, com a opção **Caleidoscópio** (espelha dentro de cada fatia, como numa mandala).

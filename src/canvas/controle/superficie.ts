@@ -129,6 +129,18 @@ export class SuperficieTela {
     this.areaPrevia = origem ? unirAreas(origem, destino) : destino;
   }
 
+  /** Um leve "pulo" da prévia em torno do ponto (formas inteligentes). */
+  pular(centro: Point, zoom: number) {
+    const tela = this.overlay.canvas;
+    tela.style.transformOrigin = `${centro.x * zoom}px ${centro.y * zoom}px`;
+    tela.classList.remove('forma-pulou');
+    void tela.offsetWidth;
+    tela.classList.add('forma-pulou');
+    tela.addEventListener('animationend', () => tela.classList.remove('forma-pulou'), {
+      once: true,
+    });
+  }
+
   /** Apaga as prévias e recompõe só a área que elas ocupavam. */
   limpar() {
     if (this.previaPincel) {

@@ -13,6 +13,9 @@ import {
   type Transformacao,
 } from '../../brushes/simetria';
 import { prepararRecorteDaArea } from '../../document/selecao';
+import type { Comando } from '../../commands/comandos';
+import { reconhecerForma } from '../../shapes/reconhecer';
+import type { ConfiguracaoForma, EstiloContorno } from '../../shapes/tipos';
 import type { Point, ToolId } from '../../layers/types';
 import type { EventoFerramenta, Tool, ToolCtx } from '../../tools/tool';
 import { criarFerramentas } from '../../tools/toolRegistry';
@@ -43,6 +46,18 @@ export class ControleFerramentas {
     ultimo: Point;
   } | null = null;
 
+  /** Formas inteligentes durante o traço: os pontos e o relógio de "segurou parado". */
+  private inteligente: {
+    pontos: Point[];
+    ancora: Point;
+    relogio: ReturnType<typeof setTimeout> | null;
+    ultimo: EventoFerramenta;
+  } | null = null;
+  /** Forma reconhecida esperando Enter ou Esc: o traço original e a ferramenta de volta. */
+  private formaInteligente: { original: Comando; voltarPara: ToolId } | null = null;
+  /** Enquanto definido, `executar` guarda o comando em vez de executá-lo. */
+  private capturando: { comando: Comando | null } | null = null;
+
   /** Simetria do traço em andamento (lápis, pincéis e borrachas), com as cópias da prévia. */
   private simetria: { config: ConfigSimetria; copias: Transformacao[] } | null = null;
 
@@ -67,6 +82,14 @@ export class ControleFerramentas {
 
   iniciarGesto(ponteiro: number, evento: EventoFerramenta, atalhoContaGotas: boolean) {
     if (this.gesto || (evento.botao !== 0 && evento.botao !== 2)) return false;
+    // Clicar fora da forma inteligente a confirma e volta a desenhar com o lápis ou pincel.
+    if (
+      this.formaInteligente &&
+      !atalhoContaGotas &&
+      useEditor.getState().tool === 'shape' &&
+      !this.ferramentas.shape.tocaNaForma?.(this.contexto(), evento.ponto)
+    )
+      this.encerrarFormaInteligente('confirmar');
     const id = atalhoContaGotas ? 'eyedropper' : useEditor.getState().tool;
     const ferramenta = this.ferramentas[id];
     this.gesto = { ponteiro, ferramenta };
@@ -92,6 +115,12 @@ export class ControleFerramentas {
       ? configDaSimetria(useEditor.getState(), this.nucleo.doc.width, this.nucleo.doc.height)
       : null;
     this.simetria = config && { config, copias: transformacoes(config) };
+    // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
+    this.inteligente =
+      useEditor.getState().formasInteligentes && (id === 'pencil' || id === 'brush') && !config
+        ? { pontos: [evento.ponto], ancora: evento.ponto, relogio: null, ultimo: evento }
+        : null;
+    this.armarRelogio();
     ferramenta.onPointerDown(this.contexto(), evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
     return true;
@@ -106,11 +135,16 @@ export class ControleFerramentas {
     if (this.gesto.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
     evento = this.ajustarPressao(evento);
+    this.vigiarParada(evento.ponto);
     if (this.estabilizador) {
       const ponta = this.estabilizador.mover(evento.ponto);
       this.mostrarCorda(evento.ponto, this.estabilizador.ponta);
       if (!ponta) return;
       evento = { ...evento, ponto: ponta };
+    }
+    if (this.inteligente) {
+      this.inteligente.pontos.push(evento.ponto);
+      this.inteligente.ultimo = evento;
     }
     ferramenta.onPointerMove(this.contexto(), evento);
     if (ferramenta.overlay) this.redesenharOverlay(ferramenta);
@@ -125,6 +159,7 @@ export class ControleFerramentas {
     if (this.gesto?.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
     this.gesto = null;
+    this.desarmarRelogio();
     const estabilizador = this.estabilizador;
     this.estabilizador = null;
     if (evento) evento = this.ajustarPressao(evento);
@@ -156,6 +191,10 @@ export class ControleFerramentas {
   }
 
   tecla(evento: KeyboardEvent) {
+    if (this.formaInteligente && !this.gesto) {
+      if (evento.key === 'Escape') return this.encerrarFormaInteligente('original');
+      if (evento.key === 'Enter') return this.encerrarFormaInteligente('confirmar');
+    }
     if (
       evento.key === 'Escape' &&
       (this.gesto?.ferramenta.id === 'brush' || this.gesto?.ferramenta.overlay)
@@ -184,6 +223,7 @@ export class ControleFerramentas {
   /** Confirma a colagem flutuante e a forma ou texto ainda editável. */
   confirmarPendente() {
     if (this.gesto) return;
+    if (this.encerrarFormaInteligente('confirmar')) return;
     this.colagem.confirmar();
     const ferramenta = this.ativa;
     if (!ferramenta.temPendente?.()) return;
@@ -193,6 +233,7 @@ export class ControleFerramentas {
 
   /** Descarta a forma ou texto ainda editável. Devolve true se havia um. */
   descartarPendente() {
+    if (this.encerrarFormaInteligente('descartar')) return true;
     const ferramenta = this.ativa;
     if (!ferramenta.temPendente?.()) return false;
     ferramenta.descartarPendente?.();
@@ -220,6 +261,8 @@ export class ControleFerramentas {
         atual.formaPropria?.path !== anterior.formaPropria?.path ||
         atual.formaPropria?.fechada !== anterior.formaPropria?.fechada);
     if (trocouFerramenta || trocouForma) {
+      // Trocar de ferramenta confirma a forma inteligente (como qualquer forma pendente).
+      if (anterior.tool === 'shape') this.formaInteligente = null;
       if (this.gesto) this.cancelarGesto();
       if (atual.tool !== 'select' && atual.tool !== 'lasso') this.colagem.confirmar();
       ferramentaAnterior.onPointerLeave?.(this.contexto(anterior));
@@ -267,11 +310,15 @@ export class ControleFerramentas {
       executar: (comando) => {
         // O comando leva a simetria e as marcas de um eixo só; o executor pinta as cópias.
         const simetria = this.simetria?.config;
-        return nucleo.executar(
+        const final =
           simetria && (comando.tipo === 'TracarPincel' || comando.tipo === 'Pincelar')
             ? { ...comando, simetria }
-            : comando,
-        );
+            : comando;
+        if (this.capturando) {
+          this.capturando.comando = final;
+          return true;
+        }
+        return nucleo.executar(final);
       },
       selecionar: (area, mascara) => selecao.selecionar(area, mascara),
       capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
@@ -313,6 +360,93 @@ export class ControleFerramentas {
       y.push(limites.y, limites.y + limites.height / 2, limites.y + limites.height);
     }
     return { x, y };
+  }
+
+  /** (Re)começa a contar o tempo parado. */
+  private armarRelogio() {
+    const info = this.inteligente;
+    if (!info) return;
+    if (info.relogio) clearTimeout(info.relogio);
+    info.relogio = setTimeout(
+      () => this.transformarEmForma(),
+      useEditor.getState().esperaFormaInteligente,
+    );
+  }
+
+  private desarmarRelogio() {
+    if (this.inteligente?.relogio) clearTimeout(this.inteligente.relogio);
+    this.inteligente = null;
+  }
+
+  /** Mexeu mais de 3 px de tela: não está parado, recomeça a contar. */
+  private vigiarParada(ponto: Point) {
+    const info = this.inteligente;
+    if (!info) return;
+    const zoom = useEditor.getState().zoom;
+    if (Math.hypot(ponto.x - info.ancora.x, ponto.y - info.ancora.y) * zoom <= 3) return;
+    info.ancora = ponto;
+    this.armarRelogio();
+  }
+
+  /**
+   * Segurou parado: se o traço parece uma forma, termina o gesto sem pintar e mostra a forma
+   * editável no lugar. Em dúvida, nada muda e o traço continua.
+   */
+  private transformarEmForma() {
+    const info = this.inteligente;
+    const gesto = this.gesto;
+    if (!info || !gesto) return;
+    info.relogio = null;
+    const forma = reconhecerForma(info.pontos);
+    if (!forma) return;
+    const { ferramenta, ponteiro } = gesto;
+    // O traço termina como sempre, mas o comando fica guardado (Esc volta a ele).
+    this.capturando = { comando: null };
+    try {
+      ferramenta.onPointerUp(this.contexto(), info.ultimo);
+    } finally {
+      this.gesto = null;
+      this.estabilizador = null;
+      this.pressao = null;
+      this.simetria = null;
+      this.inteligente = null;
+      this.mostrarCorda(null);
+      this.superficie.limpar();
+    }
+    const original = this.capturando.comando;
+    this.capturando = null;
+    const { tela } = this.superficie;
+    if (tela.hasPointerCapture(ponteiro)) tela.releasePointerCapture(ponteiro);
+    if (!original) return;
+    useEditor.getState().setTool('shape');
+    this.formaInteligente = { original, voltarPara: ferramenta.id };
+    const formas = this.ferramentas.shape;
+    formas.adotarForma?.(forma.geometria, estiloDoTraco(original));
+    this.redesenharOverlay(formas);
+    const { caixa } = forma.geometria;
+    this.superficie.pular(
+      { x: caixa.x + caixa.width / 2, y: caixa.y + caixa.height / 2 },
+      useEditor.getState().zoom,
+    );
+    this.nucleo.avisar(`Virou ${forma.nome}! Enter confirma, Esc desfaz.`);
+  }
+
+  /**
+   * Fecha a forma inteligente: confirma, volta ao traço original (Esc) ou descarta tudo
+   * (desfazer). Depois volta à ferramenta do traço. Devolve true se havia uma.
+   */
+  private encerrarFormaInteligente(modo: 'confirmar' | 'original' | 'descartar'): boolean {
+    const info = this.formaInteligente;
+    if (!info) return false;
+    this.formaInteligente = null;
+    const formas = this.ferramentas.shape;
+    if (modo === 'confirmar') formas.commitPendente?.(this.contexto());
+    else formas.descartarPendente?.();
+    if (modo === 'original') this.nucleo.executar(info.original);
+    if (useEditor.getState().tool === 'shape') useEditor.getState().setTool(info.voltarPara);
+    else this.redesenharOverlay(formas);
+    if (modo === 'original') this.nucleo.avisar('Voltou ao traço como você desenhou.');
+    return true;
   }
 
   /** Curva da caneta, pressão pela velocidade (mouse e toque) e começo do traço afinado. */
@@ -432,4 +566,22 @@ export function limitesDosPixels({ data, width, height }: ImageData) {
   }
   if (direita < 0) return null;
   return { x: esquerda, y: topo, width: direita - esquerda + 1, height: base - topo + 1 };
+}
+
+/** Cor, espessura e pincel do traço que virou forma: só contorno, sem preenchimento. */
+function estiloDoTraco(comando: Comando): Partial<ConfiguracaoForma> {
+  if (comando.tipo === 'Pincelar') {
+    const { cor, espessura, tipo } = comando.configuracao;
+    const contorno: EstiloContorno =
+      tipo === 'giz' || tipo === 'marcador' || tipo === 'aquarela' ? tipo : 'solid';
+    return { cor1: cor, espessura, contorno, preenchimento: 'none' };
+  }
+  if (comando.tipo === 'TracarPincel')
+    return {
+      cor1: comando.cor,
+      espessura: comando.espessura,
+      contorno: 'solid',
+      preenchimento: 'none',
+    };
+  return {};
 }

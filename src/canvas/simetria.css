@@ -24,3 +24,24 @@
 .guias-simetria .centro-simetria:hover {
   fill: #e9e2fa;
 }
+
+/* Formas inteligentes (0.4): o "pulo" da forma reconhecida. */
+.preview-canvas.forma-pulou {
+  animation: forma-pulou 280ms ease-out;
+}
+@keyframes forma-pulou {
+  0% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-canvas.forma-pulou {
+    animation: none;
+  }
+}

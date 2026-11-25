@@ -157,6 +157,37 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
             </span>
           </label>
         </div>
+        <div className="pressao-controles" role="group" aria-label="Formas inteligentes">
+          <label
+            className="pressao-velocidade"
+            title="Termine um traço de lápis ou pincel e segure parado: ele vira linha, círculo, retângulo, triângulo, seta ou polígono"
+          >
+            <input
+              type="checkbox"
+              checked={state.formasInteligentes}
+              onChange={(event) => state.set({ formasInteligentes: event.target.checked })}
+            />
+            Formas inteligentes (segure no fim)
+          </label>
+          <label title="Quanto tempo segurar parado no fim do traço">
+            <span>Esperar</span>
+            <input
+              type="range"
+              min="300"
+              max="1500"
+              step="100"
+              value={state.esperaFormaInteligente}
+              disabled={!state.formasInteligentes}
+              aria-label="Tempo para virar forma"
+              onChange={(event) =>
+                state.set({ esperaFormaInteligente: Number(event.target.value) })
+              }
+            />
+            <span className="estabilizador-valor" aria-hidden="true">
+              {(state.esperaFormaInteligente / 1000).toLocaleString('pt-BR')} s
+            </span>
+          </label>
+        </div>
         <div className="current-color">
           <span style={{ background: state.color1 }} />
           <span>

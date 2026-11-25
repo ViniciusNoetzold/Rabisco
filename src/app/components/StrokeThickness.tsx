@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from './Primitives';
 import type { DensidadeSpray } from '../../brushes/catalogo';
 import { ESPESSURA_MAXIMA, useEditor } from '../store';
 import './brush-controls.css';
@@ -43,35 +44,58 @@ export function StrokeThickness({ borracha = false }: { borracha?: boolean }) {
           </button>
         ))}
       </div>
-      <label className="stroke-size-field">
-        <input
-          type="number"
-          min={1}
-          max={ESPESSURA_MAXIMA}
-          step={1}
-          inputMode="numeric"
-          aria-label={borracha ? 'Espessura da borracha' : 'Espessura do traço'}
-          value={rascunho ?? espessura}
-          onFocus={(evento) => evento.currentTarget.select()}
-          onChange={(evento) => {
-            const valor = evento.currentTarget.value;
-            const numero = Number(valor);
-            setRascunho(valor);
-            if (Number.isInteger(numero) && numero >= 1 && numero <= ESPESSURA_MAXIMA) {
-              atualizar(numero);
-            }
-          }}
-          onBlur={() => {
-            if (rascunho) atualizar(Number(rascunho));
-            setRascunho(null);
-          }}
-          onKeyDown={(evento) => {
-            if (evento.key === 'Enter') evento.currentTarget.blur();
-          }}
-        />
-        <span aria-hidden="true">px</span>
-      </label>
+      <div className="stroke-size-linha">
+        <label className="stroke-size-field">
+          <input
+            type="number"
+            min={1}
+            max={ESPESSURA_MAXIMA}
+            step={1}
+            inputMode="numeric"
+            aria-label={borracha ? 'Espessura da borracha' : 'Espessura do traço'}
+            value={rascunho ?? espessura}
+            onFocus={(evento) => evento.currentTarget.select()}
+            onChange={(evento) => {
+              const valor = evento.currentTarget.value;
+              const numero = Number(valor);
+              setRascunho(valor);
+              if (Number.isInteger(numero) && numero >= 1 && numero <= ESPESSURA_MAXIMA) {
+                atualizar(numero);
+              }
+            }}
+            onBlur={() => {
+              if (rascunho) atualizar(Number(rascunho));
+              setRascunho(null);
+            }}
+            onKeyDown={(evento) => {
+              if (evento.key === 'Enter') evento.currentTarget.blur();
+            }}
+          />
+          <span aria-hidden="true">px</span>
+        </label>
+        {!borracha && <AlternarFormasInteligentes />}
+      </div>
     </div>
+  );
+}
+
+/** No lápis e no pincel: liga e desliga as formas inteligentes direto no ribbon. */
+function AlternarFormasInteligentes() {
+  const ferramenta = useEditor((estado) => estado.tool);
+  const ligadas = useEditor((estado) => estado.formasInteligentes);
+  const set = useEditor((estado) => estado.set);
+  if (ferramenta !== 'pencil' && ferramenta !== 'brush') return null;
+  return (
+    <button
+      type="button"
+      className={`formas-inteligentes-botao ${ligadas ? 'selected' : ''}`}
+      aria-pressed={ligadas}
+      aria-label="Formas inteligentes"
+      title="Formas inteligentes: termine o traço e segure parado para virar forma certinha"
+      onClick={() => set({ formasInteligentes: !ligadas })}
+    >
+      <Icon name="layer-shape" />
+    </button>
   );
 }
 

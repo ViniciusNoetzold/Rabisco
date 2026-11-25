@@ -148,3 +148,29 @@
   height: 21px;
   font: inherit;
 }
+
+/* Formas inteligentes no grupo Espessura do lápis e do pincel (0.4): ícone ao lado do campo. */
+.stroke-size-linha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.ribbon .formas-inteligentes-botao {
+  min-width: 0;
+  width: 21px;
+  height: 23px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.ribbon .formas-inteligentes-botao.selected {
+  border-color: #6f9fcf;
+  background: linear-gradient(#e4f0fb, #cfe3f6);
+}
+.stroke-size-linha .stroke-size-field {
+  gap: 2px;
+}
+.stroke-size-linha .stroke-size-field input {
+  width: 34px;
+}
