@@ -35,8 +35,9 @@ A 0.3 está concluída. Pendências que ficaram para depois (ver docs/MELHORIAS.
 - Distribuir várias camadas (precisa de seleção múltipla no painel).
 - A primeira troca de visibilidade com 20 camadas grandes leva ~150 ms (as seguintes, ~34 ms).
 
-Próximo: planejar a 0.4 (estabilizador de traço, simetria, formas que se ajeitam sozinhas)
-junto com quem idealizou, escrever o prompt da 0.4 em prompts/ e seguir passo a passo.
+Próximo: a 0.4 já está planejada em prompts/PROMPT_0.4.md (estabilizador, pressão, simetria,
+formas inteligentes, régua e guias, rotação da vista, gradiente/varinha/borrar e as pendências).
+Decida as perguntas do topo daquele arquivo e cole o bloco do prompt para começar o Passo 1.
 ```
 
 ## Como rodar e ver na rede

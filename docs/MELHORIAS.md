@@ -1,7 +1,7 @@
 # Melhorias para o Rabisco ficar "completinho"
 
 > Lista viva, além do roteiro por versões ([ROADMAP.md](../ROADMAP.md)). Quando um item for
-> feito, marque com ✅ e a versão. Onde a 0.3 parou: [prompts/CONTINUAR_0.3.md](../prompts/CONTINUAR_0.3.md).
+> feito, marque com ✅ e a versão. Plano da próxima versão: [prompts/PROMPT_0.4.md](../prompts/PROMPT_0.4.md).
 
 ## 0.3 — concluída
 
@@ -15,7 +15,7 @@
 - [x] Medir 20 camadas de 4000 × 4000; README e roteiro manual da 0.3 — 0.3
 - [ ] Primeira troca de visibilidade com 20 camadas grandes (~150 ms; as seguintes ~34 ms)
 
-## Desenho (0.4 e depois)
+## Desenho (0.4 — ver prompts/PROMPT_0.4.md)
 
 - [ ] **Estabilizador de traço** ajustável (0–100)
 - [ ] **Simetria** vertical, horizontal e radial (mandala)

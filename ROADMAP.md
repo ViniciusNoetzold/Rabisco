@@ -8,7 +8,7 @@ Cada etapa deve ser utilizável, documentada e validada antes de iniciar a segui
 | 0.2    | Paridade das ferramentas clássicas, texto editável durante inserção, zoom/pan e atalhos completos                                                             | Concluída e validada em 24/11/2026 |
 | 0.2.1  | Estabilização: testes confiáveis, desempenho medido, pixels só no canvas, autosave por blocos, editor em módulos, ribbon adaptável e carregamento sob demanda | Concluída e validada em 24/11/2026 |
 | 0.3    | Camadas, importar/colar imagem, transformação livre, formato .rabisco, PSD e ORA                                                                              | Concluída e validada em 25/11/2026 |
-| 0.4    | Estabilizador, pressão, simetria e reconhecimento de formas                                                                                                   | Planejada                          |
+| 0.4    | Estabilizador, pressão, simetria, formas inteligentes, régua e guias, rotação da vista, gradiente e varinha (prompt em prompts/PROMPT_0.4.md)                 | Planejada                          |
 | 0.5    | Filtros, arquitetura de estilos, ASCII, pixel art e dithering                                                                                                 | Planejada                          |
 | 0.6    | Configuração BYOK, AI Horde, fila cancelável e geração/edição em nova camada                                                                                  | Planejada                          |
 | 0.7    | Modelos locais sob demanda, seleção inteligente, remoção de fundo, apagar objeto e ampliar                                                                    | Planejada                          |
