@@ -1,4 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { deslocamentoNoPapel } from './vista';
+import { clienteNoPapel, vistaAtual } from './vistaAtual';
 import type { Point } from '../layers/types';
 import {
   familiaDoTexto,
@@ -158,14 +160,13 @@ export function TextOverlay({
       concluir();
       return;
     }
-    const limites = evento.currentTarget.getBoundingClientRect();
-    atualizar({
-      texto: '',
-      origem: noPapel(
-        (evento.clientX - limites.left) / zoom,
-        (evento.clientY - limites.top) / zoom,
-      ),
-    });
+    const ponto = clienteNoPapel(
+      { x: evento.clientX, y: evento.clientY },
+      evento.currentTarget.getBoundingClientRect(),
+      largura,
+      altura,
+    );
+    atualizar({ texto: '', origem: noPapel(ponto.x, ponto.y) });
   }
 
   function iniciarArraste(evento: PointerEvent<HTMLButtonElement>) {
@@ -184,12 +185,14 @@ export function TextOverlay({
     const ativo = arraste.current;
     const atual = rascunhoAtual.current;
     if (!ativo || ativo.id !== evento.pointerId || !atual) return;
+    const delta = deslocamentoNoPapel(
+      { x: evento.clientX - ativo.click.x, y: evento.clientY - ativo.click.y },
+      zoom,
+      vistaAtual(),
+    );
     atualizar({
       ...atual,
-      origem: noPapel(
-        ativo.origem.x + (evento.clientX - ativo.click.x) / zoom,
-        ativo.origem.y + (evento.clientY - ativo.click.y) / zoom,
-      ),
+      origem: noPapel(ativo.origem.x + delta.x, ativo.origem.y + delta.y),
     });
   }
 

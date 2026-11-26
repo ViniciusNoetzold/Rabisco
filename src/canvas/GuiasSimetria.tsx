@@ -1,4 +1,5 @@
 import { useRef, type PointerEvent as EventoPonteiro } from 'react';
+import { clienteNoPapel } from './vistaAtual';
 import { useEditor } from '../app/store';
 import { configDaSimetria, linhasGuia } from '../brushes/simetria';
 import './simetria.css';
@@ -31,8 +32,14 @@ export function GuiasSimetria({ largura, altura, zoom }: Props) {
   function mover(evento: EventoPonteiro<SVGCircleElement>) {
     const atual = arrasto.current;
     if (!atual || atual.ponteiro !== evento.pointerId) return;
-    const x = Math.max(0, Math.min(largura, (evento.clientX - atual.caixa.left) / zoom));
-    const y = Math.max(0, Math.min(altura, (evento.clientY - atual.caixa.top) / zoom));
+    const ponto = clienteNoPapel(
+      { x: evento.clientX, y: evento.clientY },
+      atual.caixa,
+      largura,
+      altura,
+    );
+    const x = Math.max(0, Math.min(largura, ponto.x));
+    const y = Math.max(0, Math.min(altura, ponto.y));
     // Shift (ou soltar perto do meio) prende no centro do papel.
     const perto = Math.hypot(x - largura / 2, y - altura / 2) * zoom < 8;
     useEditor.getState().set({

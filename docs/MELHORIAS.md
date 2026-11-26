@@ -29,8 +29,10 @@
 - [ ] Perspectiva: 1 e 2 pontos de fuga com traços seguindo a linha de fuga
 - [ ] Guias no histórico (desfazer a criação ou remoção de uma guia)
 - [ ] Régua curva (elipse / curva francesa)
-- [ ] Rotação do canvas (girar a vista, não a imagem)
-- [ ] Prévia do traço respeitando as camadas de cima (hoje aparece por cima de tudo durante o gesto)
+- [x] Rotação e espelho da vista (girar a vista, não a imagem) — 0.4
+- [ ] Réguas laterais e miniatura também com a vista girada
+- [x] Prévia do traço respeitando as camadas de cima — 0.4
+- [ ] Prévia com o modo de mesclagem e a opacidade da camada ativa (hoje é a cor pura)
 - [ ] Mais pincéis: textura de papel, borrar/esfumar, misturador de cor
 - [ ] Gradiente (linear e radial) e balde com gradiente
 - [ ] Texto editável depois de confirmado (camada de texto "viva")

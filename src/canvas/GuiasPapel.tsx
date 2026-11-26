@@ -1,4 +1,5 @@
 import { useRef, type PointerEvent as EventoPonteiro } from 'react';
+import { clienteNoPapel } from './vistaAtual';
 import { useEditor } from '../app/store';
 import { prenderAnguloDaRegua, semGuia, type Regua } from '../document/guias';
 import { soltarGuia } from './soltarGuia';
@@ -39,7 +40,7 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
     return null;
 
   function noPapel(evento: EventoPonteiro, caixa: DOMRect): Point {
-    return { x: (evento.clientX - caixa.left) / zoom, y: (evento.clientY - caixa.top) / zoom };
+    return clienteNoPapel({ x: evento.clientX, y: evento.clientY }, caixa, largura, altura);
   }
 
   function comecar(evento: EventoPonteiro<SVGElement>, dados: Arrasto) {
@@ -133,7 +134,15 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
       {mostrar && guias.horizontais.map((valor) => linhaGuia('horizontal', valor, `h${valor}`))}
       {mostrar && guias.verticais.map((valor) => linhaGuia('vertical', valor, `v${valor}`))}
       {nova && linhaGuia(nova.eixo, nova.valor, 'nova', true)}
-      {regua && <DesenhoRegua regua={regua} zoom={zoom} comecar={comecar} eventos={eventos} />}
+      {regua && (
+        <DesenhoRegua
+          regua={regua}
+          zoom={zoom}
+          comecar={comecar}
+          eventos={eventos}
+          noPapelDaCaixa={noPapel}
+        />
+      )}
     </svg>
   );
 }
@@ -143,9 +152,11 @@ function DesenhoRegua({
   zoom,
   comecar,
   eventos,
+  noPapelDaCaixa,
 }: {
   regua: Regua;
   zoom: number;
+  noPapelDaCaixa: (evento: EventoPonteiro, caixa: DOMRect) => Point;
   comecar: (evento: EventoPonteiro<SVGElement>, dados: Arrasto) => void;
   eventos: Record<string, (evento: EventoPonteiro<SVGElement>) => void>;
 }) {
@@ -195,10 +206,7 @@ function DesenhoRegua({
           const caixa = evento.currentTarget.ownerSVGElement!.getBoundingClientRect();
           comecar(evento, {
             tipo: 'regua',
-            inicio: {
-              x: (evento.clientX - caixa.left) / zoom,
-              y: (evento.clientY - caixa.top) / zoom,
-            },
+            inicio: noPapelDaCaixa(evento, caixa),
             original: regua,
           });
         }}

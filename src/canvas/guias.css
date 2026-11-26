@@ -52,3 +52,24 @@
 .regua-mover {
   cursor: move;
 }
+
+/* Contorno da ponta do pincel e da borracha no tamanho real (0.4). */
+.cursor-pincel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+.cursor-pincel ellipse {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.cursor-pincel .cursor-claro {
+  stroke: #ffffffd9;
+  stroke-width: 3;
+}
+.cursor-pincel .cursor-escuro {
+  stroke: #1f2d3a;
+  stroke-width: 1;
+}

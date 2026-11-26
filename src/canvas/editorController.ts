@@ -1,4 +1,6 @@
 import { useEditor } from '../app/store';
+import { caixaGirada } from './vista';
+import { clienteNoPapel } from './vistaAtual';
 import { reguaPadrao, SEM_GUIAS } from '../document/guias';
 import {
   type Comando,
@@ -146,9 +148,11 @@ export class EditorController implements EditorApi, NucleoEditor {
 
   fit() {
     const { width, height } = this.workspace.getBoundingClientRect();
+    // Com a vista girada, cabe a caixa girada do papel.
+    const papel = caixaGirada(this.doc.width, this.doc.height, useEditor.getState().rotacaoVista);
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min(1, (width - 100) / this.doc.width, (height - 90) / this.doc.height),
+      Math.min(1, (width - 100) / papel.width, (height - 90) / papel.height),
     );
     this.acompanharAjuste = true;
     this.ajustandoZoom = true;
@@ -331,9 +335,10 @@ export class EditorController implements EditorApi, NucleoEditor {
       x: (Math.max(area.left, papel.left) + Math.min(area.right, papel.right)) / 2,
       y: (Math.max(area.top, papel.top) + Math.min(area.bottom, papel.bottom)) / 2,
     };
+    const meio = clienteNoPapel(visivel, papel, this.doc.width, this.doc.height);
     const centro = {
-      x: Math.max(0, Math.min(this.doc.width, (visivel.x - papel.left) / zoom)),
-      y: Math.max(0, Math.min(this.doc.height, (visivel.y - papel.top) / zoom)),
+      x: Math.max(0, Math.min(this.doc.width, meio.x)),
+      y: Math.max(0, Math.min(this.doc.height, meio.y)),
     };
     const largura = Math.min(this.doc.width, Math.max(80, (area.width * 0.6) / zoom));
     estado.set({ guiasDoPapel: { ...guiasDoPapel, regua: reguaPadrao(centro, largura) } });
@@ -643,6 +648,8 @@ export class EditorController implements EditorApi, NucleoEditor {
   ) {
     if (atual.zoom !== anterior.zoom && !this.ajustandoZoom) this.acompanharAjuste = false;
     if (!this.pronto) return;
+    // Zoom "ajustado à janela": girar a vista reajusta para o papel girado caber.
+    if (atual.rotacaoVista !== anterior.rotacaoVista && this.acompanharAjuste) this.fit();
     if (this.colagem.ativa) {
       if (
         atual.selecaoTransparente !== anterior.selecaoTransparente ||

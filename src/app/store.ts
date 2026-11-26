@@ -115,6 +115,10 @@ interface EditorState {
   guiasDoPapel: GuiasDocumento;
   /** Mostrar as guias do papel (e encaixar nelas). */
   mostrarGuias: boolean;
+  /** Vista girada (graus, −180…180): só a tela gira, a imagem não. */
+  rotacaoVista: number;
+  /** Vista espelhada (H), para conferir proporções. */
+  espelharVista: boolean;
   /** Guia sendo arrastada da régua lateral ou com a ferramenta Mover. */
   guiaNova: { eixo: 'horizontal' | 'vertical'; valor: number } | null;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
@@ -168,6 +172,8 @@ interface EditorState {
         | 'guiasDoPapel'
         | 'mostrarGuias'
         | 'guiaNova'
+        | 'rotacaoVista'
+        | 'espelharVista'
         | 'guiasInteligentes'
       >
     >,
@@ -227,6 +233,8 @@ export const useEditor = create<EditorState>()(
     guiasDoPapel: SEM_GUIAS,
     mostrarGuias: true,
     guiaNova: null,
+    rotacaoVista: 0,
+    espelharVista: false,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

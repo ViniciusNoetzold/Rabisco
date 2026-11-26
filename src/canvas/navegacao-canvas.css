@@ -22,3 +22,14 @@
   background: #71b8e619;
   pointer-events: none;
 }
+
+/* R segurada: arrastar gira a vista (0.4). */
+.workspace[data-pan='girar'],
+.workspace[data-pan='girar'] .drawing-canvas {
+  cursor: grab !important;
+}
+.workspace[data-pan='girando'],
+.workspace[data-pan='girando'] .drawing-canvas {
+  cursor: grabbing !important;
+  user-select: none;
+}

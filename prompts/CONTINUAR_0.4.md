@@ -9,12 +9,13 @@ Plano completo em [PROMPT_0.4.md](PROMPT_0.4.md). Leia também README, CHANGELOG
 - Passo 3: simetria e mandala (espelhos, quatro quadrantes, radial 2–24 com caleidoscópio, centro arrastável, Shift+S, um item no histórico com recorte por cópia). ✅
 - Passo 4: formas inteligentes (segurar parado no fim do traço de lápis/pincel vira forma editável; Enter confirma, Esc volta ao traço). ✅
 - Passo 5: régua de desenho (Shift+R) e guias arrastadas das réguas, com encaixe; salvas no .rabisco v2 e no autosave. Perspectiva ficou para depois. ✅
+- Passo 6: vista girada (R + arrastar, 4/5/6, dois dedos) e espelhada (H), prévia atrás das camadas de cima, palma e gestos de dois/três dedos, cursor do pincel no tamanho real. ✅
 
-Validação no fim do Passo 5: 160 testes unitários e 81 E2E passando; `npm run build` ok.
+Validação no fim do Passo 6: 166 testes unitários e 85 E2E passando; `npm run build` ok.
 
-## Próximo: Passo 6 — Vista e conforto
+## Próximo: Passo 7 — Ferramentas que faltam
 
-Siga o PASSO 6 do PROMPT_0.4.md (vista: rotação, espelhar, prévia respeitando camadas, toque, cursor). Depois os Passos 7 (gradiente, varinha mágica, borrar) e 8 (pendências: balde em worker, primeira pincelada em papel grande, seleção múltipla de camadas + distribuir, perf completo, docs e versão 0.4.0).
+Siga o PASSO 7 do PROMPT_0.4.md (gradiente, varinha mágica, borrar). Depois o Passo 8 (pendências: balde em worker, primeira pincelada em papel grande, seleção múltipla de camadas + distribuir, perf completo, docs e versão 0.4.0).
 
 ## Para rodar
 

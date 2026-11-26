@@ -9,6 +9,8 @@ import {
 import { useEditor } from '../app/store';
 import type { Point, Rect } from '../layers/types';
 import { areaDeZoom, indiceDoZoom, limitarZoom, nivelSeguinte, NIVEIS_ZOOM } from './zoom';
+import { normalizarAngulo, papelParaTela, teclaDeGiro, telaParaPapel } from './vista';
+import { vistaAtual } from './vistaAtual';
 import './navegacao-canvas.css';
 
 interface OpcoesNavegacao {
@@ -18,6 +20,9 @@ interface OpcoesNavegacao {
   lupaAtiva: boolean;
   cancelarDesenho(): void;
   bloqueada?: boolean | (() => boolean);
+  /** Dois dedos tocando e soltando: desfazer; três: refazer. */
+  desfazer?(): void;
+  refazer?(): void;
 }
 
 type EventosNavegacao = Pick<
@@ -46,6 +51,45 @@ interface Pinca {
   fator: number;
   distancia: number;
   documento: Point;
+  /** Ângulo entre os dois dedos no começo e a rotação da vista nessa hora. */
+  angulo: number;
+  rotacao: number;
+}
+
+/** R + arrastar: gira a vista em torno do centro do papel. */
+interface Giro {
+  ponteiro: number;
+  centro: Point;
+  angulo: number;
+  rotacao: number;
+}
+
+/** Dedos na tela para "dois dedos desfazem, três refazem". */
+interface Toque {
+  inicio: number;
+  maximo: number;
+  moveu: boolean;
+}
+
+function anguloEntre(pontos: Iterable<Point>) {
+  const [a, b] = pontos;
+  return a && b ? (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI : 0;
+}
+
+/** Ângulo do ponteiro em volta do centro, em graus. */
+function anguloEmVolta(centro: Point, ponto: Point) {
+  return (Math.atan2(ponto.y - centro.y, ponto.x - centro.x) * 180) / Math.PI;
+}
+
+/** Gira a vista e prende perto dos ângulos retos (ou de 15 em 15° com Shift). */
+function girarVista(rotacao: number, prender15: boolean) {
+  let alvo = normalizarAngulo(rotacao);
+  if (prender15) alvo = normalizarAngulo(Math.round(alvo / 15) * 15);
+  else {
+    const reto = Math.round(alvo / 90) * 90;
+    if (Math.abs(alvo - reto) < 4) alvo = normalizarAngulo(reto);
+  }
+  if (alvo !== useEditor.getState().rotacaoVista) useEditor.getState().set({ rotacaoVista: alvo });
 }
 
 function meioESeparacao(pontos: Iterable<Point>) {
@@ -73,6 +117,10 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
   const bloqueiaToques = useRef(false);
   const pinca = useRef<Pinca | null>(null);
   const toqueDaLupa = useRef<{ ponteiro: number; tela: Point } | null>(null);
+  const giro = useRef<Giro | null>(null);
+  const toqueMultiplo = useRef<Toque | null>(null);
+  /** Viu uma caneta: toques da mão (palma) não desenham mais. */
+  const temCaneta = useRef(false);
   const espaco = useRef(false);
   const ponteiroSobre = useRef(false);
   const ultimaPosicaoLupa = useRef<Point | null>(null);
@@ -86,25 +134,51 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
   function atualizarCursor() {
     const area = viewport.current;
     if (!area) return;
-    if (arraste.current || bloqueiaToques.current) area.dataset.pan = 'ativo';
+    if (giro.current) area.dataset.pan = 'girando';
+    else if (teclaDeGiro.segurando) area.dataset.pan = 'girar';
+    else if (arraste.current || bloqueiaToques.current) area.dataset.pan = 'ativo';
     else if (espaco.current) area.dataset.pan = 'pronto';
     else delete area.dataset.pan;
   }
 
+  /** Tamanho do papel (px do documento): o tamanho de layout do palco não muda com o giro. */
+  function papel() {
+    const folha = palco.current;
+    const fator = zoomRenderizado.current;
+    return folha
+      ? { largura: folha.offsetWidth / fator, altura: folha.offsetHeight / fator }
+      : null;
+  }
+
   function pontoNoDocumento(tela: Point): Point | null {
     const caixa = palco.current?.getBoundingClientRect();
-    if (!caixa) return null;
-    const fator = zoomRenderizado.current;
-    return { x: (tela.x - caixa.left) / fator, y: (tela.y - caixa.top) / fator };
+    const dimensoes = papel();
+    if (!caixa || !dimensoes) return null;
+    return telaParaPapel(
+      tela,
+      caixa,
+      dimensoes.largura,
+      dimensoes.altura,
+      zoomRenderizado.current,
+      vistaAtual(),
+    );
   }
 
   function moverAncora({ documento, tela }: Ancora) {
     const area = viewport.current;
     const caixa = palco.current?.getBoundingClientRect();
-    if (!area || !caixa) return;
-    const fator = zoomRenderizado.current;
-    area.scrollLeft += caixa.left + documento.x * fator - tela.x;
-    area.scrollTop += caixa.top + documento.y * fator - tela.y;
+    const dimensoes = papel();
+    if (!area || !caixa || !dimensoes) return;
+    const agora = papelParaTela(
+      documento,
+      caixa,
+      dimensoes.largura,
+      dimensoes.altura,
+      zoomRenderizado.current,
+      vistaAtual(),
+    );
+    area.scrollLeft += agora.x - tela.x;
+    area.scrollTop += agora.y - tela.y;
   }
 
   function zoomComAncora(fator: number, ancora: Ancora) {
@@ -129,7 +203,6 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
       setPreviaLupa(null);
       return;
     }
-    const caixa = folha.getBoundingClientRect();
     setPreviaLupa(
       areaDeZoom(
         documento,
@@ -138,8 +211,8 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
           height: area.clientHeight,
         },
         {
-          width: caixa.width / fator,
-          height: caixa.height / fator,
+          width: folha.offsetWidth / fator,
+          height: folha.offsetHeight / fator,
         },
         seguinte,
       ),
@@ -168,7 +241,13 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
     const documento = medicao && pontoNoDocumento(medicao.meio);
     pinca.current =
       medicao && documento
-        ? { fator: zoomRenderizado.current, distancia: medicao.distancia, documento }
+        ? {
+            fator: zoomRenderizado.current,
+            distancia: medicao.distancia,
+            documento,
+            angulo: anguloEntre(toques.current.values()),
+            rotacao: useEditor.getState().rotacaoVista,
+          }
         : null;
   }
 
@@ -227,20 +306,42 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
 
     function soltarEspaco() {
       espaco.current = false;
+      teclaDeGiro.segurando = false;
       atualizarCursor();
     }
 
     function teclaSolta(evento: KeyboardEvent) {
       if (evento.code === 'Space') soltarEspaco();
+      if (evento.key.toLowerCase() === 'r') {
+        teclaDeGiro.segurando = false;
+        atualizarCursor();
+      }
+    }
+
+    /** R segurada: arrastar no papel gira a vista (soltar sem girar escolhe o retângulo). */
+    function pressionarR(evento: KeyboardEvent) {
+      if (evento.key.toLowerCase() !== 'r' || evento.repeat) return;
+      if (evento.altKey || evento.ctrlKey || evento.metaKey || evento.shiftKey) return;
+      const alvo = evento.target;
+      if (
+        alvo instanceof Element &&
+        alvo.closest('input, textarea, select, [contenteditable="true"], dialog')
+      )
+        return;
+      teclaDeGiro.segurando = true;
+      teclaDeGiro.girou = false;
+      atualizarCursor();
     }
 
     area.addEventListener('wheel', roda, { passive: false });
     window.addEventListener('keydown', pressionarEspaco);
+    window.addEventListener('keydown', pressionarR);
     window.addEventListener('keyup', teclaSolta);
     window.addEventListener('blur', soltarEspaco);
     return () => {
       area.removeEventListener('wheel', roda);
       window.removeEventListener('keydown', pressionarEspaco);
+      window.removeEventListener('keydown', pressionarR);
       window.removeEventListener('keyup', teclaSolta);
       window.removeEventListener('blur', soltarEspaco);
     };
@@ -258,8 +359,18 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
       if (navegacaoBloqueada()) return;
       const { currentTarget: area, pointerId, pointerType, button } = evento;
       const tela = pontoNaTela(evento);
+      if (pointerType === 'pen') temCaneta.current = true;
       if (pointerType === 'touch') {
+        // Com caneta em uso, a palma encostando não desenha (os gestos de dois dedos seguem).
+        if (temCaneta.current && toques.current.size === 0 && sobrePapel(evento.target)) {
+          toques.current.set(pointerId, tela);
+          registrarToque();
+          evento.preventDefault();
+          evento.stopPropagation();
+          return;
+        }
         toques.current.set(pointerId, tela);
+        registrarToque();
         if (toques.current.size >= 2 || bloqueiaToques.current) {
           if (!bloqueiaToques.current) {
             atuais.current.cancelarDesenho();
@@ -269,6 +380,24 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
           bloqueiaToques.current = true;
           for (const id of toques.current.keys()) area.setPointerCapture(id);
           mostrarLupa(null);
+          atualizarCursor();
+          evento.preventDefault();
+          evento.stopPropagation();
+          return;
+        }
+      }
+      if (button === 0 && teclaDeGiro.segurando && sobrePapel(evento.target)) {
+        const caixa = palco.current?.getBoundingClientRect();
+        if (caixa) {
+          atuais.current.cancelarDesenho();
+          const centro = { x: caixa.left + caixa.width / 2, y: caixa.top + caixa.height / 2 };
+          giro.current = {
+            ponteiro: pointerId,
+            centro,
+            angulo: anguloEmVolta(centro, tela),
+            rotacao: useEditor.getState().rotacaoVista,
+          };
+          area.setPointerCapture(pointerId);
           atualizarCursor();
           evento.preventDefault();
           evento.stopPropagation();
@@ -297,7 +426,20 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
     onPointerMoveCapture(evento) {
       const { currentTarget: area, pointerId } = evento;
       const tela = pontoNaTela(evento);
+      const girando = giro.current;
+      if (girando?.ponteiro === pointerId) {
+        teclaDeGiro.girou = true;
+        girarVista(
+          girando.rotacao + anguloEmVolta(girando.centro, tela) - girando.angulo,
+          evento.shiftKey,
+        );
+        evento.stopPropagation();
+        return;
+      }
       if (toques.current.has(pointerId)) {
+        const anterior = toques.current.get(pointerId)!;
+        if (toqueMultiplo.current && Math.hypot(tela.x - anterior.x, tela.y - anterior.y) > 2)
+          toqueMultiplo.current.moveu ||= Math.hypot(tela.x - anterior.x, tela.y - anterior.y) > 10;
         toques.current.set(pointerId, tela);
         if (bloqueiaToques.current) {
           const gesto = pinca.current;
@@ -307,6 +449,12 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
             const indice = indiceDoZoom(alvo);
             const fator = indice === indiceDoZoom(gesto.fator) ? gesto.fator : NIVEIS_ZOOM[indice];
             zoomComAncora(fator, { documento: gesto.documento, tela: medicao.meio });
+            // Girar os dois dedos gira a vista (pequenas variações não contam).
+            const virada = normalizarAngulo(anguloEntre(toques.current.values()) - gesto.angulo);
+            if (Math.abs(virada) > 8) {
+              if (toqueMultiplo.current) toqueMultiplo.current.moveu = true;
+              girarVista(gesto.rotacao + virada, false);
+            }
           }
           evento.stopPropagation();
           return;
@@ -344,8 +492,33 @@ export function useNavegacaoCanvas(opcoes: OpcoesNavegacao) {
     return true;
   }
 
+  /** Conta os dedos de um toque: dois dedos que tocam e soltam rápido desfazem, três refazem. */
+  function registrarToque() {
+    const agora = performance.now();
+    const atual = toqueMultiplo.current;
+    if (!atual || toques.current.size === 1)
+      toqueMultiplo.current = { inicio: agora, maximo: toques.current.size, moveu: false };
+    else atual.maximo = Math.max(atual.maximo, toques.current.size);
+  }
+
+  function concluirToque() {
+    const toque = toqueMultiplo.current;
+    if (!toque || toques.current.size > 0) return;
+    toqueMultiplo.current = null;
+    if (toque.moveu || performance.now() - toque.inicio > 350) return;
+    if (toque.maximo === 2) atuais.current.desfazer?.();
+    else if (toque.maximo === 3) atuais.current.refazer?.();
+  }
+
   function encerrarPonteiro(id: number, tela?: Point): boolean {
+    if (giro.current?.ponteiro === id) {
+      giro.current = null;
+      atualizarCursor();
+      return true;
+    }
+    const eraToque = toques.current.has(id);
     const terminouToque = encerraToque(id);
+    if (eraToque) concluirToque();
     if (arraste.current?.ponteiro === id) {
       arraste.current = null;
       atualizarCursor();

@@ -144,6 +144,8 @@ export class ControleFerramentas {
       ? configDaSimetria(useEditor.getState(), this.nucleo.doc.width, this.nucleo.doc.height)
       : null;
     this.simetria = config && { config, copias: transformacoes(config) };
+    // A prévia do traço fica atrás das camadas de cima, como o resultado final.
+    if (FERRAMENTAS_ESTABILIZAVEIS.has(id)) this.superficie.mostrarCamadasDeCima();
     // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
     this.inteligente =
       useEditor.getState().formasInteligentes && (id === 'pencil' || id === 'brush') && !config

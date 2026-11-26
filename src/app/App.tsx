@@ -1,4 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { teclaDeGiro } from '../canvas/vista';
+import { alternarEspelhoDaVista, girarVistaPara } from './components/VistaControles';
 import { alternarSimetria } from './components/SimetriaControles';
 import { CanvasSurface, type EditorApi } from '../canvas/CanvasSurface';
 import type { DadosFormaPropria, FormaPropria } from '../shapes/presets';
@@ -290,6 +292,22 @@ export default function App() {
         notify(alternarSimetria());
         return;
       }
+      if (key === 'r' && !event.altKey && !event.shiftKey) {
+        // R segurada + arrastar gira a vista; o retângulo é escolhido ao soltar o R.
+        event.preventDefault();
+        return;
+      }
+      if (!event.altKey && ['4', '5', '6'].includes(key)) {
+        // Como no Krita: 4 e 6 giram a vista de 15 em 15°, 5 volta a 0°.
+        event.preventDefault();
+        notify(girarVistaPara(key === '5' ? 0 : state.rotacaoVista + (key === '4' ? -15 : 15)));
+        return;
+      }
+      if (key === 'h' && !event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        notify(alternarEspelhoDaVista());
+        return;
+      }
       if (key === 'a' && !event.altKey) {
         event.preventDefault();
         state.setPincel('spray');
@@ -331,9 +349,18 @@ export default function App() {
       if (arquivo) run(() => prepararColagem(arquivo, true, !naAtual));
       else run(() => editor.current?.paste());
     }
+    function teclaSolta(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'r' || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.shiftKey || editandoTexto(event.target) || dialog || painelFormas) return;
+      // Soltou o R sem girar a vista: é o atalho do retângulo.
+      if (teclaDeGiro.girou) teclaDeGiro.girou = false;
+      else useEditor.getState().setTool('rectangle');
+    }
     window.addEventListener('keydown', keys);
+    window.addEventListener('keyup', teclaSolta);
     window.addEventListener('paste', receberColagem);
     return () => {
+      window.removeEventListener('keyup', teclaSolta);
       window.removeEventListener('keydown', keys);
       window.removeEventListener('paste', receberColagem);
     };

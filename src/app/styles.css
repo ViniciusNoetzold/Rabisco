@@ -712,9 +712,15 @@ input[type='range']::-webkit-slider-thumb {
   scrollbar-width: thin;
   scrollbar-color: #b2c5d6 #e3eaf0;
 }
-.canvas-stage {
+/* A moldura ocupa a caixa do papel girado; o palco gira dentro dela (0.4). */
+.canvas-giro {
   position: relative;
   flex-shrink: 0;
+}
+.canvas-stage {
+  position: absolute;
+  flex-shrink: 0;
+  transform-origin: 50% 50%;
   background: white;
   box-shadow:
     0 2px 6px #2b405f1f,
@@ -2206,4 +2212,55 @@ input[type='range']::-webkit-slider-thumb {
   align-items: center;
   gap: 6px;
   font-size: 12px;
+}
+
+/* Grupo "Vista" da aba Exibir (0.4): girar e espelhar a vista. */
+.vista-controles {
+  display: grid;
+  gap: 5px;
+  padding: 4px 6px;
+  align-content: start;
+}
+.vista-giro {
+  display: flex;
+  gap: 2px;
+}
+.vista-giro button,
+.vista-espelho {
+  min-width: 0;
+  padding: 0 5px;
+  font-size: 12px;
+}
+.vista-angulo {
+  min-width: 42px !important;
+}
+.vista-espelho {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vista-espelho[aria-pressed='true'] {
+  border-color: #6f9fcf;
+  background: linear-gradient(#e4f0fb, #cfe3f6);
+}
+
+/* Indicador da vista girada/espelhada na barra de status (0.4). */
+.vista-status {
+  min-width: 0;
+  min-height: 0;
+  height: 20px;
+  padding: 0 6px;
+  margin-right: 6px;
+  font-size: 11px;
+  color: #1d6eb0;
+}
+
+/* Camadas acima da ativa, por cima da prévia do traço (0.4). */
+.acima-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
 }

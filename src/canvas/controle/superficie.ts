@@ -40,6 +40,41 @@ export class SuperficieTela {
     this.overlay = previa.getContext('2d')!;
   }
 
+  /** As camadas visíveis acima da ativa, por cima da prévia do traço (só durante o traço). */
+  private acima: HTMLCanvasElement | null = null;
+
+  /**
+   * Começo de um traço: se há camadas visíveis acima da ativa, compõe só elas numa tela por
+   * cima da prévia, para o traço aparecer na posição certa da pilha (atrás delas).
+   */
+  mostrarCamadasDeCima() {
+    const { doc } = this;
+    const indice = doc.layers.findIndex((camada) => camada.id === doc.activeLayerId);
+    const deCima = doc.layers.slice(indice + 1);
+    if (!deCima.some((camada) => camada.visible && camada.opacity > 0 && !camada.foraDaTela))
+      return;
+    const abaixo = doc.layers.slice(0, indice + 1).filter((camada) => !camada.foraDaTela);
+    for (const camada of abaixo) camada.foraDaTela = true;
+    try {
+      if (!this.acima) {
+        this.acima = document.createElement('canvas');
+        this.acima.className = 'acima-canvas';
+        this.acima.setAttribute('aria-hidden', 'true');
+        this.overlay.canvas.after(this.acima);
+      }
+      comporDocumento(doc, this.acima);
+      // Mesma nitidez da tela (pixels quadrados no zoom alto).
+      this.acima.style.imageRendering = getComputedStyle(this.tela).imageRendering;
+      this.acima.hidden = false;
+    } finally {
+      for (const camada of abaixo) delete camada.foraDaTela;
+    }
+  }
+
+  private esconderCamadasDeCima() {
+    if (this.acima && !this.acima.hidden) this.acima.hidden = true;
+  }
+
   /** Há uma prévia de gesto pintada na tela que ainda não está no documento. */
   get temPrevia(): boolean {
     return this.areaPrevia !== null;
@@ -143,6 +178,7 @@ export class SuperficieTela {
 
   /** Apaga as prévias e recompõe só a área que elas ocupavam. */
   limpar() {
+    this.esconderCamadasDeCima();
     if (this.previaPincel) {
       const area = this.previaPincel.area && limitarArea(this.previaPincel.area, this.doc);
       if (area) this.overlay.clearRect(area.x, area.y, area.width, area.height);

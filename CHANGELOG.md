@@ -2,6 +2,16 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 6 — Vista e conforto
+
+- **Girar a vista** (só a tela; a imagem não muda): **R segurada + arrastar** no papel gira livre (prende perto dos ângulos retos; Shift de 15 em 15°), **4** e **6** giram 15°, **5** volta a 0°, dois dedos girando na tela também giram. Botões no grupo "Vista" da aba Exibir e o ângulo na barra de status (clique volta ao normal). Com o zoom ajustado à janela, girar reajusta para o papel caber. Soltar o R sem girar continua escolhendo o retângulo.
+- **Espelhar a vista** (**H**), para conferir proporções; aparece "⇋ espelhada" na barra.
+- Todas as ferramentas, alças, conta-gotas, texto, guias, régua de desenho e o centro da simetria acertam o ponto com a vista girada ou espelhada: a conversão tela→papel fica em `src/canvas/vista.ts`. Com a vista girada, as réguas laterais, a miniatura e as alças de tamanho do papel se escondem (voltam em 0°).
+- **Prévia do traço respeitando as camadas**: com camadas visíveis acima da ativa, elas aparecem por cima da prévia durante o traço (antes a prévia ficava por cima de tudo). Pendência da 0.3 resolvida.
+- **Toque**: com caneta em uso, a palma encostando não desenha; dois dedos tocando e soltando desfazem, três refazem.
+- **Cursor do pincel e da borracha** no tamanho real, com a ponta oval da caligrafia e do marcador; some quando fica menor que 4 px na tela. Gira junto com a vista.
+- Testes: 6 unitários da conversão (90°, espelho, ida e volta em vários ângulos, arraste) e 4 E2E (traço horizontal na tela vira vertical no papel a 90°; conta-gotas e alça do retângulo com a vista girada; prévia atrás da camada de cima e espelho com H; R + arrastar gira e R sozinho escolhe o retângulo). Total: 166 unitários e 85 E2E.
+
 ### Passo 5 — Régua de desenho e guias
 
 - **Régua de desenho** (aba Exibir › Régua e guias, ou **Shift+R**): uma régua com marcas aparece no meio da área visível. Arraste a bolinha do meio para mover e as pontas para girar ou esticar (Shift gira de 15 em 15°). Um traço de lápis, pincel, spray ou borracha que **começa perto da borda** (até 28 px de tela) gruda nela e sai reto até soltar, como numa régua de verdade; longe dela o traço é livre.

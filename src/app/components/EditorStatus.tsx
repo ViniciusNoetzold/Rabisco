@@ -58,6 +58,18 @@ export const EditorStatus = forwardRef<CursorStatusApi, EditorStatusProps>(funct
       >
         <Icon name="application-resize-full" />
       </button>
+      {(state.rotacaoVista !== 0 || state.espelharVista) && (
+        <button
+          type="button"
+          className="vista-status"
+          title="A vista está girada ou espelhada (a imagem não). Clique para voltar ao normal."
+          onClick={() => state.set({ rotacaoVista: 0, espelharVista: false })}
+        >
+          {state.rotacaoVista !== 0 && `↻ ${state.rotacaoVista}°`}
+          {state.rotacaoVista !== 0 && state.espelharVista && ' · '}
+          {state.espelharVista && '⇋ espelhada'}
+        </button>
+      )}
       <span className="zoom-value">{formatarZoom(state.zoom)}</span>
       <div className="zoom-control">
         <button

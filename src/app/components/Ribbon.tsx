@@ -10,6 +10,7 @@ import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
 import { SprayControls, StrokeThickness } from './StrokeThickness';
 import { TextTools } from './TextTools';
 import { SimetriaControles } from './SimetriaControles';
+import { VistaControles } from './VistaControles';
 import { ControlesDeBalde, ControlesDeBorracha } from './ContextPixelTools';
 import { SelectionMenu } from './SelectionMenu';
 import { nivelSeguinte } from '../../canvas/zoom';
@@ -335,7 +336,7 @@ export function Ribbon({
                 </button>
               </div>
             </RibbonGroup>
-            <RibbonGroup title="Mostrar ou ocultar" chave="mostrar" prioridade={2} icone="grid">
+            <RibbonGroup title="Mostrar ou ocultar" chave="mostrar" prioridade={5} icone="grid">
               <div className="view-checks">
                 {(
                   [
@@ -355,6 +356,9 @@ export function Ribbon({
                   </label>
                 ))}
               </div>
+            </RibbonGroup>
+            <RibbonGroup title="Vista" chave="vista" prioridade={1.2} icone="arrow-curve">
+              <VistaControles />
             </RibbonGroup>
             <RibbonGroup title="Régua e guias" chave="guias" prioridade={1.5} icone="ruler">
               <div className="view-buttons guias-botoes">

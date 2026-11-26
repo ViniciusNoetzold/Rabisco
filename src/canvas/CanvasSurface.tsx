@@ -1,4 +1,7 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { atualizarCursorPincel } from './cursorPincel';
+import { caixaGirada, transformacaoCss, vistaNormal } from './vista';
+import { clienteNoPapel } from './vistaAtual';
 import type { PointerEvent as EventoPonteiro } from 'react';
 import { useEditor } from '../app/store';
 import type { Rect } from '../layers/types';
@@ -20,12 +23,17 @@ const dimensoesIniciais = { width: 1024, height: 640 };
 
 function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
   const tela = evento.currentTarget;
-  const caixa = tela.getBoundingClientRect();
-  const zoom = useEditor.getState().zoom;
+  // A vista pode estar girada ou espelhada: a conversão desfaz isso.
+  const ponto = clienteNoPapel(
+    { x: evento.clientX, y: evento.clientY },
+    tela.getBoundingClientRect(),
+    tela.width,
+    tela.height,
+  );
   return {
     ponto: {
-      x: Math.max(0, Math.min(tela.width - 1, (evento.clientX - caixa.left) / zoom)),
-      y: Math.max(0, Math.min(tela.height - 1, (evento.clientY - caixa.top) / zoom)),
+      x: Math.max(0, Math.min(tela.width - 1, ponto.x)),
+      y: Math.max(0, Math.min(tela.height - 1, ponto.y)),
       pressure: evento.pointerType === 'pen' ? evento.pressure : undefined,
     },
     botao: evento.button,
@@ -60,6 +68,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const workspace = useRef<HTMLDivElement>(null);
     const palco = useRef<HTMLDivElement>(null);
     const camadaColagem = useRef<HTMLDivElement>(null);
+    const cursorPincel = useRef<SVGSVGElement>(null);
     const editor = useRef<EditorController>(null);
     const redimensionando = useRef(false);
     const eventos = useRef(callbacks);
@@ -71,6 +80,10 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const grid = useEditor((estado) => estado.grid);
     const ruler = useEditor((estado) => estado.ruler);
     const miniatura = useEditor((estado) => estado.miniatura);
+    const rotacaoVista = useEditor((estado) => estado.rotacaoVista);
+    const espelharVista = useEditor((estado) => estado.espelharVista);
+    const vista = { rotacao: rotacaoVista, espelhar: espelharVista };
+    const girada = !vistaNormal(vista);
     const estiloTexto = useEditor((estado) => estado.estiloTexto);
     const cor1 = useEditor((estado) => estado.color1);
     const cor2 = useEditor((estado) => estado.color2);
@@ -80,6 +93,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
       zoom,
       lupaAtiva: tool === 'zoom',
       cancelarDesenho: () => editor.current?.cancelarGesto(),
+      desfazer: () => editor.current?.undo(),
+      refazer: () => editor.current?.redo(),
       bloqueada: () => redimensionando.current,
     });
 
@@ -157,6 +172,10 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     function mover(evento: EventoPonteiro<HTMLCanvasElement>) {
       const convertido = traduzirEvento(evento);
       eventos.current.onCursor(convertido.ponto);
+      atualizarCursorPincel(
+        cursorPincel.current,
+        evento.pointerType === 'touch' ? null : convertido.ponto,
+      );
       editor.current?.moverGesto(evento.pointerId, convertido);
     }
 
@@ -171,6 +190,14 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     }
 
     const tamanho = { width: dimensoes.width * zoom, height: dimensoes.height * zoom };
+    // O palco gira em torno do centro; a moldura ocupa a caixa girada (para a rolagem certa).
+    const moldura = caixaGirada(tamanho.width, tamanho.height, rotacaoVista);
+    const estiloPalco = {
+      ...tamanho,
+      left: (moldura.width - tamanho.width) / 2,
+      top: (moldura.height - tamanho.height) / 2,
+      transform: transformacaoCss(vista),
+    };
     const propsViewport = {
       viewport: workspace,
       tela,
@@ -186,86 +213,104 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
           aria-label="Área de trabalho"
           {...navegacao.eventos}
         >
-          <div ref={palco} className="canvas-stage" style={tamanho}>
-            <canvas
-              ref={tela}
-              className={`drawing-canvas tool-${tool} ${zoom >= 1 ? 'zoom-nitido' : ''}`}
-              width={dimensoesIniciais.width}
-              height={dimensoesIniciais.height}
-              tabIndex={0}
-              aria-label="Tela de desenho. Use o ponteiro para desenhar e os botões das ferramentas para escolher uma ação."
-              style={tamanho}
-              onContextMenu={(evento) => evento.preventDefault()}
-              onPointerDown={
-                medicaoAtiva
-                  ? (evento) => medirPonteiro(evento, 'inicio', () => pressionar(evento))
-                  : pressionar
-              }
-              onPointerMove={
-                medicaoAtiva
-                  ? (evento) => medirPonteiro(evento, 'movimento', () => mover(evento))
-                  : mover
-              }
-              onPointerUp={
-                medicaoAtiva
-                  ? (evento) => medirPonteiro(evento, 'fim', () => terminar(evento))
-                  : terminar
-              }
-              onPointerCancel={(evento) => terminar(evento, true)}
-              onLostPointerCapture={(evento) => terminar(evento, true)}
-              onPointerLeave={() => {
-                editor.current?.sairDoPonteiro();
-                eventos.current.onCursor(null);
-              }}
-            />
-            <canvas
-              ref={previa}
-              width={dimensoesIniciais.width}
-              height={dimensoesIniciais.height}
-              className="preview-canvas"
-              style={tamanho}
-              aria-hidden="true"
-            />
-            <div ref={camadaColagem} className="camada-colagem" aria-hidden="true" />
-            {(grid || zoom >= 4) && (
-              <div
-                className={`canvas-grid ${zoom >= 4 ? 'grade-de-pixels' : ''}`}
-                style={{
-                  backgroundSize: `${(zoom >= 4 ? 1 : 16) * zoom}px ${(zoom >= 4 ? 1 : 16) * zoom}px`,
+          <div className="canvas-giro" style={moldura}>
+            <div
+              ref={palco}
+              className="canvas-stage"
+              style={estiloPalco}
+              data-vista-girada={girada ? '' : undefined}
+            >
+              <canvas
+                ref={tela}
+                className={`drawing-canvas tool-${tool} ${zoom >= 1 ? 'zoom-nitido' : ''}`}
+                width={dimensoesIniciais.width}
+                height={dimensoesIniciais.height}
+                tabIndex={0}
+                aria-label="Tela de desenho. Use o ponteiro para desenhar e os botões das ferramentas para escolher uma ação."
+                style={tamanho}
+                onContextMenu={(evento) => evento.preventDefault()}
+                onPointerDown={
+                  medicaoAtiva
+                    ? (evento) => medirPonteiro(evento, 'inicio', () => pressionar(evento))
+                    : pressionar
+                }
+                onPointerMove={
+                  medicaoAtiva
+                    ? (evento) => medirPonteiro(evento, 'movimento', () => mover(evento))
+                    : mover
+                }
+                onPointerUp={
+                  medicaoAtiva
+                    ? (evento) => medirPonteiro(evento, 'fim', () => terminar(evento))
+                    : terminar
+                }
+                onPointerCancel={(evento) => terminar(evento, true)}
+                onLostPointerCapture={(evento) => terminar(evento, true)}
+                onPointerLeave={() => {
+                  editor.current?.sairDoPonteiro();
+                  eventos.current.onCursor(null);
+                  atualizarCursorPincel(cursorPincel.current, null);
                 }}
               />
-            )}
-            {selecao && (
-              <div
-                className="selection-marquee"
-                style={{
-                  left: selecao.x * zoom,
-                  top: selecao.y * zoom,
-                  width: selecao.width * zoom,
-                  height: selecao.height * zoom,
-                }}
+              <canvas
+                ref={previa}
+                width={dimensoesIniciais.width}
+                height={dimensoesIniciais.height}
+                className="preview-canvas"
+                style={tamanho}
+                aria-hidden="true"
               />
-            )}
-            <GuiasSimetria largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
-            <GuiasPapel largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
-            <PaperResizeHandles
-              tamanho={dimensoes}
-              zoom={zoom}
-              aoPrevisualizar={previsualizarPapel}
-              aoAplicar={aplicarPapel}
-              aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
-            />
-            <TextOverlay
-              ativo={tool === 'text'}
-              zoom={zoom}
-              largura={dimensoes.width}
-              altura={dimensoes.height}
-              estilo={estiloTexto}
-              cor1={cor1}
-              cor2={cor2}
-              confirmar={(configuracao) => editor.current?.aplicarTexto(configuracao)}
-            />
-            <LupaOverlay area={navegacao.previaLupa} zoom={zoom} />
+              <div ref={camadaColagem} className="camada-colagem" aria-hidden="true" />
+              <svg
+                ref={cursorPincel}
+                className="cursor-pincel"
+                width={tamanho.width}
+                height={tamanho.height}
+                aria-hidden="true"
+                style={{ display: 'none' }}
+              />
+              {(grid || zoom >= 4) && (
+                <div
+                  className={`canvas-grid ${zoom >= 4 ? 'grade-de-pixels' : ''}`}
+                  style={{
+                    backgroundSize: `${(zoom >= 4 ? 1 : 16) * zoom}px ${(zoom >= 4 ? 1 : 16) * zoom}px`,
+                  }}
+                />
+              )}
+              {selecao && (
+                <div
+                  className="selection-marquee"
+                  style={{
+                    left: selecao.x * zoom,
+                    top: selecao.y * zoom,
+                    width: selecao.width * zoom,
+                    height: selecao.height * zoom,
+                  }}
+                />
+              )}
+              <GuiasSimetria largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
+              <GuiasPapel largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
+              {!girada && (
+                <PaperResizeHandles
+                  tamanho={dimensoes}
+                  zoom={zoom}
+                  aoPrevisualizar={previsualizarPapel}
+                  aoAplicar={aplicarPapel}
+                  aoAvisar={(mensagem) => eventos.current.onMessage(mensagem)}
+                />
+              )}
+              <TextOverlay
+                ativo={tool === 'text'}
+                zoom={zoom}
+                largura={dimensoes.width}
+                altura={dimensoes.height}
+                estilo={estiloTexto}
+                cor1={cor1}
+                cor2={cor2}
+                confirmar={(configuracao) => editor.current?.aplicarTexto(configuracao)}
+              />
+              <LupaOverlay area={navegacao.previaLupa} zoom={zoom} />
+            </div>
           </div>
           <div className="workspace-hint">
             <span className="workspace-default-hint">Um pequeno espaço para grandes ideias.</span>
@@ -275,8 +320,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             </span>
           </div>
         </div>
-        {ruler && !callbacks.telaInteira && <Reguas {...propsViewport} />}
-        {miniatura && !callbacks.telaInteira && (
+        {ruler && !callbacks.telaInteira && !girada && <Reguas {...propsViewport} />}
+        {miniatura && !callbacks.telaInteira && !girada && (
           <Miniatura
             {...propsViewport}
             revisao={callbacks.revisaoMiniatura}
