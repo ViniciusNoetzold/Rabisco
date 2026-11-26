@@ -18,9 +18,9 @@ Validação da 0.4.0: 181 testes unitários e 91 E2E passando; `npm run build` e
 
 **A 0.4 está concluída.**
 
-## Próximo: planejar a 0.5 — estilos e filtros
+## Próximo: a 0.5 — estilos e filtros
 
-Escreva `prompts/PROMPT_0.5.md` no mesmo formato do PROMPT_0.4: filtros (desfoque, nitidez, brilho/contraste, matiz/saturação, níveis) e a arquitetura de **estilos** do pedido original — **ASCII** (texto e imagem), **pixel art** (paleta limitada, grade), **dithering** (Floyd–Steinberg, Bayer) e **meio-tom** —, cada um como comando serializável com prévia, aplicável à camada ou à seleção. Consulte docs/IDEIA.md, docs/FERRAMENTAS.md (bibliotecas pesquisadas e licenças) e docs/MELHORIAS.md.
+O plano está pronto em **[prompts/PROMPT_0.5.md](PROMPT_0.5.md)** (8 passos: arquitetura de filtros, filtros de cor, desfoque/nitidez/ruído, pixel art, ASCII, dithering e meio-tom, camadas de ajuste e fechamento). Decida as perguntas da seção "Decisões" (ou aceite os padrões), cole o bloco do prompt na IA de código e diga "começar".
 
 ## Para rodar
 

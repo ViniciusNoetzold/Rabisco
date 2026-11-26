@@ -160,7 +160,7 @@ A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](d
 
 **Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
-Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) o **ponto de continuação** em [prompts/CONTINUAR_0.4.md](prompts/CONTINUAR_0.4.md) e o **plano da 0.4** em [prompts/PROMPT_0.4.md](prompts/PROMPT_0.4.md).
+Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) o **ponto de continuação** em [prompts/CONTINUAR_0.4.md](prompts/CONTINUAR_0.4.md) e o **plano da 0.5** (estilos e filtros) em [prompts/PROMPT_0.5.md](prompts/PROMPT_0.5.md).
 
 ## 🧪 Testes e desempenho
 
