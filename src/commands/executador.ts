@@ -128,7 +128,28 @@ export class Executador {
   ultimaSelecaoTransformada: Rect | null = null;
   motivoRecusa: MotivoRecusa = null;
 
+  /** Balde calculado fora da thread da tela: usado uma vez, pelo mesmo comando. */
+  private planoPronto: {
+    comando: Comando;
+    plano: ReturnType<typeof planejarPreenchimento>;
+    referencia: PixelBuffer;
+  } | null = null;
+
   constructor(private readonly doc: DocumentoEditavel) {}
+
+  /** Os pixels em que o balde decide a área (a camada ativa, ou o que se vê). */
+  referenciaDoBalde(comando: Extract<Comando, { tipo: 'Preencher' }>): PixelBuffer {
+    return comando.amostrarTudo ? this.composto() : this.doc.copiarPixels();
+  }
+
+  /** O próximo `executar(comando)` usa este plano em vez de calcular de novo. */
+  usarPlanoPronto(
+    comando: Comando,
+    plano: ReturnType<typeof planejarPreenchimento>,
+    referencia: PixelBuffer,
+  ) {
+    this.planoPronto = { comando, plano, referencia };
+  }
 
   /** Área alterada para recompor a tela; `null` quando é preciso recompor tudo. */
   get ultimaAlteracao(): Rect | null {
@@ -220,15 +241,19 @@ export class Executador {
       case 'Preencher': {
         // O balde pode alcançar qualquer ponto do papel. Com "imagem toda", decide a área
         // pelo que se vê, mas pinta só na camada ativa.
-        const referencia = comando.amostrarTudo ? this.composto() : this.doc.copiarPixels();
-        const plano = planejarPreenchimento(
-          referencia,
-          comando.ponto.x,
-          comando.ponto.y,
-          comando.cor,
-          comando.tolerancia,
-          comando.global,
-        );
+        const pronto = this.planoPronto?.comando === comando ? this.planoPronto : null;
+        this.planoPronto = null;
+        const referencia = pronto?.referencia ?? this.referenciaDoBalde(comando);
+        const plano = pronto
+          ? pronto.plano
+          : planejarPreenchimento(
+              referencia,
+              comando.ponto.x,
+              comando.ponto.y,
+              comando.cor,
+              comando.tolerancia,
+              comando.global,
+            );
         if (!plano) return null;
         const depois = comando.amostrarTudo
           ? this.doc.lerPixels(plano.area)

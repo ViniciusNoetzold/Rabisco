@@ -81,6 +81,8 @@ export interface ToolCtx {
   readonly mascaraSelecao?: MascaraSelecao;
   readonly colagemFlutuante?: boolean;
   executar(comando: Comando): boolean;
+  /** Balde: em papéis grandes, calcula a área num worker e executa quando ficar pronto. */
+  preencher?(comando: Extract<Comando, { tipo: 'Preencher' }>): boolean;
   selecionar(area: Rect | null, mascara?: MascaraSelecao): void;
   capturarCor(ponto: Point, alvo?: 1 | 2): void;
   lerPixels(area: Rect): ImageData;

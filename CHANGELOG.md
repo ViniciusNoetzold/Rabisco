@@ -1,6 +1,18 @@
 # Histórico de alterações
 
-## 0.4 em desenvolvimento — "Desenhar fica fácil"
+## 0.4.0 — 2026-11-26 — "Desenhar fica fácil"
+
+Estabilizador, pressão, simetria e mandala, formas inteligentes, régua e guias, vista girada e espelhada, gradiente, varinha mágica, seleção elíptica, dedo, várias camadas e balde em worker. Validação: 181 testes unitários, 91 fluxos E2E, build de produção e `npm run perf` completo (estabilizador e simetria ligados) aprovados.
+
+### Passo 8 — Pendências, desempenho e fechamento
+
+- **Balde num Web Worker** em papéis a partir de 1 megapixel: a área é calculada fora da thread da tela (pixels transferidos, sem cópia) e o comando continua o mesmo (o JSON refaz igual). Passando de 200 ms, a barra mostra "Preenchendo…"; novos gestos esperam o balde terminar. Sem worker, calcula na hora como antes.
+- **Várias camadas**: Ctrl+clique soma ou tira uma camada da escolha, Shift+clique pega o intervalo. Com 3 ou mais, **Distribuir ↔** e **Distribuir ↕** deixam espaços iguais entre elas (as das pontas ficam paradas), num item só do histórico.
+- **Primeira pincelada em papel grande e primeira troca de visibilidade com 20 camadas**: investigado; o atraso único é a primeira leitura dos pixels de cada camada desenhada pela GPU. Trocar as camadas para canvas na memória comum (`willReadFrequently`) já foi tentado na 0.3 e mudava as cores; ficou documentado em docs/desempenho.md.
+- Grade de Ferramentas 5 × 2 com Gradiente e Varinha, na mesma largura da antiga 4 × 2 (os grupos do ribbon não recolhem antes do tempo).
+- README, guia (roteiro manual da 0.4 com 15 verificações), ROADMAP e versão 0.4.0 na janela e no Sobre.
+- Desempenho (detalhes em docs/desempenho.md): movimento do pincel 0,3–0,4 ms (p95) nos três papéis com estabilizador e simetria de 12 fatias; o balde em 4000 × 4000 trava a tela ~420 ms em vez de ~930 ms (do clique ao pronto: 813 ms).
+- Testes: 3 unitários do distribuir; 2 E2E (balde em papel grande pelo worker; Ctrl+clique e distribuir). Total: 181 unitários e 91 E2E.
 
 ### Passo 7 — Ferramentas que faltavam
 

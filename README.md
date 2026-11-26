@@ -10,8 +10,8 @@ Um editor de desenho no navegador com a simplicidade e a cara do paint da era Wi
 mais camadas, colagens e, em breve, uma IA que gera imagens com as próprias ferramentas do app
 e ensina a desenhar.
 
-![Versão](https://img.shields.io/badge/versão-0.3-3083c5)
-![Testes](https://img.shields.io/badge/testes-124_unitários_·_68_E2E-70a54a)
+![Versão](https://img.shields.io/badge/versão-0.4-3083c5)
+![Testes](https://img.shields.io/badge/testes-181_unitários_·_91_E2E-70a54a)
 ![Local-first](https://img.shields.io/badge/seus_desenhos-ficam_no_seu_dispositivo-f6c94d)
 ![Idioma](https://img.shields.io/badge/interface-português_do_Brasil-e24b4b)
 
@@ -30,7 +30,8 @@ e ensina a desenhar.
 ### 🖌️ O paint clássico, mais fácil
 
 - Lápis, borracha, balde, conta-gotas, lupa e texto
-- **9 pincéis**: redondo, duas caligrafias, aerógrafo (spray que continua borrifando parado), óleo, giz de cera, marcador, lápis natural e aquarela, com pressão de caneta
+- **10 pincéis**: redondo, duas caligrafias, aerógrafo (spray que continua borrifando parado), óleo, giz de cera, marcador, lápis natural, aquarela e **dedo (borrar)**, com pressão de caneta
+- **Gradiente** linear e radial, **varinha mágica** e seleção elíptica
 - **37 formas** (setas, estrelas, balões, coração, polígonos de N lados…) que continuam editáveis até confirmar
 - **Crie suas próprias formas** e guarde como predefinição
 - Seleção retangular e laço, seleção transparente, Cor 1/Cor 2 no botão esquerdo e direito
@@ -75,6 +76,16 @@ e ensina a desenhar.
 </tr>
 </table>
 
+### ✏️ Desenhar fica fácil (0.4)
+
+- **Estabilizador** de traço (a mão tremida some) e **pressão** simulada pela velocidade, com pontas afinadas
+- **Simetria** espelhada e **mandala** radial de até 24 fatias, com caleidoscópio
+- **Formas inteligentes**: termine o traço e segure parado — ele vira círculo, retângulo, seta…
+- **Régua de desenho** que deixa o traço reto e **guias** arrastadas das réguas, com encaixe
+- **Girar e espelhar a vista** (não a imagem), gestos de toque e rejeição da palma com caneta
+- Prévia do traço atrás das camadas de cima, cursor do pincel no tamanho real
+- **Várias camadas** de uma vez (Ctrl/Shift+clique) e **distribuir**; balde rápido em papel grande
+
 <div align="center">
 <img src="docs/imagens/rabisco-janela-estreita.png" alt="O Rabisco numa janela estreita, com os grupos do ribbon recolhidos em botões" width="520" />
 <br /><sub>Em janela estreita, os grupos do ribbon se recolhem em botões, como no paint do Windows 7.</sub>
@@ -110,38 +121,42 @@ npm run preview
 
 ## ⌨️ Atalhos principais
 
-| Ferramenta         |   Tecla   |     | Ação                     | Atalho              |
-| ------------------ | :-------: | --- | ------------------------ | ------------------- |
-| Lápis              |    `P`    |     | Desfazer / refazer       | `Ctrl+Z` / `Ctrl+Y` |
-| Pincel             |    `B`    |     | Salvar PNG               | `Ctrl+S`            |
-| Spray              |    `A`    |     | Colar (camada nova)      | `Ctrl+V`            |
-| Borracha           |    `E`    |     | Colar na camada atual    | `Ctrl+Shift+V`      |
-| Balde              |    `F`    |     | Copiar mesclado          | `Ctrl+Shift+C`      |
-| Conta-gotas        |    `I`    |     | Nova camada              | `Ctrl+Shift+N`      |
-| Texto              |    `T`    |     | Duplicar camada          | `Ctrl+J`            |
-| Formas             |    `U`    |     | Mesclar abaixo           | `Ctrl+Shift+M`      |
-| Seleção / laço     | `S` / `L` |     | Transformação livre      | `Ctrl+T`            |
-| Lupa               |    `Z`    |     | Propriedades da imagem   | `Ctrl+E`            |
-| Mover camada       |    `V`    |     | Redimensionar e inclinar | `Ctrl+W`            |
-| Trocar Cor 1/Cor 2 |    `X`    |     | Tela inteira             | `F11`               |
+| Ferramenta         |     Tecla      |     | Ação                     | Atalho              |
+| ------------------ | :------------: | --- | ------------------------ | ------------------- |
+| Lápis              |      `P`       |     | Desfazer / refazer       | `Ctrl+Z` / `Ctrl+Y` |
+| Pincel             |      `B`       |     | Salvar PNG               | `Ctrl+S`            |
+| Spray              |      `A`       |     | Colar (camada nova)      | `Ctrl+V`            |
+| Borracha           |      `E`       |     | Colar na camada atual    | `Ctrl+Shift+V`      |
+| Balde              |      `F`       |     | Copiar mesclado          | `Ctrl+Shift+C`      |
+| Conta-gotas        |      `I`       |     | Nova camada              | `Ctrl+Shift+N`      |
+| Texto              |      `T`       |     | Duplicar camada          | `Ctrl+J`            |
+| Formas             |      `U`       |     | Mesclar abaixo           | `Ctrl+Shift+M`      |
+| Seleção / laço     |   `S` / `L`    |     | Transformação livre      | `Ctrl+T`            |
+| Lupa               |      `Z`       |     | Propriedades da imagem   | `Ctrl+E`            |
+| Mover camada       |      `V`       |     | Redimensionar e inclinar | `Ctrl+W`            |
+| Trocar Cor 1/Cor 2 |      `X`       |     | Tela inteira             | `F11`               |
+| Gradiente          |      `G`       |     | Simetria liga/desliga    | `Shift+S`           |
+| Varinha mágica     |      `W`       |     | Régua de desenho         | `Shift+R`           |
+| Girar a vista      | `R` + arrastar |     | Girar 15° / voltar a 0°  | `4` `6` / `5`       |
+| Espelhar a vista   |      `H`       |     | Estabilizar menos/mais   | `Alt+[` / `Alt+]`   |
 
 A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](docs/guia-de-uso.md).
 
 ## 🗺️ Roteiro
 
-| Versão | O quê                                                                                                                  | Situação |
-| ------ | ---------------------------------------------------------------------------------------------------------------------- | :------: |
-| 0.1    | Janela Aero, ferramentas básicas, PNG e autosave                                                                       |    ✅    |
-| 0.2    | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas                      |    ✅    |
-| 0.2.1  | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                             |    ✅    |
-| 0.3    | Camadas, máscaras, efeitos, colagem, transformação livre, `.rabisco`, PSD e ORA                                        |    ✅    |
-| 0.4    | Estabilizador de traço, simetria, formas que se ajeitam sozinhas                                                       |    🔜    |
-| 0.5    | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                           |    🔜    |
-| 0.6    | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova |    🔜    |
-| 0.7    | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                      |    🔜    |
-| 0.8    | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                       |    🔜    |
-| 0.9    | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                       |    🔜    |
-| 1.0    | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade                                                   |    🔜    |
+| Versão | O quê                                                                                                                   | Situação |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- | :------: |
+| 0.1    | Janela Aero, ferramentas básicas, PNG e autosave                                                                        |    ✅    |
+| 0.2    | Todas as ferramentas do paint clássico, pincéis, spray, 37 formas, formas próprias, zoom e réguas                       |    ✅    |
+| 0.2.1  | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                              |    ✅    |
+| 0.3    | Camadas, máscaras, efeitos, colagem, transformação livre, `.rabisco`, PSD e ORA                                         |    ✅    |
+| 0.4    | Estabilizador, pressão, simetria e mandala, formas inteligentes, régua e guias, vista girada, gradiente, varinha e dedo |    ✅    |
+| 0.5    | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                            |    🔜    |
+| 0.6    | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova  |    🔜    |
+| 0.7    | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                       |    🔜    |
+| 0.8    | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                        |    🔜    |
+| 0.9    | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                        |    🔜    |
+| 1.0    | Instalável (PWA e desktop com Tauri), outros idiomas, acessibilidade                                                    |    🔜    |
 
 **Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
@@ -150,8 +165,8 @@ Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.
 ## 🧪 Testes e desempenho
 
 ```powershell
-npm test                    # 124 testes unitários (Vitest)
-npm run test:e2e            # 68 fluxos no navegador (Playwright + Edge)
+npm test                    # 181 testes unitários (Vitest)
+npm run test:e2e            # 91 fluxos no navegador (Playwright + Edge)
 npm run test:e2e:estavel    # a suíte E2E três vezes seguidas
 npm run perf -- --rotulo=x  # mede pincel, spray, balde, desfazer, memória e autosave
 ```

@@ -173,14 +173,20 @@ async function traco(pagina, autosave, atalho, categoria, rotuloDoHistorico, des
 }
 
 async function conferirCantos(pagina, cor) {
-  const resultado = await pagina.locator('.drawing-canvas').evaluate((tela) => {
-    const ctx = tela.getContext('2d');
-    return [
-      Array.from(ctx.getImageData(0, 0, 1, 1).data),
-      Array.from(ctx.getImageData(tela.width - 1, tela.height - 1, 1, 1).data),
-    ];
-  });
-  expect(resultado).toEqual([cor, cor]);
+  // O balde em papel grande termina num worker: espera os cantos mudarem.
+  await expect
+    .poll(
+      () =>
+        pagina.locator('.drawing-canvas').evaluate((tela) => {
+          const ctx = tela.getContext('2d');
+          return [
+            Array.from(ctx.getImageData(0, 0, 1, 1).data),
+            Array.from(ctx.getImageData(tela.width - 1, tela.height - 1, 1, 1).data),
+          ];
+        }),
+      { timeout: 15_000 },
+    )
+    .toEqual([cor, cor]);
 }
 
 async function memoriaEmRepouso(pagina, cdp) {

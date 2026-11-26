@@ -49,6 +49,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
   const formasEmNovaCamada = useEditor((estado) => estado.formasEmNovaCamada);
   const [renomeando, setRenomeando] = useState<string | null>(null);
   const [arrastada, setArrastada] = useState<string | null>(null);
+  const [extras, setExtras] = useState<string[]>([]);
   const camadas = [...estrutura.camadas].reverse();
   // Grupos aparecem como cabeçalho acima da camada mais alta deles; recolhidos escondem as camadas.
   const gruposPorId = new Map(estrutura.grupos.map((grupo) => [grupo.id, grupo]));
@@ -67,6 +68,30 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
     return itens;
   });
   const ativa = estrutura.camadas.find((camada) => camada.id === estrutura.ativa);
+  // Ctrl/Shift+clique: outras camadas escolhidas junto com a ativa (para distribuir).
+  const escolhidas = [
+    ...new Set(
+      [estrutura.ativa, ...extras].filter((id) => estrutura.camadas.some((c) => c.id === id)),
+    ),
+  ];
+  function escolher(id: string, evento: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) {
+    if (evento.shiftKey) {
+      const ids = estrutura.camadas.map((c) => c.id);
+      const de = ids.indexOf(estrutura.ativa);
+      const ate = ids.indexOf(id);
+      setExtras(ids.slice(Math.min(de, ate), Math.max(de, ate) + 1));
+      return;
+    }
+    if (evento.ctrlKey || evento.metaKey) {
+      if (id === estrutura.ativa) return;
+      setExtras((atuais) =>
+        atuais.includes(id) ? atuais.filter((item) => item !== id) : [...atuais, id],
+      );
+      return;
+    }
+    setExtras([]);
+    api()?.ativarCamada(id);
+  }
   const api = () => editor.current;
   const alterar = (id: string, propriedades: Partial<PropriedadesCamada>) =>
     api()?.executarCamada({ tipo: 'AlterarCamada', id, propriedades });
@@ -82,13 +107,14 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
             return <CabecalhoGrupo key={linha.grupo.id} grupo={linha.grupo} api={api} />;
           const { camada } = linha;
           const selecionada = camada.id === estrutura.ativa;
+          const escolhida = escolhidas.includes(camada.id);
           return (
             <li
               key={camada.id}
               role="option"
-              aria-selected={selecionada}
+              aria-selected={escolhida}
               tabIndex={selecionada ? 0 : -1}
-              className={`camada-item ${camada.grupo ? 'no-grupo' : ''} ${selecionada ? 'selecionada' : ''} ${arrastada === camada.id ? 'arrastando' : ''}`}
+              className={`camada-item ${camada.grupo ? 'no-grupo' : ''} ${selecionada ? 'selecionada' : ''} ${escolhida && !selecionada ? 'escolhida' : ''} ${arrastada === camada.id ? 'arrastando' : ''}`}
               style={camada.etiqueta ? { borderLeftColor: camada.etiqueta } : undefined}
               draggable
               onDragStart={() => setArrastada(camada.id)}
@@ -106,7 +132,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
                 });
                 setArrastada(null);
               }}
-              onClick={() => api()?.ativarCamada(camada.id)}
+              onClick={(evento) => escolher(camada.id, evento)}
               onKeyDown={(evento) => {
                 if (evento.key === 'F2') setRenomeando(camada.id);
               }}
@@ -286,6 +312,27 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
             <option value="base">À base</option>
           </select>
         </label>
+      )}
+      {escolhidas.length > 1 && (
+        <div className="camadas-distribuir" role="group" aria-label="Várias camadas">
+          <span>{escolhidas.length} camadas</span>
+          <button
+            type="button"
+            disabled={escolhidas.length < 3}
+            title="Espaços iguais na horizontal (as das pontas ficam paradas)"
+            onClick={() => api()?.distribuirCamadas(escolhidas, 'horizontal')}
+          >
+            Distribuir ↔
+          </button>
+          <button
+            type="button"
+            disabled={escolhidas.length < 3}
+            title="Espaços iguais na vertical (as das pontas ficam paradas)"
+            onClick={() => api()?.distribuirCamadas(escolhidas, 'vertical')}
+          >
+            Distribuir ↕
+          </button>
+        </div>
       )}
       {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
 

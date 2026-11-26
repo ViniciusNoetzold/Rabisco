@@ -27,6 +27,8 @@ export interface DocumentInfo {
 }
 
 export interface EditorApi {
+  /** Espaços iguais entre 3 ou mais camadas (um item no histórico). */
+  distribuirCamadas(ids: readonly string[], eixo: 'horizontal' | 'vertical'): boolean;
   /** Liga ou desliga a régua de desenho. Devolve true se ficou ligada. */
   alternarRegua(): boolean;
   undo(): void;

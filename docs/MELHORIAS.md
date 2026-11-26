@@ -13,7 +13,9 @@
 - [x] Alinhar a camada ao papel — 0.3
 - [ ] Distribuir várias camadas (precisa de seleção múltipla no painel)
 - [x] Medir 20 camadas de 4000 × 4000; README e roteiro manual da 0.3 — 0.3
-- [ ] Primeira troca de visibilidade com 20 camadas grandes (~150 ms; as seguintes ~34 ms)
+- [ ] Primeira troca de visibilidade com 20 camadas grandes (~150 ms; as seguintes ~34 ms) — investigado na 0.4: é a primeira leitura das camadas na GPU (ver docs/desempenho.md)
+- [x] Balde em papel grande calculado num worker (a tela não trava) — 0.4
+- [x] Seleção de várias camadas (Ctrl/Shift+clique) e distribuir — 0.4
 
 ## Desenho (0.4 — ver prompts/PROMPT_0.4.md)
 

@@ -5,6 +5,8 @@ export type OperacaoMedida =
   | `${FerramentaDoTraco}:${FaseDoTraco}`
   | 'spray:quadro'
   | 'balde'
+  /** Do clique ao balde pronto na tela (com o worker, a tela não trava no meio). */
+  | 'balde:total'
   | 'desfazer'
   | 'refazer'
   /** Comandos do painel de camadas (ocultar, mover, mesclar…), com a recomposição da tela. */
@@ -70,6 +72,11 @@ export function medirOperacao<T>(nome: OperacaoMedida, executar: () => T): T {
     performance.clearMarks(fim.name);
     performance.clearMeasures(intervalo);
   }
+}
+
+/** Uma duração medida por fora (operações assíncronas, como o balde no worker). */
+export function registrarDuracao(nome: OperacaoMedida, duracao: number): void {
+  if (sessao) (sessao.medidas[nome] ??= []).push(duracao);
 }
 
 export function registrarGravacao(gravacao: GravacaoMedida): void {

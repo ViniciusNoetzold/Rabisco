@@ -1,3 +1,4 @@
+import { planoDeDistribuicao, type EixoDistribuicao } from '../document/distribuir';
 import { useEditor } from '../app/store';
 import { caixaGirada } from './vista';
 import { clienteNoPapel } from './vistaAtual';
@@ -535,6 +536,36 @@ export class EditorController implements EditorApi, NucleoEditor {
             ? Math.round((height - limites.height) / 2) - limites.y
             : 0;
     return this.executarCamada({ tipo: 'DeslocarCamada', id: camada.id, dx, dy });
+  }
+
+  /**
+   * Distribui as camadas escolhidas (3 ou mais, com pixels): espaços iguais entre elas na
+   * direção pedida. Um item só no histórico.
+   */
+  distribuirCamadas(ids: readonly string[], eixo: EixoDistribuicao) {
+    const itens = ids.flatMap((id) => {
+      const limites = limitesDosPixels(this.doc.lerPixels(undefined, { camada: id }));
+      return limites ? [{ id, limites }] : [];
+    });
+    if (itens.length < 3) {
+      this.avisar('Escolha 3 ou mais camadas com desenho (Ctrl+clique na lista) para distribuir.');
+      return false;
+    }
+    const movimentos = planoDeDistribuicao(itens, eixo);
+    if (!movimentos.length) {
+      this.avisar('As camadas já estão distribuídas por igual.');
+      return false;
+    }
+    return this.executarCamada({
+      tipo: 'Lote',
+      rotulo: 'Distribuir camadas',
+      comandos: movimentos.map(({ id, dx, dy }) => ({
+        tipo: 'DeslocarCamada' as const,
+        id,
+        dx,
+        dy,
+      })),
+    });
   }
 
   /** Ctrl+G: põe a camada ativa num grupo novo. */

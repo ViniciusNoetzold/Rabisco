@@ -109,6 +109,23 @@ Diálogos, editor e biblioteca de formas, editor de cores, codificadores de imag
 
 Como ler: o "trabalho do JavaScript" é o tempo síncrono do comando; o Canvas 2D adia o desenho das camadas para o quadro seguinte, por isso a coluna "até a tela atualizar" mede do clique até dois quadros depois (o piso, num monitor de 60 Hz, é ~33 ms). A primeira troca de visibilidade depois de montar as camadas é a mais lenta; as seguintes ficam no piso. As camadas ocupam ~1,2 GB de memória de canvas (fora do heap JS), que é o limite prático indicado no README.
 
+### 0.4.0 — 26/11/2026 (ensaio completo, estabilizador 40 e simetria radial de 12 fatias)
+
+`PERF_ESTABILIZAR=40 PERF_SIMETRIA=12 npm run perf -- --rotulo=v040` (três papéis + 20 camadas):
+
+| Operação (ms)                             | 1024 × 640 |   4000 × 4000 |   8192 × 4096 |
+| ----------------------------------------- | ---------: | ------------: | ------------: |
+| Pincel, cada movimento (p95)              |        0,4 |           0,4 |           0,3 |
+| Spray, cada movimento (p95)               |        0,2 |           0,3 |           0,2 |
+| Soltar o pincel (2ª pincelada, 12 cópias) |       28,1 |          43,2 |          55,1 |
+| Primeira pincelada (atraso único)         |       41,7 |         117,0 |         225,9 |
+| Balde: tela travada (copiar + aplicar)    |       66,1 | 120,6 + 301,1 | 213,3 + 641,8 |
+| Balde: do clique ao pronto                |       66,1 |         813,0 |       2.249,1 |
+
+Antes do worker (0.3, Passo 7), o balde em 4000 × 4000 travava a tela por ~930 ms. Agora a área é calculada no worker (~390 ms fora da tela) e a tela fica ocupada só para copiar os pixels de referência e aplicar/gravar o resultado: ~420 ms em 4000 × 4000. **Melhorou, mas não zerou**: copiar a camada e gravar o histórico ainda são na thread da tela (um próximo passo seria aplicar por faixas, entre quadros). Papéis abaixo de 1 megapixel continuam calculando na hora (o worker não compensa). As 20 camadas de 4000 × 4000 montam em 8,7 s; o movimento do pincel nelas fica em 0,2 ms (p95).
+
+**Atrasos de primeira vez (8.2), investigados:** a primeira pincelada num papel grande (117 ms em 4000 × 4000) e a primeira troca de visibilidade com 20 camadas (~150 ms) vêm da primeira leitura dos pixels de cada camada que a GPU desenhou: o navegador precisa trazer a imagem da memória de vídeo uma vez. Marcar as camadas como `willReadFrequently` (memória comum) tira esse atraso, mas foi tentado na 0.3 e mudou as cores da composição; por isso ficou como está e documentado. As pinceladas seguintes custam 43–55 ms.
+
 ### 0.4, Passo 3 — 25/11/2026 (estabilizador e simetria radial de 12 fatias)
 
 `PERF_ESTABILIZAR=40 PERF_SIMETRIA=12 npm run perf -- --rotulo=passo-3-04`: cada movimento do pincel custa 0,3 ms (p95) em 1024 × 640 e 4000 × 4000 e 0,2 ms em 8192 × 4096 — a prévia desenha as 12 cópias sem pesar. Soltar o traço (o executor pinta as 12 cópias) custa 18 ms em 1024 × 640 e 45–53 ms nos papéis grandes, depois da primeira pincelada. O balde e o cenário de 20 camadas rodam com a simetria desligada (o balde do ensaio clica no meio do papel, onde fica a alça do centro).

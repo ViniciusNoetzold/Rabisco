@@ -1,3 +1,5 @@
+import { criarPreenchedor, PIXELS_PARA_WORKER } from './preenchedor';
+import { registrarDuracao } from '../medicao';
 import { FERRAMENTAS_DE_SELECAO } from '../../tools/select';
 import { useEditor } from '../../app/store';
 import {
@@ -77,6 +79,10 @@ export class ControleFerramentas {
   /** Enquanto definido, `executar` guarda o comando em vez de executá-lo. */
   private capturando: { comando: Comando | null } | null = null;
 
+  private readonly preenchedor = criarPreenchedor();
+  /** Balde em andamento no worker: novos gestos esperam (a tela não trava). */
+  private preenchendo = false;
+
   /** Régua em que o traço em andamento grudou (começou perto da borda dela). */
   private reguaDoGesto: Regua | null = null;
 
@@ -91,7 +97,7 @@ export class ControleFerramentas {
   ) {}
 
   get emGesto(): boolean {
-    return this.gesto !== null;
+    return this.gesto !== null || this.preenchendo;
   }
 
   get ativa(): Tool {
@@ -103,7 +109,7 @@ export class ControleFerramentas {
   }
 
   iniciarGesto(ponteiro: number, evento: EventoFerramenta, atalhoContaGotas: boolean) {
-    if (this.gesto || (evento.botao !== 0 && evento.botao !== 2)) return false;
+    if (this.gesto || this.preenchendo || (evento.botao !== 0 && evento.botao !== 2)) return false;
     // Clicar fora da forma inteligente a confirma e volta a desenhar com o lápis ou pincel.
     if (
       this.formaInteligente &&
@@ -284,6 +290,7 @@ export class ControleFerramentas {
   }
 
   encerrar() {
+    this.preenchedor.encerrar();
     this.cancelarGesto();
   }
 
@@ -358,6 +365,7 @@ export class ControleFerramentas {
         }
         return nucleo.executar(final);
       },
+      preencher: (comando) => this.preencher(comando),
       selecionar: (area, mascara) => selecao.selecionar(area, mascara),
       capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
       lerPixels: (area) => doc.lerPixels(area),
@@ -415,6 +423,41 @@ export class ControleFerramentas {
     if (!guiasDoPapel.horizontais.length && !guiasDoPapel.verticais.length) return evento;
     const ponto = encaixarNasGuias(evento.ponto, guiasDoPapel, RAIO_GUIAS / zoom);
     return ponto === evento.ponto ? evento : { ...evento, ponto };
+  }
+
+  /**
+   * Balde: papéis pequenos executam na hora; nos grandes, a área é calculada num worker e o
+   * comando é executado quando ela chega. Passando de 200 ms, a barra avisa "Preenchendo…".
+   */
+  private preencher(comando: Extract<Comando, { tipo: 'Preencher' }>): boolean {
+    const { doc, comandos } = this.nucleo;
+    if (this.preenchendo) return false;
+    if (doc.width * doc.height < PIXELS_PARA_WORKER || !this.preenchedor.noWorker)
+      return this.nucleo.executar(comando);
+    this.preenchendo = true;
+    const inicio = performance.now();
+    const aviso = setTimeout(() => this.nucleo.avisar('Preenchendo…'), 200);
+    const referencia = comandos.referenciaDoBalde(comando);
+    this.preenchedor
+      .planejar(referencia, comando)
+      .then(({ plano, referencia }) => {
+        if (!this.nucleo.ativo()) return;
+        comandos.usarPlanoPronto(comando, plano, referencia);
+        this.preenchendo = false;
+        this.nucleo.executar(comando);
+        registrarDuracao('balde:total', performance.now() - inicio);
+      })
+      .catch(() => {
+        if (!this.nucleo.ativo()) return;
+        this.preenchendo = false;
+        this.nucleo.executar(comando);
+      })
+      .finally(() => {
+        clearTimeout(aviso);
+        this.preenchendo = false;
+        if (this.nucleo.ativo()) this.nucleo.notificar();
+      });
+    return true;
   }
 
   /** (Re)começa a contar o tempo parado. */

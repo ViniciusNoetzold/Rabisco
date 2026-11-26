@@ -12,11 +12,15 @@ Plano completo em [PROMPT_0.4.md](PROMPT_0.4.md). Leia também README, CHANGELOG
 - Passo 6: vista girada (R + arrastar, 4/5/6, dois dedos) e espelhada (H), prévia atrás das camadas de cima, palma e gestos de dois/três dedos, cursor do pincel no tamanho real. ✅
 - Passo 7: gradiente (G), varinha mágica (W, Shift soma, Alt subtrai), seleção elíptica e dedo (borrar). ✅
 
-Validação no fim do Passo 6: 166 testes unitários e 85 E2E passando; `npm run build` ok.
+Validação da 0.4.0: 181 testes unitários e 91 E2E passando; `npm run build` e `npm run perf` completo ok.
 
-## Próximo: Passo 8 — Pendências, desempenho e fechamento
+- Passo 8: balde num worker, várias camadas + distribuir, atrasos de primeira leitura investigados e documentados, perf completo, docs e versão 0.4.0. ✅
 
-Siga o PASSO 8 do PROMPT_0.4.md (pendências: balde em worker, primeira pincelada em papel grande, seleção múltipla de camadas + distribuir, perf completo, docs e versão 0.4.0).
+**A 0.4 está concluída.**
+
+## Próximo: planejar a 0.5 — estilos e filtros
+
+Escreva `prompts/PROMPT_0.5.md` no mesmo formato do PROMPT_0.4: filtros (desfoque, nitidez, brilho/contraste, matiz/saturação, níveis) e a arquitetura de **estilos** do pedido original — **ASCII** (texto e imagem), **pixel art** (paleta limitada, grade), **dithering** (Floyd–Steinberg, Bayer) e **meio-tom** —, cada um como comando serializável com prévia, aplicável à camada ou à seleção. Consulte docs/IDEIA.md, docs/FERRAMENTAS.md (bibliotecas pesquisadas e licenças) e docs/MELHORIAS.md.
 
 ## Para rodar
 

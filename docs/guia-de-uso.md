@@ -102,3 +102,21 @@ Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no 
 13. Exporte **Cada camada em PNG** e confira o `.zip`.
 14. Mescle duas camadas (Ctrl+Shift+M) e desfaça.
 15. Recarregue a página: as camadas voltam do autosave.
+
+## Roteiro manual da 0.4 (10 minutos)
+
+1. No cartão "Seu traço", ponha **Estabilizar** em 40 e faça uma linha tremida: ela sai lisa, com a corda tracejada.
+2. Ligue **Simular pressão pela velocidade** e **Afinar pontas**: um traço rápido sai fino, com pontas finas.
+3. `Shift+S` liga a simetria; na aba Exibir, escolha **Radial**, 8 fatias e **Caleidoscópio**, e desenhe uma mandala. Um `Ctrl+Z` desfaz todas as cópias.
+4. Arraste a bolinha roxa do centro da simetria e use **Centralizar no papel**.
+5. Com o lápis, desenhe um círculo torto e **segure parado** no fim: vira um círculo certinho. `Esc` volta ao traço; refaça e confirme com `Enter`.
+6. Faça um retângulo e uma seta à mão, segurando no fim.
+7. `Shift+R` mostra a régua; gire pela ponta e desenhe começando perto da borda: o traço sai reto.
+8. `Ctrl+R` e arraste da régua de cima uma guia; desenhe um retângulo perto dela e veja encaixar.
+9. Segure `R` e arraste no papel para girar a vista; desenhe; `5` volta a 0°. `H` espelha a vista.
+10. Numa camada de baixo, pinte embaixo de uma camada de cima: a prévia já aparece atrás dela.
+11. `G`: arraste um gradiente radial dentro de uma seleção elíptica (menu Seleção).
+12. `W`: clique numa cor com a varinha; `Shift`+clique em outra área para somar, `Alt` para tirar; `Delete`.
+13. Na galeria de pincéis, escolha **Dedo (borrar)** e esfume uma borda.
+14. Crie três camadas com um desenho em cada, escolha as três com `Ctrl`+clique e **Distribuir ↔**.
+15. Num papel 4000 × 4000, use o balde: a tela não trava e, se demorar, aparece "Preenchendo…".

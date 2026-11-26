@@ -8,7 +8,7 @@ export const balde = definirFerramenta(
     onPointerDown() {},
     onPointerMove() {},
     onPointerUp(ctx, { ponto, botao }) {
-      ctx.executar({
+      (ctx.preencher ?? ctx.executar)({
         tipo: 'Preencher',
         ponto,
         cor: corDoBotao(ctx, botao),
