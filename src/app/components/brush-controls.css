@@ -174,3 +174,15 @@
 .stroke-size-linha .stroke-size-field input {
   width: 34px;
 }
+
+/* Força do dedo (0.4). */
+.dedo-controles {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  width: 70px;
+  font-size: 11px;
+}
+.dedo-controles input {
+  width: 66px;
+}

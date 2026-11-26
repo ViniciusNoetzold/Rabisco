@@ -1,4 +1,5 @@
 import { validarDimensoes } from '../document/dimensoes';
+import type { ConfigGradiente } from '../tools/gradiente';
 import type { MascaraSelecao } from '../document/selecao';
 import type { FormatoImagem } from '../io/imagens';
 import type { ConfiguracaoTexto } from '../tools/texto';
@@ -69,6 +70,14 @@ export type Comando =
   | ComandoForma
   | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
   | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
+  | ({ tipo: 'Gradiente' } & ConfigGradiente)
+  | {
+      /** Dedo: arrasta os pixels pelos pontos (força 0–1). */
+      tipo: 'Borrar';
+      pontos: Point[];
+      espessura: number;
+      forca: number;
+    }
   | {
       tipo: 'Preencher';
       ponto: Point;

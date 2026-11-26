@@ -10,6 +10,7 @@ export const PINCEIS = [
   { id: 'marcador', nome: 'Marcador' },
   { id: 'lapis-natural', nome: 'Lápis natural' },
   { id: 'aquarela', nome: 'Aquarela' },
+  { id: 'dedo', nome: 'Dedo (borrar)' },
 ] as const;
 
 export type TipoPincel = (typeof PINCEIS)[number]['id'];

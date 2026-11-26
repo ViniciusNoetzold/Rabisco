@@ -164,6 +164,15 @@ export class SuperficieTela {
     this.areaPrevia = origem ? unirAreas(origem, destino) : destino;
   }
 
+  /** Prévia do dedo: copia um trecho já borrado para a tela (some ao limpar). */
+  trecho(fonte: CanvasImageSource, area: Rect) {
+    const recorte = limitarArea(area, this.doc);
+    if (!recorte) return;
+    const { x, y, width, height } = recorte;
+    this.grafico.drawImage(fonte, x, y, width, height, x, y, width, height);
+    this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, recorte) : recorte;
+  }
+
   /** Um leve "pulo" da prévia em torno do ponto (formas inteligentes). */
   pular(centro: Point, zoom: number) {
     const tela = this.overlay.canvas;

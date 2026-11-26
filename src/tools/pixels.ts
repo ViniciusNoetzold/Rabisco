@@ -78,7 +78,7 @@ export function planejarPreenchimento(
   image: PixelBuffer,
   x: number,
   y: number,
-  color: string,
+  color: string | null,
   tolerance = 0,
   global = false,
 ): PlanoPreenchimento | null {
@@ -88,12 +88,13 @@ export function planejarPreenchimento(
   if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= width || y >= height) {
     return null;
   }
-  const replacement = parseHexColor(color);
+  // Sem cor (varinha mágica): só a máscara, sem pular os pixels que já têm a cor.
+  const replacement = color === null ? null : parseHexColor(color);
   const initial = (y * width + x) * 4;
   const target: CorRgba = [data[initial], data[initial + 1], data[initial + 2], data[initial + 3]];
   const limit = faixaDeTolerancia(tolerance);
   // Um balde da mesma cor é uma operação vazia quando não há tolerância.
-  if (limit === 0 && corProxima(data, initial, replacement, 0)) return null;
+  if (replacement && limit === 0 && corProxima(data, initial, replacement, 0)) return null;
 
   const visited = new Uint8Array(width * height);
   const matches = (pixel: number) => !visited[pixel] && corProxima(data, pixel * 4, target, limit);
@@ -103,7 +104,7 @@ export function planejarPreenchimento(
   let base = -1;
   function marcar(pixel: number, coluna: number, linha: number) {
     visited[pixel] = 1;
-    if (!corProxima(data, pixel * 4, replacement, 0)) {
+    if (!replacement || !corProxima(data, pixel * 4, replacement, 0)) {
       esquerda = Math.min(esquerda, coluna);
       direita = Math.max(direita, coluna);
       topo = Math.min(topo, linha);
@@ -145,8 +146,19 @@ export function planejarPreenchimento(
     area: { x: esquerda, y: topo, width: direita - esquerda + 1, height: base - topo + 1 },
     largura: width,
     mascara: visited,
-    cor: replacement,
+    cor: replacement ?? [0, 0, 0, 0],
   };
+}
+
+/** Varinha mágica: os pixels da cor clicada (contíguos ou de toda a imagem). */
+export function mascaraPorCor(
+  image: PixelBuffer,
+  x: number,
+  y: number,
+  tolerance = 0,
+  global = false,
+): Uint8Array | null {
+  return planejarPreenchimento(image, x, y, null, tolerance, global)?.mascara ?? null;
 }
 
 /** Aplica o plano a um recorte, indicando sua origem em coordenadas do documento. */

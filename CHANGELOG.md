@@ -2,6 +2,15 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 7 — Ferramentas que faltavam
+
+- **Gradiente** (G, no grupo do balde): arraste da Cor 1 até a Cor 2 (botão direito inverte; Shift prende o ângulo). Linear ou radial, e "Até transparente" (a Cor 1 vai sumindo). Com seleção, pinta só dentro dela; travar transparência é respeitado; um item no histórico. Prévia enquanto arrasta.
+- **Varinha mágica** (W, também no menu Seleção): clique numa cor para selecionar a área dela, com a tolerância do balde e a opção "mesma cor em toda a imagem". **Shift soma** e **Alt subtrai** da seleção atual. Regiões separadas e buracos viram um contorno só (juntado por pontes de ida e volta que se anulam no recorte); o tracejado esconde as pontes. A seleção da varinha se move, apaga, copia e transforma como qualquer outra.
+- **Seleção elíptica** (menu Seleção); Shift faz um círculo.
+- **Dedo (borrar)**, novo item na galeria de pincéis, com "Força" ajustável: arrasta os pixels por onde passa (em alfa pré-multiplicado, sem puxar preto das bordas transparentes). A prévia usa o mesmo algoritmo do resultado; um item "Dedo" no histórico.
+- Código: `src/tools/gradiente.ts`, `src/tools/varinha.ts`, `src/document/mascaraPixels.ts` (contornos, junção, soma/subtração), `src/brushes/borrar.ts`.
+- Testes: 3 unitários do gradiente, 5 da varinha (contígua, global com buraco, cantos, soma/subtração, elipse) e 4 do dedo (força, recorte igual ao papel inteiro, borda transparente); 4 E2E (gradiente com e sem seleção, varinha com Shift e Alt, seleção elíptica, dedo). O teste de larguras confere o ribbon também com o gradiente e a varinha.
+
 ### Passo 6 — Vista e conforto
 
 - **Girar a vista** (só a tela; a imagem não muda): **R segurada + arrastar** no papel gira livre (prende perto dos ângulos retos; Shift de 15 em 15°), **4** e **6** giram 15°, **5** volta a 0°, dois dedos girando na tela também giram. Botões no grupo "Vista" da aba Exibir e o ângulo na barra de status (clique volta ao normal). Com o zoom ajustado à janela, girar reajusta para o papel caber. Soltar o R sem girar continua escolhendo o retângulo.

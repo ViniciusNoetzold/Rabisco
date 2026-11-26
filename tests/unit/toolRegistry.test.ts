@@ -60,9 +60,15 @@ describe('registro de ferramentas', () => {
       'eyedropper',
       'move',
       'transform',
+      'gradient',
+      'ellipseSelect',
+      'wand',
     ] as const;
     expect(Object.keys(toolRegistry).sort()).toEqual([...ids].sort());
-    expect(new Set(ids.map((id) => toolRegistry[id].atalho)).size).toBe(ids.length);
+    // Atalhos únicos entre as ferramentas que têm um (linha e seleção elíptica não têm).
+    const atalhos = ids.map((id) => toolRegistry[id].atalho).filter(Boolean);
+    expect(new Set(atalhos).size).toBe(atalhos.length);
+    expect(atalhos.length).toBeGreaterThanOrEqual(ids.length - 2);
     for (const id of ids) {
       const ferramenta = toolRegistry[id].criar();
       expect(ferramenta).toMatchObject({

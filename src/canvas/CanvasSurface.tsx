@@ -39,6 +39,7 @@ function traduzirEvento(evento: EventoPonteiro<HTMLCanvasElement>) {
     botao: evento.button,
     shift: evento.shiftKey,
     ctrl: evento.ctrlKey || evento.metaKey,
+    alt: evento.altKey,
     instante: evento.timeStamp,
     cliques: evento.detail,
   };
@@ -146,7 +147,12 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     function pressionar(evento: EventoPonteiro<HTMLCanvasElement>) {
       if (
         redimensionando.current ||
-        !editor.current?.iniciarGesto(evento.pointerId, traduzirEvento(evento), evento.altKey)
+        !editor.current?.iniciarGesto(
+          evento.pointerId,
+          traduzirEvento(evento),
+          // Alt+clique é o conta-gotas, menos na varinha (lá, Alt subtrai da seleção).
+          evento.altKey && useEditor.getState().tool !== 'wand',
+        )
       )
         return;
       evento.preventDefault();

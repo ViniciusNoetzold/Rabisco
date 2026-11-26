@@ -73,3 +73,30 @@
   width: 12px;
   height: 12px;
 }
+
+/* Balde e gradiente no mesmo grupo (0.4). */
+.balde-gradiente {
+  display: flex;
+  gap: 2px;
+}
+.ribbon .balde-gradiente button {
+  min-width: 0;
+  padding: 0 5px;
+  font-size: 11px;
+  height: 20px;
+}
+.balde-gradiente button.selected {
+  border-color: #6f9fcf;
+  background: linear-gradient(#e4f0fb, #cfe3f6);
+}
+.gradiente-forma {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.varinha-dica {
+  font-size: 11px;
+  color: #6d8497;
+}

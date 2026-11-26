@@ -61,7 +61,7 @@ for (const tamanho of LARGURAS) {
       expect(await problemasDeLayout(page), `aba ${aba}`).toEqual([]);
     }
     // Ferramentas com grupo contextual mais largo (balde e borracha).
-    for (const atalho of ['f', 'e', 'a']) {
+    for (const atalho of ['f', 'e', 'a', 'g', 'w']) {
       await page.locator('.drawing-canvas').focus();
       await page.keyboard.press(atalho);
       expect(await problemasDeLayout(page), `ferramenta ${atalho}`).toEqual([]);

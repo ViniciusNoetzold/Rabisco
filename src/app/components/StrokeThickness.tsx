@@ -149,3 +149,24 @@ export function SprayControls() {
     </div>
   );
 }
+
+/** Força do dedo (borrar), ao lado da galeria de pincéis. */
+export function DedoControles() {
+  const forca = useEditor((estado) => estado.forcaDedo);
+  const set = useEditor((estado) => estado.set);
+  return (
+    <label className="dedo-controles" title="Quanto o dedo arrasta a cor">
+      <span>Força</span>
+      <input
+        type="range"
+        min="5"
+        max="100"
+        step="5"
+        value={forca}
+        aria-label="Força do dedo"
+        onChange={(evento) => set({ forcaDedo: Number(evento.currentTarget.value) })}
+      />
+      <span aria-hidden="true">{forca}%</span>
+    </label>
+  );
+}

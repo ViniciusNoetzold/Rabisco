@@ -1,3 +1,4 @@
+import { criarGestoDedo } from './dedo';
 import { AmostradorPincel } from '../brushes/amostrador';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
 import { PONTOS_POR_SEGUNDO } from '../brushes/motor';
@@ -67,6 +68,7 @@ export const pincel = definirFerramenta(
   { id: 'brush', nome: 'Pincel', icone: 'paint-brush', atalho: 'B', opcoes: [opcaoEspessura] },
   () => {
     let gesto: GestoPincel | null = null;
+    let dedo: ReturnType<typeof criarGestoDedo> | null = null;
 
     function cancelarQuadro(ativo: GestoPincel) {
       if (ativo.modo === 'spray') cancelAnimationFrame(ativo.quadro);
@@ -75,6 +77,11 @@ export const pincel = definirFerramenta(
     return {
       cursor: () => 'crosshair',
       onPointerDown(ctx, { ponto, botao }) {
+        if (ctx.opcoes.pincel === 'dedo') {
+          ctx.selecionar(null);
+          dedo = criarGestoDedo(ctx, ponto);
+          return;
+        }
         const configuracao: ConfiguracaoPincel = {
           tipo: ctx.opcoes.pincel,
           cor: corDoBotao(ctx, botao),
@@ -115,11 +122,21 @@ export const pincel = definirFerramenta(
         spray.quadro = requestAnimationFrame(animar);
       },
       onPointerMove(ctx, { ponto }) {
+        if (dedo) {
+          dedo.mover(ponto);
+          return;
+        }
         if (!gesto) return;
         gesto.ponto = ponto;
         if (gesto.modo === 'carimbos') emitir(ctx, gesto, gesto.amostrador.adicionar(ponto));
       },
       onPointerUp(ctx, { ponto }) {
+        if (dedo) {
+          const atual = dedo;
+          dedo = null;
+          atual.terminar(ponto);
+          return;
+        }
         if (!gesto) return;
         const ativo = gesto;
         gesto = null;
@@ -146,6 +163,11 @@ export const pincel = definirFerramenta(
         ctx.executar({ tipo: 'Pincelar', configuracao: ativo.configuracao, marcas });
       },
       onCancel(ctx) {
+        if (dedo) {
+          dedo.cancelar();
+          dedo = null;
+          return;
+        }
         if (!gesto) return;
         cancelarQuadro(gesto);
         gesto = null;

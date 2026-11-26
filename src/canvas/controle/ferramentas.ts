@@ -1,3 +1,4 @@
+import { FERRAMENTAS_DE_SELECAO } from '../../tools/select';
 import { useEditor } from '../../app/store';
 import {
   distanciaDaRegua,
@@ -38,6 +39,7 @@ type EstadoEditor = ReturnType<typeof useEditor.getState>;
 /** Ferramentas cujos pontos encaixam nas guias do papel. */
 const FERRAMENTAS_COM_ENCAIXE = new Set<ToolId>([
   'select',
+  'ellipseSelect',
   'line',
   'rectangle',
   'ellipse',
@@ -148,7 +150,9 @@ export class ControleFerramentas {
     if (FERRAMENTAS_ESTABILIZAVEIS.has(id)) this.superficie.mostrarCamadasDeCima();
     // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
     this.inteligente =
-      useEditor.getState().formasInteligentes && (id === 'pencil' || id === 'brush') && !config
+      useEditor.getState().formasInteligentes &&
+      (id === 'pencil' || (id === 'brush' && useEditor.getState().pincel !== 'dedo')) &&
+      !config
         ? { pontos: [evento.ponto], ancora: evento.ponto, relogio: null, ultimo: evento }
         : null;
     this.armarRelogio();
@@ -298,7 +302,7 @@ export class ControleFerramentas {
       // Trocar de ferramenta confirma a forma inteligente (como qualquer forma pendente).
       if (anterior.tool === 'shape') this.formaInteligente = null;
       if (this.gesto) this.cancelarGesto();
-      if (atual.tool !== 'select' && atual.tool !== 'lasso') this.colagem.confirmar();
+      if (!FERRAMENTAS_DE_SELECAO.has(atual.tool)) this.colagem.confirmar();
       ferramentaAnterior.onPointerLeave?.(this.contexto(anterior));
       ferramentaAnterior.commitPendente?.(this.contexto(anterior));
       this.redesenharOverlay(ferramenta);
@@ -357,6 +361,7 @@ export class ControleFerramentas {
       selecionar: (area, mascara) => selecao.selecionar(area, mascara),
       capturarCor: (ponto, alvo) => this.capturarCor(ponto, alvo),
       lerPixels: (area) => doc.lerPixels(area),
+      avisar: (mensagem) => nucleo.avisar(mensagem),
       previsualizarTraco: (de, ate, estilo) => {
         for (const transformar of this.simetria?.copias ?? [null])
           if (transformar) superficie.traco(transformar(de), transformar(ate), estilo);
@@ -365,6 +370,7 @@ export class ControleFerramentas {
       iniciarPreviaPincel: (configuracao) =>
         superficie.iniciarPincel(configuracao, this.simetria?.copias),
       previsualizarMarcasPincel: (marcas) => superficie.marcasPincel(marcas),
+      previsualizarTrecho: (fonte, area) => superficie.trecho(fonte, area),
       prepararRecorte: (area, mascara, transparente) =>
         prepararRecorteDaArea(doc.lerPixels(area), area, mascara, transparente),
       reposicionarColagem: (destino) => colagem.reposicionar(destino),

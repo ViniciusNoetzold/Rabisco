@@ -1,4 +1,5 @@
 import type { Comando, EstiloTraco } from '../commands/comandos';
+import type { FormaGradiente } from './gradiente';
 import type { MascaraSelecao, RecorteFlutuante } from '../document/selecao';
 import type {
   ConfiguracaoPincel,
@@ -23,6 +24,8 @@ export interface EventoFerramenta {
   botao: number;
   shift: boolean;
   ctrl?: boolean;
+  /** Alt (na varinha mágica: subtrair da seleção). */
+  alt?: boolean;
   instante?: number;
   cliques?: number;
 }
@@ -59,6 +62,10 @@ export interface ToolCtx {
     guiasInteligentes: boolean;
     /** Pontas afinadas, 0–100% (o fim é aplicado ao soltar). */
     afinar: number;
+    formaGradiente: FormaGradiente;
+    gradienteTransparente: boolean;
+    /** Dedo: quanto arrasta a cor, 0–100. */
+    forcaDedo: number;
     pincel: TipoPincel;
     densidadeSpray: DensidadeSpray;
     gotasSpray: 1 | 2;
@@ -77,9 +84,13 @@ export interface ToolCtx {
   selecionar(area: Rect | null, mascara?: MascaraSelecao): void;
   capturarCor(ponto: Point, alvo?: 1 | 2): void;
   lerPixels(area: Rect): ImageData;
+  /** Mostra um aviso na barra (ex.: seleção complexa demais). */
+  avisar?(mensagem: string): void;
   previsualizarTraco(de: Point, ate: Point, estilo: EstiloTraco): void;
   iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
   previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
+  /** Prévia do dedo: um trecho já borrado (px do papel) vai para a tela. */
+  previsualizarTrecho?(fonte: CanvasImageSource, area: Rect): void;
   prepararRecorte(area: Rect, mascara?: MascaraSelecao, transparente?: string): RecorteFlutuante;
   reposicionarColagem?(destino: Rect): void;
   confirmarColagem?(): void;

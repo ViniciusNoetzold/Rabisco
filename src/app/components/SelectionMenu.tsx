@@ -86,6 +86,24 @@ export function SelectionMenu({
             <button
               type="button"
               onClick={() => {
+                useEditor.getState().setTool('ellipseSelect');
+                fechar();
+              }}
+            >
+              Seleção elíptica
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                useEditor.getState().setTool('wand');
+                fechar();
+              }}
+            >
+              Varinha mágica (W)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 editor?.selectAll();
                 fechar();
               }}

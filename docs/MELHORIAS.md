@@ -33,11 +33,14 @@
 - [ ] Réguas laterais e miniatura também com a vista girada
 - [x] Prévia do traço respeitando as camadas de cima — 0.4
 - [ ] Prévia com o modo de mesclagem e a opacidade da camada ativa (hoje é a cor pura)
-- [ ] Mais pincéis: textura de papel, borrar/esfumar, misturador de cor
-- [ ] Gradiente (linear e radial) e balde com gradiente
+- [x] Dedo (borrar/esfumar) — 0.4
+- [ ] Mais pincéis: textura de papel, misturador de cor; dedo com simetria
+- [x] Gradiente linear e radial, até transparente, dentro da seleção — 0.4
+- [ ] Balde com gradiente (preencher uma área fechada com gradiente) e gradiente com várias cores
 - [ ] Texto editável depois de confirmado (camada de texto "viva")
 - [ ] Formas vetoriais editáveis depois (camada de forma)
-- [ ] Varinha mágica (seleção por cor) e seleção por elipse
+- [x] Varinha mágica (soma e subtrai) e seleção por elipse — 0.4
+- [ ] Somar e subtrair também nas seleções retangular, elíptica e laço
 
 ## Estilos e efeitos (0.5)
 

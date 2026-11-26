@@ -10,12 +10,13 @@ Plano completo em [PROMPT_0.4.md](PROMPT_0.4.md). Leia também README, CHANGELOG
 - Passo 4: formas inteligentes (segurar parado no fim do traço de lápis/pincel vira forma editável; Enter confirma, Esc volta ao traço). ✅
 - Passo 5: régua de desenho (Shift+R) e guias arrastadas das réguas, com encaixe; salvas no .rabisco v2 e no autosave. Perspectiva ficou para depois. ✅
 - Passo 6: vista girada (R + arrastar, 4/5/6, dois dedos) e espelhada (H), prévia atrás das camadas de cima, palma e gestos de dois/três dedos, cursor do pincel no tamanho real. ✅
+- Passo 7: gradiente (G), varinha mágica (W, Shift soma, Alt subtrai), seleção elíptica e dedo (borrar). ✅
 
 Validação no fim do Passo 6: 166 testes unitários e 85 E2E passando; `npm run build` ok.
 
-## Próximo: Passo 7 — Ferramentas que faltam
+## Próximo: Passo 8 — Pendências, desempenho e fechamento
 
-Siga o PASSO 7 do PROMPT_0.4.md (gradiente, varinha mágica, borrar). Depois o Passo 8 (pendências: balde em worker, primeira pincelada em papel grande, seleção múltipla de camadas + distribuir, perf completo, docs e versão 0.4.0).
+Siga o PASSO 8 do PROMPT_0.4.md (pendências: balde em worker, primeira pincelada em papel grande, seleção múltipla de camadas + distribuir, perf completo, docs e versão 0.4.0).
 
 ## Para rodar
 

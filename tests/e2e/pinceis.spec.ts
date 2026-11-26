@@ -70,13 +70,13 @@ test('o spray continua pintando com o ponteiro parado e confirma um único traç
   expect(await quantidadePintada(page, '.drawing-canvas')).toBe(contagem);
 });
 
-test('a galeria oferece nove pincéis e o marcador só aplica opacidade uma vez por traço', async ({
+test('a galeria oferece dez pincéis (com o dedo) e o marcador só aplica opacidade uma vez por traço', async ({
   page,
 }) => {
   await abrirEditor(page);
   await page.getByRole('button', { name: 'Galeria de pincéis' }).click();
   const galeria = page.getByRole('menu', { name: 'Pincéis' });
-  await expect(galeria.getByRole('menuitemradio')).toHaveCount(9);
+  await expect(galeria.getByRole('menuitemradio')).toHaveCount(10);
   await galeria.getByRole('menuitemradio', { name: 'Marcador', exact: true }).click();
   const espessura = page.getByRole('spinbutton', { name: 'Espessura do traço', exact: true });
   await espessura.fill('24');

@@ -25,6 +25,10 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Régua de desenho** (`Shift+R`, ou aba Exibir › Régua e guias): posicione a régua arrastando a bolinha do meio e gire pelas pontas (`Shift` prende de 15 em 15°). Comece o traço perto da borda e ele sai reto, mesmo com a mão tremendo.
 - **Guias**: ligue as réguas (`Ctrl+R`) e arraste a partir delas para o papel. Seleções, formas e a transformação livre encaixam nas guias. Para mover uma guia, use a ferramenta Mover (`V`); arraste-a para fora do papel para apagar, ou use "Limpar guias". Elas ficam salvas no arquivo .rabisco.
 - **Girar e espelhar a vista** (só a tela, nunca a imagem): segure `R` e arraste no papel para girar como uma folha na mesa; `4` e `6` giram de 15 em 15°, `5` volta a 0°; no toque, gire dois dedos. `H` espelha a vista para conferir proporções. O ângulo aparece na barra de baixo; clique nele para voltar ao normal.
+- **Gradiente** (`G`): arraste do ponto da Cor 1 ao da Cor 2. Escolha linear ou radial e, se quiser, "Até transparente". Com uma seleção, ele fica só dentro dela.
+- **Varinha mágica** (`W`): clique numa cor para selecionar a área dela. `Shift` + clique soma outra área, `Alt` + clique tira. A tolerância é a mesma do balde.
+- **Seleção elíptica** (menu Seleção): arraste para selecionar uma elipse; `Shift` faz um círculo.
+- **Dedo (borrar)** (galeria de pincéis): esfuma e arrasta as cores como o dedo no carvão. A "Força" diz o quanto ele arrasta.
 - **Toque e caneta**: com caneta, a mão apoiada na tela não risca. Dois dedos tocando desfazem, três refazem.
 
 ## Ferramentas clássicas

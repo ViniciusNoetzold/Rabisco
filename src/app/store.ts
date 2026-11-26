@@ -1,4 +1,5 @@
 import type { ModoSimetria } from '../brushes/simetria';
+import type { FormaGradiente } from '../tools/gradiente';
 import { SEM_GUIAS, type GuiasDocumento } from '../document/guias';
 import type { CurvaPressao } from '../brushes/pressao';
 import { create } from 'zustand';
@@ -115,6 +116,12 @@ interface EditorState {
   guiasDoPapel: GuiasDocumento;
   /** Mostrar as guias do papel (e encaixar nelas). */
   mostrarGuias: boolean;
+  /** Gradiente linear ou radial. */
+  formaGradiente: FormaGradiente;
+  /** Gradiente da Cor 1 até transparente. */
+  gradienteTransparente: boolean;
+  /** Dedo (borrar): quanto arrasta a cor, 0–100. */
+  forcaDedo: number;
   /** Vista girada (graus, −180…180): só a tela gira, a imagem não. */
   rotacaoVista: number;
   /** Vista espelhada (H), para conferir proporções. */
@@ -173,6 +180,9 @@ interface EditorState {
         | 'mostrarGuias'
         | 'guiaNova'
         | 'rotacaoVista'
+        | 'formaGradiente'
+        | 'gradienteTransparente'
+        | 'forcaDedo'
         | 'espelharVista'
         | 'guiasInteligentes'
       >
@@ -234,6 +244,9 @@ export const useEditor = create<EditorState>()(
     mostrarGuias: true,
     guiaNova: null,
     rotacaoVista: 0,
+    formaGradiente: 'linear',
+    gradienteTransparente: false,
+    forcaDedo: 60,
     espelharVista: false,
     guiasInteligentes: true,
     setTool: (tool) =>

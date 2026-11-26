@@ -1,3 +1,5 @@
+import { areaDoBorrao, borrarTraco } from '../brushes/borrar';
+import { areaDoGradiente, desenharGradiente } from '../tools/gradiente';
 import {
   chaveDoAlvo,
   propriedadesPadrao,
@@ -78,6 +80,8 @@ const PINTURA = new Set<Comando['tipo']>([
   'AplicarForma',
   'AplicarTexto',
   'Preencher',
+  'Gradiente',
+  'Borrar',
   'ApagarSelecao',
   'MoverSelecao',
   'ColarImagem',
@@ -198,6 +202,20 @@ export class Executador {
         if (!configuracao.texto.trim()) return null;
         const area = areaDoTexto(this.doc.contextoAtivo(), configuracao);
         return this.pintar(comando, 'Texto', area, (ctx) => desenharTexto(ctx, configuracao));
+      }
+      case 'Borrar': {
+        const limites = areaDoBorrao(comando.pontos, comando.espessura);
+        const area = limites && limitarArea(limites, this.doc);
+        if (!area) return null;
+        const pixels = this.doc.lerPixels(area);
+        borrarTraco(pixels, area, comando.pontos, comando.espessura, comando.forca);
+        return this.escrever(comando, 'Dedo', area, pixels);
+      }
+      case 'Gradiente': {
+        const area = areaDoGradiente(comando, this.doc.width, this.doc.height);
+        return this.pintar(comando, 'Gradiente', area, (ctx, recorte) =>
+          desenharGradiente(ctx, comando, recorte),
+        );
       }
       case 'Preencher': {
         // O balde pode alcançar qualquer ponto do papel. Com "imagem toda", decide a área

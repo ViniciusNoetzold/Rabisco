@@ -1,3 +1,4 @@
+import { FERRAMENTAS_DE_SELECAO } from '../../tools/select';
 import { useEditor } from '../../app/store';
 import { limitarArea } from '../../commands/desenho';
 import {
@@ -114,7 +115,7 @@ export class ControleSelecao {
 
   private atualizarMarquise() {
     const { tool } = useEditor.getState();
-    if (tool === 'select' || tool === 'lasso') this.redesenharMarquise();
+    if (FERRAMENTAS_DE_SELECAO.has(tool)) this.redesenharMarquise();
     if (!this.nucleo.ativo() || !this.area || this.timerMarquise) return;
     this.timerMarquise = window.setTimeout(() => {
       this.timerMarquise = 0;

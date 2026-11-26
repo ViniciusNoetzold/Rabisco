@@ -8,11 +8,13 @@ import { formaLivre } from './formaLivre';
 import { linha } from './line';
 import { lapis } from './pencil';
 import { retangulo } from './rectangle';
-import { selecao, selecaoLaco } from './select';
+import { selecao, selecaoElipse, selecaoLaco } from './select';
+import { varinha } from './varinha';
 import { ferramentaTexto } from './texto';
 import { lupa } from './lupa';
 import { mover } from './mover';
 import { transformar } from './transformar';
+import { gradiente } from './gradienteFerramenta';
 import type { DefinicaoFerramenta, Tool } from './tool';
 
 export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
@@ -31,6 +33,9 @@ export const toolRegistry: Readonly<Record<ToolId, DefinicaoFerramenta>> = {
   eyedropper: contaGotas,
   move: mover,
   transform: transformar,
+  gradient: gradiente,
+  ellipseSelect: selecaoElipse,
+  wand: varinha,
 };
 
 export function criarFerramentas(): Record<ToolId, Tool> {

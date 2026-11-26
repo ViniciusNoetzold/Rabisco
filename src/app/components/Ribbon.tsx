@@ -7,11 +7,16 @@ import { BrushGallery } from './BrushGallery';
 import { OrientationMenu } from './OrientationMenu';
 import { Icon, RibbonGroup, type RunAction } from './Primitives';
 import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
-import { SprayControls, StrokeThickness } from './StrokeThickness';
+import { DedoControles, SprayControls, StrokeThickness } from './StrokeThickness';
 import { TextTools } from './TextTools';
 import { SimetriaControles } from './SimetriaControles';
 import { VistaControles } from './VistaControles';
-import { ControlesDeBalde, ControlesDeBorracha } from './ContextPixelTools';
+import {
+  ControlesDeBalde,
+  ControlesDeBorracha,
+  ControlesDeGradiente,
+  ControlesDeVarinha,
+} from './ContextPixelTools';
 import { SelectionMenu } from './SelectionMenu';
 import { nivelSeguinte } from '../../canvas/zoom';
 import { RecolhimentoContexto, useMedirRibbon } from './ribbonRecolhimento';
@@ -190,6 +195,8 @@ export function Ribbon({
                     {botaoFerramenta('text')}
                     {botaoFerramenta('zoom')}
                     {botaoFerramenta('move')}
+                    {botaoFerramenta('gradient')}
+                    {botaoFerramenta('wand')}
                   </div>
                 </RibbonGroup>
                 <RibbonGroup
@@ -201,6 +208,7 @@ export function Ribbon({
                 >
                   <BrushGallery carregando={carregando} />
                   {state.tool === 'brush' && state.pincel === 'spray' && <SprayControls />}
+                  {state.tool === 'brush' && state.pincel === 'dedo' && <DedoControles />}
                 </RibbonGroup>
                 <RibbonGroup
                   title="Formas"
@@ -215,25 +223,35 @@ export function Ribbon({
                   title={
                     state.tool === 'fill'
                       ? 'Balde'
-                      : state.tool === 'eraser'
-                        ? 'Borracha'
-                        : 'Espessura'
+                      : state.tool === 'wand'
+                        ? 'Varinha'
+                        : state.tool === 'gradient'
+                          ? 'Gradiente'
+                          : state.tool === 'eraser'
+                            ? 'Borracha'
+                            : 'Espessura'
                   }
-                  className={`size-group ${state.tool === 'fill' ? 'pixel-fill-group' : state.tool === 'eraser' ? 'pixel-eraser-group' : ''}`}
+                  className={`size-group ${state.tool === 'fill' || state.tool === 'gradient' || state.tool === 'wand' ? 'pixel-fill-group' : state.tool === 'eraser' ? 'pixel-eraser-group' : ''}`}
                   chave="espessura"
                   prioridade={1}
                   icone={
                     state.tool === 'fill'
                       ? 'paint-can'
-                      : state.tool === 'eraser'
-                        ? 'eraser'
-                        : 'minus'
+                      : state.tool === 'gradient'
+                        ? 'color'
+                        : state.tool === 'eraser'
+                          ? 'eraser'
+                          : 'minus'
                   }
                 >
                   {state.tool === 'eraser' ? (
                     <ControlesDeBorracha />
                   ) : state.tool === 'fill' ? (
                     <ControlesDeBalde />
+                  ) : state.tool === 'wand' ? (
+                    <ControlesDeVarinha />
+                  ) : state.tool === 'gradient' ? (
+                    <ControlesDeGradiente />
                   ) : (
                     <StrokeThickness />
                   )}

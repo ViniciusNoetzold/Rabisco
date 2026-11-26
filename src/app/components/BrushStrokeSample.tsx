@@ -1,3 +1,4 @@
+import { borrarTraco } from '../../brushes/borrar';
 import { useEffect, useRef } from 'react';
 import { AmostradorPincel } from '../../brushes/amostrador';
 import type { MarcaPincel, TipoPincel } from '../../brushes/catalogo';
@@ -39,6 +40,21 @@ export function BrushStrokeSample({
     const contexto = canvas.current?.getContext('2d');
     if (!contexto) return;
     contexto.clearRect(0, 0, largura, altura);
+    if (tipo === 'dedo') {
+      // Faixas da cor borradas pelo próprio dedo: a miniatura mostra o efeito de verdade.
+      contexto.fillStyle = cor;
+      for (let x = 8; x < largura; x += 18) contexto.fillRect(x, 4, 7, altura - 8);
+      const imagem = contexto.getImageData(0, 0, largura, altura);
+      borrarTraco(
+        imagem,
+        { x: 0, y: 0 },
+        pontosDeAmostra(largura, altura),
+        Math.max(8, espessura),
+        0.85,
+      );
+      contexto.putImageData(imagem, 0, 0);
+      return;
+    }
     const pintor = criarPintorPincel(contexto, { tipo, cor, espessura, semente: 29 });
     const pontos = pontosDeAmostra(largura, altura);
     if (tipo === 'spray') {
