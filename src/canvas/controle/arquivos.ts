@@ -1,4 +1,5 @@
 import type { RabiscoDocument } from '../../document/model';
+import { useEditor } from '../../app/store';
 import { identificarArquivoDeCamadas } from '../../io/formatosImagem';
 import type { FormatoExportacao, OpcoesExportacao } from '../../io/imagens';
 import type { OpcoesImpressao } from '../../io/imprimir';
@@ -35,7 +36,7 @@ export async function salvarCamadas(
   nome = doc.name,
 ) {
   const { exportarCamadas, EXTENSOES_CAMADAS } = await import('../../io/camadas');
-  const blob = await exportarCamadas(doc, formato);
+  const blob = await exportarCamadas(doc, formato, useEditor.getState().guiasDoPapel);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   const nomeSeguro =

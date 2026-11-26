@@ -2,6 +2,15 @@
 
 ## 0.4 em desenvolvimento — "Desenhar fica fácil"
 
+### Passo 5 — Régua de desenho e guias
+
+- **Régua de desenho** (aba Exibir › Régua e guias, ou **Shift+R**): uma régua com marcas aparece no meio da área visível. Arraste a bolinha do meio para mover e as pontas para girar ou esticar (Shift gira de 15 em 15°). Um traço de lápis, pincel, spray ou borracha que **começa perto da borda** (até 28 px de tela) gruda nela e sai reto até soltar, como numa régua de verdade; longe dela o traço é livre.
+- **Guias**: com as réguas laterais ligadas (Ctrl+R), arraste da régua de cima para criar uma guia horizontal e da lateral para uma vertical. Seleção retangular e formas (criar e redimensionar pelas alças) encaixam nas guias a até 6 px de tela; a transformação livre também. Com a ferramenta Mover (V), as guias se arrastam; soltas fora do papel, somem. "Guias" mostra ou esconde, "Limpar guias" tira todas.
+- Guias e régua vão junto no **.rabisco (formato v2)** e no salvamento automático. Arquivos v1 (0.3) continuam abrindo; um arquivo de versão mais nova é recusado com aviso. Papel novo ou imagem comum começam sem guias.
+- Perspectiva com pontos de fuga (opcional no plano) ficou para depois; anotada em MELHORIAS.
+- Código em `src/document/guias.ts` (projeção, encaixe, leitura segura), `src/canvas/GuiasPapel.tsx` e nas réguas laterais.
+- Testes: 9 unitários (projeção na régua, Shift de 15°, encaixe, guias inválidas, leitura do .rabisco v1, v2 e recusa da v3) e 2 E2E (traço torto perto da régua sai reto e longe dela não; guia arrastada da régua, retângulo encaixando, guia salva e reaberta no .rabisco, limpar guias). Total: 160 unitários e 81 E2E.
+
 ### Passo 4 — Formas inteligentes ("segura que ajeita")
 
 - Termine um traço de **lápis ou pincel** e **segure parado** (0,5 s por padrão): se ele parece uma forma, vira **linha, círculo, elipse, quadrado, retângulo, triângulo, seta ou polígono** (até 8 lados). Em dúvida, nada muda.

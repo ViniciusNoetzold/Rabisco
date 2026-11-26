@@ -27,6 +27,8 @@ export interface DocumentInfo {
 }
 
 export interface EditorApi {
+  /** Liga ou desliga a régua de desenho. Devolve true se ficou ligada. */
+  alternarRegua(): boolean;
   undo(): void;
   redo(): void;
   save(): Promise<void>;

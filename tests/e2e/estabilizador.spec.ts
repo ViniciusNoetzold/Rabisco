@@ -56,6 +56,8 @@ async function desvio(page: Page, y: number) {
 test('o estabilizador segura o tremor da mão e mostra a corda durante o traço', async ({
   page,
 }) => {
+  // ~800 movimentos com leitura da tela: leva ~18 s sozinho; com a máquina ocupada, mais.
+  test.setTimeout(60_000);
   await page.goto('/');
   await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
   await page.locator('.drawing-canvas').focus();

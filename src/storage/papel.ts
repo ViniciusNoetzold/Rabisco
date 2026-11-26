@@ -1,4 +1,5 @@
 import type { EstruturaDocumento } from '../document/camadas';
+import type { GuiasDocumento } from '../document/guias';
 import { dimensoesValidas, dpiValido } from '../document/dimensoes';
 import { database, type DocumentSnapshot } from './documents';
 import { colunasELinhas, chaveDoBloco, type PosicaoBloco } from './blocos';
@@ -14,6 +15,8 @@ export interface PapelSalvo {
   camadas: { id: string; nome: string }[];
   /** Camadas, grupos e propriedades (0.3). Sem ela, o papel tem uma camada só (0.2.1). */
   estrutura?: EstruturaDocumento;
+  /** Guias e régua de desenho (0.4). */
+  guias?: GuiasDocumento;
   atualizadoEm: number;
 }
 

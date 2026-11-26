@@ -25,7 +25,10 @@
 - [x] **Formas inteligentes**: segurar no fim do traço e ele vira linha, círculo, retângulo, triângulo, seta ou polígono — 0.4
 - [ ] Formas inteligentes também com a simetria ligada (cada cópia vira a forma)
 - [ ] Formas inteligentes: seta de linha (hoje vira a seta cheia do catálogo, só com contorno) e estrela
-- [ ] Régua e guias magnéticas
+- [x] Régua de desenho e guias magnéticas (salvas no .rabisco v2) — 0.4
+- [ ] Perspectiva: 1 e 2 pontos de fuga com traços seguindo a linha de fuga
+- [ ] Guias no histórico (desfazer a criação ou remoção de uma guia)
+- [ ] Régua curva (elipse / curva francesa)
 - [ ] Rotação do canvas (girar a vista, não a imagem)
 - [ ] Prévia do traço respeitando as camadas de cima (hoje aparece por cima de tudo durante o gesto)
 - [ ] Mais pincéis: textura de papel, borrar/esfumar, misturador de cor

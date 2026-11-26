@@ -1,4 +1,12 @@
 import { useEditor } from '../../app/store';
+import {
+  distanciaDaRegua,
+  encaixarNasGuias,
+  projetarNaRegua,
+  RAIO_GUIAS,
+  RAIO_REGUA,
+  type Regua,
+} from '../../document/guias';
 import { Estabilizador, FERRAMENTAS_ESTABILIZAVEIS } from '../../brushes/estabilizador';
 import {
   aplicarCurva,
@@ -26,6 +34,15 @@ import type { ControleSelecao } from './selecao';
 import type { SuperficieTela } from './superficie';
 
 type EstadoEditor = ReturnType<typeof useEditor.getState>;
+
+/** Ferramentas cujos pontos encaixam nas guias do papel. */
+const FERRAMENTAS_COM_ENCAIXE = new Set<ToolId>([
+  'select',
+  'line',
+  'rectangle',
+  'ellipse',
+  'shape',
+]);
 
 /**
  * As ferramentas e o gesto em andamento: repassa ponteiro e teclado para a ferramenta ativa,
@@ -57,6 +74,9 @@ export class ControleFerramentas {
   private formaInteligente: { original: Comando; voltarPara: ToolId } | null = null;
   /** Enquanto definido, `executar` guarda o comando em vez de executá-lo. */
   private capturando: { comando: Comando | null } | null = null;
+
+  /** Régua em que o traço em andamento grudou (começou perto da borda dela). */
+  private reguaDoGesto: Regua | null = null;
 
   /** Simetria do traço em andamento (lápis, pincéis e borrachas), com as cópias da prévia. */
   private simetria: { config: ConfigSimetria; copias: Transformacao[] } | null = null;
@@ -93,6 +113,15 @@ export class ControleFerramentas {
     const id = atalhoContaGotas ? 'eyedropper' : useEditor.getState().tool;
     const ferramenta = this.ferramentas[id];
     this.gesto = { ponteiro, ferramenta };
+    // Régua de desenho: o traço que começa perto da borda gruda nela até soltar.
+    const { regua } = useEditor.getState().guiasDoPapel;
+    this.reguaDoGesto =
+      regua &&
+      FERRAMENTAS_ESTABILIZAVEIS.has(id) &&
+      distanciaDaRegua(evento.ponto, regua) * useEditor.getState().zoom <= RAIO_REGUA
+        ? regua
+        : null;
+    evento = this.ajustarPonto(id, evento);
     const { estabilizar, suavizar, zoom, pressaoVelocidade, afinar, size } = useEditor.getState();
     this.pressao =
       id === 'brush'
@@ -134,6 +163,7 @@ export class ControleFerramentas {
     }
     if (this.gesto.ponteiro !== ponteiro) return;
     const { ferramenta } = this.gesto;
+    evento = this.ajustarPonto(ferramenta.id, evento);
     evento = this.ajustarPressao(evento);
     this.vigiarParada(evento.ponto);
     if (this.estabilizador) {
@@ -160,6 +190,8 @@ export class ControleFerramentas {
     const { ferramenta } = this.gesto;
     this.gesto = null;
     this.desarmarRelogio();
+    if (evento) evento = this.ajustarPonto(ferramenta.id, evento);
+    this.reguaDoGesto = null;
     const estabilizador = this.estabilizador;
     this.estabilizador = null;
     if (evento) evento = this.ajustarPressao(evento);
@@ -347,8 +379,9 @@ export class ControleFerramentas {
    */
   private guiasDeEncaixe() {
     const { doc } = this.nucleo;
-    const x = [0, doc.width / 2, doc.width];
-    const y = [0, doc.height / 2, doc.height];
+    const { guiasDoPapel, mostrarGuias } = useEditor.getState();
+    const x = [0, doc.width / 2, doc.width, ...(mostrarGuias ? guiasDoPapel.verticais : [])];
+    const y = [0, doc.height / 2, doc.height, ...(mostrarGuias ? guiasDoPapel.horizontais : [])];
     let orcamento = 40_000_000;
     for (const camada of doc.layers) {
       if (camada.id === doc.activeLayerId || !camada.visible || camada.fundo) continue;
@@ -360,6 +393,20 @@ export class ControleFerramentas {
       y.push(limites.y, limites.y + limites.height / 2, limites.y + limites.height);
     }
     return { x, y };
+  }
+
+  /**
+   * Traço grudado na régua: o ponto vai para a borda dela. Formas e seleção: os pontos
+   * encaixam nas guias do papel.
+   */
+  private ajustarPonto(id: ToolId, evento: EventoFerramenta): EventoFerramenta {
+    if (this.reguaDoGesto)
+      return { ...evento, ponto: projetarNaRegua(evento.ponto, this.reguaDoGesto) };
+    const { guiasDoPapel, mostrarGuias, zoom } = useEditor.getState();
+    if (!mostrarGuias || !FERRAMENTAS_COM_ENCAIXE.has(id)) return evento;
+    if (!guiasDoPapel.horizontais.length && !guiasDoPapel.verticais.length) return evento;
+    const ponto = encaixarNasGuias(evento.ponto, guiasDoPapel, RAIO_GUIAS / zoom);
+    return ponto === evento.ponto ? evento : { ...evento, ponto };
   }
 
   /** (Re)começa a contar o tempo parado. */
@@ -410,6 +457,7 @@ export class ControleFerramentas {
       this.pressao = null;
       this.simetria = null;
       this.inteligente = null;
+      this.reguaDoGesto = null;
       this.mostrarCorda(null);
       this.superficie.limpar();
     }

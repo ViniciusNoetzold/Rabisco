@@ -1,5 +1,6 @@
 // ag-psd é grande: só carrega quando um PSD é salvo ou aberto.
 import type { BlendMode, Layer as CamadaPsd, Psd } from 'ag-psd';
+import { guiasSeguras, SEM_GUIAS, type GuiasDocumento } from '../document/guias';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import {
   chaveDoAlvo,
@@ -43,12 +44,15 @@ export interface DocumentoComCamadas {
   pixels: Map<string, HTMLCanvasElement>;
   /** Partes do arquivo que o Rabisco não reproduz (para avisar). */
   avisos: string[];
+  /** Guias e régua de desenho (só o .rabisco v2 guarda). */
+  guias?: GuiasDocumento;
 }
 
 const LIMITE_ARQUIVO = 512 * 1024 * 1024;
 const LIMITE_CAMADAS = 200;
 const ID_SEGURO = /^[A-Za-z0-9_-]{1,64}$/;
-const VERSAO_RABISCO = 1;
+/** v1: camadas (0.3). v2: guias e régua de desenho (0.4); lê os dois. */
+export const VERSAO_RABISCO = 2;
 
 // ---- Utilidades -----------------------------------------------------------------------------
 
@@ -260,10 +264,11 @@ function nomeSemExtensao(nome: string) {
 export async function exportarCamadas(
   doc: RabiscoDocument,
   formato: FormatoCamadas,
+  guias: GuiasDocumento = SEM_GUIAS,
 ): Promise<Blob> {
   const dados =
     formato === 'rabisco'
-      ? await exportarRabisco(doc)
+      ? await exportarRabisco(doc, guias)
       : formato === 'ora'
         ? await exportarOra(doc)
         : formato === 'psd'
@@ -272,7 +277,7 @@ export async function exportarCamadas(
   return new Blob([dados as BlobPart], { type: MIMES_CAMADAS[formato] });
 }
 
-async function exportarRabisco(doc: RabiscoDocument): Promise<Uint8Array> {
+async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Promise<Uint8Array> {
   const estrutura = doc.estrutura();
   estrutura.editandoMascara = false;
   const arquivos: Zippable = {
@@ -281,11 +286,12 @@ async function exportarRabisco(doc: RabiscoDocument): Promise<Uint8Array> {
         {
           formato: 'rabisco',
           versao: VERSAO_RABISCO,
-          criadoCom: 'Rabisco 0.3',
+          criadoCom: 'Rabisco 0.4',
           nome: doc.name,
           largura: doc.width,
           altura: doc.height,
           dpi: doc.dpi,
+          guias,
           estrutura,
         },
         null,
@@ -485,19 +491,7 @@ async function importarRabisco(
   } catch {
     throw new Error('O manifest.json do arquivo .rabisco está danificado.');
   }
-  if (manifest.formato !== 'rabisco') throw new Error('Este arquivo não é um .rabisco.');
-  if (typeof manifest.versao !== 'number' || manifest.versao > VERSAO_RABISCO)
-    throw new Error('Este .rabisco foi salvo por uma versão mais nova do Rabisco.');
-  const largura = manifest.largura;
-  const altura = manifest.altura;
-  if (
-    typeof largura !== 'number' ||
-    typeof altura !== 'number' ||
-    !dimensoesValidas(largura, altura)
-  )
-    throw new Error('O .rabisco tem dimensões inválidas.');
-  const dpi =
-    typeof manifest.dpi === 'number' && dpiValido(manifest.dpi) ? manifest.dpi : DPI_PADRAO;
+  const { largura, altura, dpi, nome, guias } = lerCabecalhoRabisco(manifest, nomeArquivo);
   const brutoEstrutura = (
     typeof manifest.estrutura === 'object' && manifest.estrutura ? manifest.estrutura : {}
   ) as Record<string, unknown>;
@@ -536,14 +530,34 @@ async function importarRabisco(
       pixels.set(chaveDoAlvo({ camada: camada.id, mascara: true }), canvasMascara);
     }
   }
+  return { nome, largura, altura, dpi, estrutura, pixels, avisos: [], guias };
+}
+
+/**
+ * Formato, versão, tamanho, dpi, nome e guias do manifest de um .rabisco. A v1 (0.3) não tem
+ * guias; uma versão mais nova que a do programa é recusada.
+ */
+export function lerCabecalhoRabisco(manifest: Record<string, unknown>, nomeArquivo: string) {
+  if (manifest.formato !== 'rabisco') throw new Error('Este arquivo não é um .rabisco.');
+  if (typeof manifest.versao !== 'number' || manifest.versao > VERSAO_RABISCO)
+    throw new Error('Este .rabisco foi salvo por uma versão mais nova do Rabisco.');
+  const largura = manifest.largura;
+  const altura = manifest.altura;
+  if (
+    typeof largura !== 'number' ||
+    typeof altura !== 'number' ||
+    !dimensoesValidas(largura, altura)
+  )
+    throw new Error('O .rabisco tem dimensões inválidas.');
+  const dpi =
+    typeof manifest.dpi === 'number' && dpiValido(manifest.dpi) ? manifest.dpi : DPI_PADRAO;
   return {
-    nome: texto(manifest.nome, nomeSemExtensao(nomeArquivo)),
+    versao: manifest.versao,
     largura,
     altura,
     dpi,
-    estrutura,
-    pixels,
-    avisos: [],
+    nome: texto(manifest.nome, nomeSemExtensao(nomeArquivo)),
+    guias: manifest.versao >= 2 ? guiasSeguras(manifest.guias, largura, altura) : SEM_GUIAS,
   };
 }
 

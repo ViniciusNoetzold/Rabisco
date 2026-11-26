@@ -8,6 +8,7 @@ import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
 import { TextOverlay } from './TextOverlay';
 import { Reguas } from './Reguas';
 import { GuiasSimetria } from './GuiasSimetria';
+import { GuiasPapel } from './GuiasPapel';
 import { Miniatura } from './Miniatura';
 import { LupaOverlay } from './LupaOverlay';
 import { useNavegacaoCanvas } from './useNavegacaoCanvas';
@@ -246,6 +247,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
               />
             )}
             <GuiasSimetria largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
+            <GuiasPapel largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
             <PaperResizeHandles
               tamanho={dimensoes}
               zoom={zoom}

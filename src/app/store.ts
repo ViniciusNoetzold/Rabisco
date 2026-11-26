@@ -1,4 +1,5 @@
 import type { ModoSimetria } from '../brushes/simetria';
+import { SEM_GUIAS, type GuiasDocumento } from '../document/guias';
 import type { CurvaPressao } from '../brushes/pressao';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -110,6 +111,12 @@ interface EditorState {
   formasInteligentes: boolean;
   /** Quanto tempo segurar parado, em ms. */
   esperaFormaInteligente: number;
+  /** Guias do papel e régua de desenho (vão no .rabisco e no salvamento automático). */
+  guiasDoPapel: GuiasDocumento;
+  /** Mostrar as guias do papel (e encaixar nelas). */
+  mostrarGuias: boolean;
+  /** Guia sendo arrastada da régua lateral ou com a ferramenta Mover. */
+  guiaNova: { eixo: 'horizontal' | 'vertical'; valor: number } | null;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;
@@ -158,6 +165,9 @@ interface EditorState {
         | 'guiasSimetria'
         | 'formasInteligentes'
         | 'esperaFormaInteligente'
+        | 'guiasDoPapel'
+        | 'mostrarGuias'
+        | 'guiaNova'
         | 'guiasInteligentes'
       >
     >,
@@ -214,6 +224,9 @@ export const useEditor = create<EditorState>()(
     guiasSimetria: true,
     formasInteligentes: true,
     esperaFormaInteligente: 500,
+    guiasDoPapel: SEM_GUIAS,
+    mostrarGuias: true,
+    guiaNova: null,
     guiasInteligentes: true,
     setTool: (tool) =>
       set((state) => {

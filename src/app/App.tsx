@@ -273,6 +273,17 @@ export default function App() {
         event.preventDefault();
         editor.current?.deleteSelection();
       }
+      if (key === 'r' && event.shiftKey && !event.altKey) {
+        // Shift+R: régua de desenho (R sozinho continua sendo o retângulo).
+        event.preventDefault();
+        const ligada = editor.current?.alternarRegua();
+        notify(
+          ligada
+            ? 'Régua de desenho: comece o traço perto da borda para ele sair reto.'
+            : 'Régua de desenho guardada.',
+        );
+        return;
+      }
       if (key === 's' && event.shiftKey && !event.altKey) {
         // Shift+S: liga/desliga a simetria (S sozinho continua sendo a seleção).
         event.preventDefault();

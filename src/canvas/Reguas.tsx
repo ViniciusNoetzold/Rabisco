@@ -1,4 +1,6 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type PointerEvent as EventoPonteiro } from 'react';
+import { useEditor } from '../app/store';
+import { soltarGuia } from './soltarGuia';
 import type { Point } from '../layers/types';
 import { medirViewport, prepararTelaPequena, type PropsViewportVisual } from './viewportVisual';
 import './viewportVisual.css';
@@ -156,11 +158,52 @@ export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportV
     };
   }, [viewport, tela, zoom, largura, altura]);
 
+  /** Arrastar da régua de cima cria uma guia horizontal; da lateral, uma vertical. */
+  function arrastarGuia(eixo: 'horizontal' | 'vertical') {
+    const valor = (evento: EventoPonteiro) => {
+      const papel = tela.current!.getBoundingClientRect();
+      return Math.round(
+        eixo === 'horizontal'
+          ? (evento.clientY - papel.top) / zoom
+          : (evento.clientX - papel.left) / zoom,
+      );
+    };
+    return {
+      onPointerDown(evento: EventoPonteiro<HTMLCanvasElement>) {
+        if (evento.button !== 0 || !tela.current) return;
+        evento.preventDefault();
+        evento.currentTarget.setPointerCapture(evento.pointerId);
+        useEditor.getState().set({ guiaNova: { eixo, valor: valor(evento) }, mostrarGuias: true });
+      },
+      onPointerMove(evento: EventoPonteiro<HTMLCanvasElement>) {
+        if (!evento.currentTarget.hasPointerCapture(evento.pointerId) || !tela.current) return;
+        useEditor.getState().set({ guiaNova: { eixo, valor: valor(evento) } });
+      },
+      onPointerUp(evento: EventoPonteiro<HTMLCanvasElement>) {
+        if (!evento.currentTarget.hasPointerCapture(evento.pointerId)) return;
+        soltarGuia(largura, altura);
+      },
+      onPointerCancel() {
+        useEditor.getState().set({ guiaNova: null });
+      },
+    };
+  }
+
   return (
     <div ref={moldura} className="canvas-rulers" aria-hidden="true">
       <div className="canvas-rulers-corner">px</div>
-      <canvas ref={horizontal} className="canvas-ruler-x" />
-      <canvas ref={vertical} className="canvas-ruler-y" />
+      <canvas
+        ref={horizontal}
+        className="canvas-ruler-x"
+        title="Arraste para o papel para criar uma guia horizontal"
+        {...arrastarGuia('horizontal')}
+      />
+      <canvas
+        ref={vertical}
+        className="canvas-ruler-y"
+        title="Arraste para o papel para criar uma guia vertical"
+        {...arrastarGuia('vertical')}
+      />
     </div>
   );
 }

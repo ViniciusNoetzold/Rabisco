@@ -356,6 +356,45 @@ export function Ribbon({
                 ))}
               </div>
             </RibbonGroup>
+            <RibbonGroup title="Régua e guias" chave="guias" prioridade={1.5} icone="ruler">
+              <div className="view-buttons guias-botoes">
+                <button
+                  type="button"
+                  className="ribbon-large"
+                  title="Régua de desenho (Shift+R): traços que começam perto dela saem retos"
+                  aria-pressed={Boolean(state.guiasDoPapel.regua)}
+                  onClick={() => editor.current?.alternarRegua()}
+                >
+                  <Icon name="ruler" className="large-icon" />
+                  <span>Régua de desenho</span>
+                </button>
+                <div className="ribbon-stack">
+                  <label className="guias-mostrar">
+                    <input
+                      type="checkbox"
+                      checked={state.mostrarGuias}
+                      onChange={(event) => state.set({ mostrarGuias: event.target.checked })}
+                    />
+                    Guias
+                  </label>
+                  <button
+                    type="button"
+                    title="Remove todas as guias do papel (crie novas arrastando das réguas)"
+                    disabled={
+                      !state.guiasDoPapel.horizontais.length && !state.guiasDoPapel.verticais.length
+                    }
+                    onClick={() =>
+                      state.set({
+                        guiasDoPapel: { ...state.guiasDoPapel, horizontais: [], verticais: [] },
+                      })
+                    }
+                  >
+                    <Icon name="cross" />
+                    Limpar guias
+                  </button>
+                </div>
+              </div>
+            </RibbonGroup>
             <RibbonGroup
               title="Navegação"
               chave="navegacao"

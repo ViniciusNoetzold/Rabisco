@@ -1,4 +1,5 @@
 import { useEditor } from '../../app/store';
+import { SEM_GUIAS } from '../../document/guias';
 import {
   serializarImagem,
   type Comando,
@@ -48,6 +49,8 @@ export class ControlePapel {
       formato,
       imagem: serializarImagem({ width, height, data: pixels }),
     });
+    // Uma imagem comum não traz guias: as do desenho anterior saem.
+    useEditor.getState().set({ guiasDoPapel: SEM_GUIAS, guiaNova: null });
     this.nucleo.fit();
     this.nucleo.notificar();
   }

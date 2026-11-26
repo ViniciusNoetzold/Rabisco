@@ -93,3 +93,16 @@
 .canvas-overview canvas:focus-visible {
   outline-offset: -2px;
 }
+
+/* Arrastar das réguas cria guias (0.4). */
+.canvas-rulers .canvas-ruler-x,
+.canvas-rulers .canvas-ruler-y {
+  pointer-events: auto;
+  touch-action: none;
+}
+.canvas-rulers .canvas-ruler-x {
+  cursor: row-resize;
+}
+.canvas-rulers .canvas-ruler-y {
+  cursor: col-resize;
+}

@@ -1,4 +1,5 @@
 import { useEditor } from '../app/store';
+import { reguaPadrao, SEM_GUIAS } from '../document/guias';
 import {
   type Comando,
   type OpcoesTransformacao,
@@ -313,6 +314,30 @@ export class EditorController implements EditorApi, NucleoEditor {
 
   newDocument(nome: string, largura: number, altura: number) {
     this.papel.novo(nome, largura, altura);
+    useEditor.getState().set({ guiasDoPapel: SEM_GUIAS, guiaNova: null });
+  }
+
+  /** Liga a régua de desenho no meio da área visível do papel, ou a desliga. */
+  alternarRegua() {
+    const estado = useEditor.getState();
+    const { guiasDoPapel, zoom } = estado;
+    if (guiasDoPapel.regua) {
+      estado.set({ guiasDoPapel: { ...guiasDoPapel, regua: null } });
+      return false;
+    }
+    const area = this.workspace.getBoundingClientRect();
+    const papel = this.superficie.tela.getBoundingClientRect();
+    const visivel = {
+      x: (Math.max(area.left, papel.left) + Math.min(area.right, papel.right)) / 2,
+      y: (Math.max(area.top, papel.top) + Math.min(area.bottom, papel.bottom)) / 2,
+    };
+    const centro = {
+      x: Math.max(0, Math.min(this.doc.width, (visivel.x - papel.left) / zoom)),
+      y: Math.max(0, Math.min(this.doc.height, (visivel.y - papel.top) / zoom)),
+    };
+    const largura = Math.min(this.doc.width, Math.max(80, (area.width * 0.6) / zoom));
+    estado.set({ guiasDoPapel: { ...guiasDoPapel, regua: reguaPadrao(centro, largura) } });
+    return true;
   }
 
   private telaParaSaida() {
@@ -440,6 +465,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     doc.dpi = dados.dpi;
     doc.preencherPapel(dados.largura, dados.altura, 'transparent');
     doc.aplicarEstrutura(dados.estrutura);
+    useEditor.getState().set({ guiasDoPapel: dados.guias ?? SEM_GUIAS, guiaNova: null });
     for (const [chave, canvas] of dados.pixels) {
       const alvo = alvoDaChave(chave);
       if (!doc.existe(alvo)) continue;
@@ -628,5 +654,7 @@ export class EditorController implements EditorApi, NucleoEditor {
       }
     }
     this.ferramentas.opcoesMudaram(atual, anterior);
+    // Guias e régua vão junto no salvamento automático.
+    if (atual.guiasDoPapel !== anterior.guiasDoPapel) this.persistencia.marcarDescricao();
   }
 }

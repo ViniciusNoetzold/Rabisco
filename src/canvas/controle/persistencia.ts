@@ -1,4 +1,6 @@
 import { DPI_PADRAO } from '../../document/dimensoes';
+import { useEditor } from '../../app/store';
+import { guiasSeguras } from '../../document/guias';
 import { alvoDaChave, chaveDoAlvo } from '../../document/camadas';
 import type { Rect } from '../../layers/types';
 import { AutosaveBlocos } from '../../storage/autosave';
@@ -41,6 +43,7 @@ export class Persistencia {
               : []),
           ]),
           estrutura: doc.estrutura(),
+          guias: useEditor.getState().guiasDoPapel,
         }),
         lerArea: (chave, area) => doc.lerPixels(area, alvoDaChave(chave)),
       },
@@ -86,6 +89,9 @@ export class Persistencia {
         );
         if (!this.nucleo.ativo()) return false;
         doc.dpi = papel.dpi;
+        useEditor
+          .getState()
+          .set({ guiasDoPapel: guiasSeguras(papel.guias, papel.largura, papel.altura) });
         this.autosave.definirTamanhoGravado(papel.largura, papel.altura);
       } else if (salvo?.tipo === 'legado') {
         // Registro da 0.2 (pixels inteiros): converte em blocos e só então apaga o antigo.

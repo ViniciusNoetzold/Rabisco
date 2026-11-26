@@ -2195,3 +2195,15 @@ input[type='range']::-webkit-slider-thumb {
   padding: 0 6px;
   font-size: 12px;
 }
+
+/* Grupo "Régua e guias" da aba Exibir (0.4). */
+.guias-botoes .ribbon-stack {
+  gap: 4px;
+  justify-content: center;
+}
+.guias-mostrar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}

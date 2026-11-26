@@ -1,0 +1,54 @@
+/* Guias do papel e régua de desenho (0.4). */
+.guias-papel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+}
+.guias-papel .guia line {
+  stroke: #12a4d9;
+  stroke-width: 1;
+}
+.guias-papel .guia-arrastada line {
+  stroke-dasharray: 4 3;
+}
+.guias-papel .guia line.guia-alvo {
+  stroke: transparent;
+  stroke-width: 9;
+  pointer-events: stroke;
+}
+.guias-papel .guia-alvo-horizontal {
+  cursor: row-resize;
+}
+.guias-papel .guia-alvo-vertical {
+  cursor: col-resize;
+}
+.regua-faixa {
+  fill: rgb(233 241 248 / 72%);
+  stroke: #7d9bb3;
+  stroke-width: 1;
+}
+.regua-marcas {
+  fill: none;
+  stroke: #526e83;
+  stroke-width: 1;
+}
+.regua-borda {
+  stroke: #1d6eb0;
+  stroke-width: 1.5;
+}
+.regua-alca {
+  fill: #fff;
+  stroke: #1d6eb0;
+  stroke-width: 1.5;
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+}
+.regua-alca:hover {
+  fill: #dcecf9;
+}
+.regua-mover {
+  cursor: move;
+}
