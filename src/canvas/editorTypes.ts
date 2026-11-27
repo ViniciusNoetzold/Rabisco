@@ -70,9 +70,10 @@ export interface EditorApi {
   ): Promise<boolean>;
   exibirPreviaFiltro(mostrar: boolean): void;
   aplicarFiltro(): boolean;
-  cancelarFiltro(): void;
+  cancelarFiltro(limparPrevia?: boolean): void;
   repetirFiltro(aoDemorar: () => void): Promise<boolean>;
   temUltimoFiltro(): boolean;
+  amostrarNivelFiltro(cliente: Point): number | null;
 }
 
 export interface CanvasCallbacks {

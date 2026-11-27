@@ -47,10 +47,11 @@
 ## Estilos e efeitos (0.5)
 
 - [x] Registro de filtros, worker cancelável, prévia no papel e repetição do último filtro. **Inverter cores** inaugura o menu. ✅ 0.5, Passo 1.
+- [x] Filtros de cor, editor de curvas e conta-gotas de níveis. ✅ 0.5, Passo 2.
 - [ ] **ASCII**: converter camada ou seleção, conjuntos de caracteres, colorido (ANSI/HTML), editar letra por letra, títulos com figlet; exportar .txt, .html e .png
 - [ ] **Pixel art**: grade, paletas (Game Boy, NES, PICO-8, CGA), pixelizar foto, papel-cebola
 - [ ] **Dithering** retrô, **meio-tom**, mosaico, pontilhismo, vitral, "CRT"
-- [ ] Filtros: brilho/contraste, matiz/saturação, curvas, desfoque, nitidez, ruído
+- [ ] Filtros espaciais: desfoque, nitidez, ruído, mediana, bordas e relevo
 - [ ] Camadas de ajuste não destrutivas
 - [ ] Arquitetura de plugins para novos estilos
 

@@ -16,11 +16,12 @@ import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
 import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/compositor';
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { comoImageData, RabiscoDocument } from '../document/model';
+import { luminancia } from '../filtros/cores';
 import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 import { calcularFiltro } from '../filtros/worker';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
-import type { PixelBuffer, ToolId } from '../layers/types';
+import type { PixelBuffer, Point, ToolId } from '../layers/types';
 import { referenciaDaForma } from '../shapes/referencia';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import type { EventoFerramenta } from '../tools/tool';
@@ -289,7 +290,10 @@ export class EditorController implements EditorApi, NucleoEditor {
       this.cancelarFiltro();
       return;
     }
-    if (resultado.depois === resultado.preparo.antes) return;
+    if (resultado.depois === resultado.preparo.antes) {
+      this.superficie.mostrarPreviaFiltro(null);
+      return;
+    }
     const exibir = () => {
       if (!resultado.previa) {
         const { preparo, depois } = resultado;
@@ -331,9 +335,10 @@ export class EditorController implements EditorApi, NucleoEditor {
     }
   }
 
-  cancelarFiltro() {
+  cancelarFiltro(limparPrevia = true) {
     this.calculoFiltro?.abort();
     this.calculoFiltro = null;
+    if (!limparPrevia) return;
     this.resultadoFiltro = null;
     this.superficie.mostrarPreviaFiltro(null);
   }
@@ -348,8 +353,27 @@ export class EditorController implements EditorApi, NucleoEditor {
     return this.ultimoFiltro !== null;
   }
 
+  amostrarNivelFiltro(cliente: Point): number | null {
+    if (!this.disponivel()) return null;
+    const janela = this.workspace.getBoundingClientRect();
+    if (
+      cliente.x < janela.left ||
+      cliente.x >= janela.right ||
+      cliente.y < janela.top ||
+      cliente.y >= janela.bottom
+    )
+      return null;
+    const { width, height } = this.doc;
+    const ponto = clienteNoPapel(cliente, this.tela.getBoundingClientRect(), width, height);
+    const x = Math.floor(ponto.x);
+    const y = Math.floor(ponto.y);
+    if (x < 0 || x >= width || y < 0 || y >= height) return null;
+    const { data } = this.doc.lerPixels({ x, y, width: 1, height: 1 });
+    return data[3] ? Math.round(luminancia(data[0], data[1], data[2])) : null;
+  }
+
   private async processarFiltro(configuracao: ConfiguracaoFiltro, aoDemorar: () => void) {
-    this.cancelarFiltro();
+    this.cancelarFiltro(false);
     if (!this.disponivel()) return null;
     this.ferramentas.confirmarPendente();
     const revisao = this.revisao;

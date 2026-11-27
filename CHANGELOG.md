@@ -2,6 +2,12 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 2 — Filtros de cor
+
+- O menu **Filtros** ganhou brilho e contraste, matiz/saturação/luminosidade, níveis, curvas, preto e branco com mistura de canais, sépia, limiar e posterização.
+- Em **Curvas**, adicione, mova e remova pontos ou ajuste os valores de entrada e saída. Os conta-gotas de **Níveis** amostram o ponto preto e o ponto branco no papel.
+- Validação com 196 testes unitários, build de produção e 96 fluxos E2E verificados. A suíte passou em 94 fluxos na rodada completa. Os dois ensaios de traço que falharam nessa rodada passaram ao repetir em série.
+
 ### Passo 1 — Arquitetura de filtros e estilos
 
 - **Início › Filtros › Inverter cores** abre uma janela com prévia no papel. Segure **Antes/depois** para ver o original, use **Aplicar** para gravar a edição ou `Esc` para cancelar. `Ctrl+F` repete o último filtro aplicado na sessão.

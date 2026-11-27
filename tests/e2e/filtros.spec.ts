@@ -137,3 +137,53 @@ test('prévia e aplicação da máscara respeitam o recorte da seleção', async
   await page.keyboard.press('Control+z');
   await expect.poll(() => pixel(page, 240, 240)).toEqual(AZUL);
 });
+
+test('Curvas edita os pontos, atualiza o papel e registra uma edição', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Filtros', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Curvas', exact: true }).click();
+  const dialogo = page.getByRole('dialog', { name: 'Curvas', exact: true });
+  const aplicar = dialogo.getByRole('button', { name: 'Aplicar', exact: true });
+  const curva = dialogo.getByRole('group', { name: 'Curva de tons' });
+  await expect(aplicar).toBeEnabled();
+
+  await curva.getByRole('button', { name: 'Adicionar ponto' }).click();
+  await expect(curva.getByRole('spinbutton', { name: 'Entrada' })).toHaveValue('128');
+  await expect(curva.getByRole('button', { name: 'Ponto 2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await curva.getByRole('button', { name: 'Ponto 3', exact: true }).focus();
+  await page.keyboard.press('Shift+ArrowDown');
+  await curva.getByRole('spinbutton', { name: 'Saída' }).fill('128');
+  await expect(aplicar).toBeEnabled();
+  await expect.poll(() => pixel(page, 200, 200)).toEqual([128, 128, 128, 255]);
+
+  await aplicar.click();
+  await expect(page.locator('.history-list').getByText('Curvas', { exact: true })).toHaveCount(1);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixel(page, 200, 200)).toEqual(BRANCO);
+});
+
+test('conta-gotas de Níveis lê o ponto preto e o ponto branco no papel', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await page.locator('.drawing-canvas').focus();
+  await page.keyboard.press('f');
+  const amostra = await pontoNaTela(page, 520, 340);
+  await page.mouse.click(amostra.x, amostra.y);
+  await expect.poll(() => pixel(page, 520, 340)).toEqual(AZUL);
+
+  await page.getByRole('button', { name: 'Filtros', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Níveis', exact: true }).click();
+  const dialogo = page.getByRole('dialog', { name: 'Níveis' });
+  await dialogo.getByRole('button', { name: 'Amostrar branco' }).click();
+  await page.mouse.click(amostra.x, amostra.y);
+  await expect(dialogo.getByRole('slider', { name: 'Ponto branco' })).toHaveValue('114');
+  await dialogo.getByRole('button', { name: 'Amostrar preto' }).click();
+  await page.mouse.click(amostra.x, amostra.y);
+  await expect(dialogo.getByRole('slider', { name: 'Ponto preto' })).toHaveValue('113');
+  await dialogo.getByRole('button', { name: 'Cancelar' }).click();
+  await expect.poll(() => pixel(page, 520, 340)).toEqual(AZUL);
+});

@@ -50,6 +50,8 @@
   inset: 12px auto auto 12px;
   margin: 0;
   max-width: 320px;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
 }
 
 .filtro-dialog.app-dialog::backdrop {
@@ -114,4 +116,65 @@
 .filtro-acoes > [aria-pressed='true'] {
   border-color: #80a8c6;
   background: #d3e9f9;
+}
+
+.curva-filtro {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.curva-filtro-grafico {
+  position: relative;
+  width: min(256px, 100%);
+  aspect-ratio: 1;
+  margin: 5px auto;
+  outline: 1px solid #9eb6cd;
+  background: #f6faff;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.curva-filtro-grafico canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.curva-filtro .curva-filtro-ponto {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid #316c9f;
+  border-radius: 50%;
+  background: #fff;
+  cursor: grab;
+}
+
+.curva-filtro .curva-filtro-ponto[aria-pressed='true'] {
+  background: #316c9f;
+}
+
+.curva-filtro-coordenadas {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.curva-filtro-coordenadas label {
+  display: grid;
+  gap: 3px;
+}
+
+.curva-filtro-coordenadas input {
+  width: 62px;
+}
+
+.filtro-dialog[data-amostrando]::backdrop {
+  cursor: crosshair;
 }

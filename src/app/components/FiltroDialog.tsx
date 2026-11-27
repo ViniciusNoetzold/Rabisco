@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { EditorApi } from '../../canvas/editorTypes';
 import { obterFiltro, type IdFiltro, type ParametrosFiltro } from '../../filtros/registro';
+import { CurvaFiltro } from './CurvaFiltro';
 import type { RunAction } from './Primitives';
 import './filtros.css';
 
@@ -32,6 +33,7 @@ export function FiltroDialog({
   const [parametrosDaPrevia, definirParametrosDaPrevia] = useState<ParametrosFiltro | null>(null);
   const [demorando, definirDemorando] = useState(false);
   const [mostrandoOriginal, definirMostrandoOriginal] = useState(false);
+  const [amostrar, definirAmostrar] = useState<'preto' | 'branco' | null>(null);
   const pronto = parametrosDaPrevia === parametros;
 
   useLayoutEffect(() => {
@@ -42,41 +44,49 @@ export function FiltroDialog({
 
   useEffect(() => {
     const controlador = editor.current;
+    return () => controlador?.cancelarFiltro();
+  }, [editor]);
+
+  useEffect(() => {
+    const controlador = editor.current;
     if (!controlador) return;
     let atual = true;
     definirDemorando(false);
     const aoDemorar = () => {
       if (atual) definirDemorando(true);
     };
-    const quadro = requestAnimationFrame(() => {
-      run(async () => {
-        try {
-          if (acao === 'repetir') {
-            await controlador.repetirFiltro(aoDemorar);
-            if (atual) fechar();
-            return;
-          }
-          const resultado = await controlador.preverFiltro(acao, parametros, aoDemorar);
-          if (!atual) return;
-          if (resultado) {
-            definirDemorando(false);
-            definirParametrosDaPrevia(parametros);
-          } else {
+    const espera = setTimeout(
+      () => {
+        run(async () => {
+          try {
+            if (acao === 'repetir') {
+              await controlador.repetirFiltro(aoDemorar);
+              if (atual) fechar();
+              return;
+            }
+            const resultado = await controlador.preverFiltro(acao, parametros, aoDemorar);
+            if (!atual) return;
+            if (resultado) {
+              definirDemorando(false);
+              definirParametrosDaPrevia(parametros);
+            } else {
+              fechar();
+            }
+          } catch (erro) {
+            if (!atual) return;
             fechar();
+            throw erro;
           }
-        } catch (erro) {
-          if (!atual) return;
-          fechar();
-          throw erro;
-        }
-      });
-    });
+        });
+      },
+      filtro?.parametros && Object.keys(filtro.parametros).length ? 60 : 0,
+    );
     return () => {
       atual = false;
-      cancelAnimationFrame(quadro);
-      controlador.cancelarFiltro();
+      clearTimeout(espera);
+      controlador.cancelarFiltro(false);
     };
-  }, [acao, editor, fechar, parametros, run]);
+  }, [acao, editor, fechar, filtro, parametros, run]);
 
   const mostrarOriginal = useCallback(
     (mostrar: boolean) => {
@@ -103,9 +113,27 @@ export function FiltroDialog({
       ref={modal}
       className="window glass app-dialog filtro-dialog"
       aria-labelledby={titulo}
+      data-amostrando={amostrar ?? undefined}
       onCancel={(evento) => {
         evento.preventDefault();
-        cancelar();
+        if (amostrar) {
+          definirAmostrar(null);
+          mostrarOriginal(false);
+        } else cancelar();
+      }}
+      onPointerDown={(evento) => {
+        if (!amostrar || evento.target !== evento.currentTarget || evento.button !== 0) return;
+        const nivel = editor.current?.amostrarNivelFiltro({ x: evento.clientX, y: evento.clientY });
+        if (nivel == null) return;
+        definirParametros((atuais) => ({
+          ...atuais,
+          [amostrar]:
+            amostrar === 'preto'
+              ? Math.min(nivel, Number(atuais.branco) - 1)
+              : Math.max(nivel, Number(atuais.preto) + 1),
+        }));
+        definirAmostrar(null);
+        mostrarOriginal(false);
       }}
     >
       <div className="title-bar">
@@ -126,6 +154,17 @@ export function FiltroDialog({
           Object.entries(filtro.parametros).map(([id, parametro]) => {
             const alterar = (valor: ParametrosFiltro[string]) =>
               definirParametros((atuais) => ({ ...atuais, [id]: valor }));
+            if (parametro.tipo === 'curva') {
+              const pontos = parametros[id];
+              return (
+                <CurvaFiltro
+                  key={id}
+                  nome={parametro.nome}
+                  pontos={Array.isArray(pontos) ? pontos : parametro.padrao}
+                  alterar={alterar}
+                />
+              );
+            }
             if (parametro.tipo === 'numero') {
               const valor = Number(parametros[id]);
               return (
@@ -135,6 +174,7 @@ export function FiltroDialog({
                   </span>
                   <input
                     type="range"
+                    aria-label={parametro.nome}
                     min={parametro.minimo}
                     max={parametro.maximo}
                     step={parametro.passo}
@@ -172,8 +212,27 @@ export function FiltroDialog({
               </label>
             );
           })}
+        {acao === 'niveis' && (
+          <div className="filtro-acoes">
+            {(['preto', 'branco'] as const).map((ponto) => (
+              <button
+                key={ponto}
+                type="button"
+                disabled={!pronto}
+                aria-pressed={amostrar === ponto}
+                onClick={() => {
+                  const proximo = amostrar === ponto ? null : ponto;
+                  definirAmostrar(proximo);
+                  mostrarOriginal(Boolean(proximo));
+                }}
+              >
+                Amostrar {ponto}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="filtro-status" role="status">
-          {demorando ? 'Aplicando…' : ''}
+          {amostrar ? 'Clique no papel para escolher o ponto.' : demorando ? 'Aplicando…' : ''}
         </div>
         <div className="filtro-acoes">
           {filtro && (
