@@ -5,6 +5,7 @@ export const ATALHOS = [
   ['Ctrl+Shift+S', 'Salvar como'],
   ['Ctrl+P', 'Imprimir'],
   ['Ctrl+Z / Ctrl+Y', 'Desfazer / refazer'],
+  ['Ctrl+F', 'Repetir último filtro'],
   ['Ctrl+A', 'Selecionar tudo'],
   ['Ctrl+C / Ctrl+X / Ctrl+V', 'Copiar / recortar / colar'],
   ['Ctrl+E / Ctrl+W', 'Propriedades / redimensionar e inclinar'],

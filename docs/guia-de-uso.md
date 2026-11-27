@@ -31,6 +31,12 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Dedo (borrar)** (galeria de pincéis): esfuma e arrasta as cores como o dedo no carvão. A "Força" diz o quanto ele arrasta.
 - **Toque e caneta**: com caneta, a mão apoiada na tela não risca. Dois dedos tocando desfazem, três refazem.
 
+## Filtros (0.5, Passo 1)
+
+- Em **Início › Filtros**, escolha **Inverter cores**. A prévia aparece no papel com as outras camadas na ordem em que estão.
+- Segure **Antes/depois** para ver o original e solte para voltar à prévia. Clique em **Aplicar** para confirmar ou use **Cancelar** ou `Esc` para fechar a janela. Em papéis grandes, **Aplicando…** indica que o cálculo ainda está em andamento.
+- O filtro atua na camada ativa ou na máscara em edição. Uma seleção limita a área afetada. **Travar transparência** preserva o alfa da camada. Use `Ctrl+Z` para desfazer a aplicação e `Ctrl+F` para repetir o último filtro aplicado na sessão sobre o alvo atual.
+
 ## Ferramentas clássicas
 
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.

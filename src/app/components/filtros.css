@@ -1,0 +1,117 @@
+.ribbon-stack.imagem-principais {
+  gap: 2px;
+}
+
+.ribbon .imagem-principais > button {
+  height: 22px;
+  min-height: 22px;
+  padding-block: 0;
+}
+
+.ribbon .filtros-botao {
+  gap: 4px;
+}
+
+.ribbon .filtros-menu {
+  inset: auto;
+  margin: 0;
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+}
+
+.ribbon .filtros-menu button {
+  height: auto;
+  min-height: 30px;
+  color: #294d69;
+  padding-inline: 8px;
+}
+
+.filtros-categoria {
+  padding: 2px 8px;
+  color: #536e84;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.filtros-separador {
+  border-top: 1px solid #ccdce8;
+  margin: 3px 4px;
+}
+
+.filtros-menu kbd {
+  margin-left: auto;
+  font: inherit;
+  font-size: 11px;
+  color: #536e84;
+}
+
+.filtro-dialog.app-dialog.window {
+  position: fixed;
+  inset: 12px auto auto 12px;
+  margin: 0;
+  max-width: 320px;
+}
+
+.filtro-dialog.app-dialog::backdrop {
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.filtro-corpo.dialog-body.window-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.filtro-parametro {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.filtro-parametro-marcacao {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.filtro-parametro span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filtro-parametro output {
+  font-variant-numeric: tabular-nums;
+}
+
+.filtro-status {
+  font-size: 13px;
+}
+
+.filtro-status:empty {
+  height: 0;
+  margin-bottom: -12px;
+}
+
+.filtro-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.filtro-acoes > button {
+  min-height: 28px;
+  padding-inline: 8px;
+  font-size: 12px;
+}
+
+.filtro-acoes > [aria-pressed] {
+  margin-right: auto;
+  touch-action: none;
+}
+
+.filtro-acoes > [aria-pressed='true'] {
+  border-color: #80a8c6;
+  background: #d3e9f9;
+}

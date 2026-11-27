@@ -5,15 +5,19 @@ import { clienteNoPapel } from './vistaAtual';
 import { reguaPadrao, SEM_GUIAS } from '../document/guias';
 import {
   type Comando,
+  type ComandoAplicarFiltro,
   type OpcoesTransformacao,
   type OrientacaoImagem,
 } from '../commands/comandos';
 import { serializarImagem, type ComandoCamada } from '../commands/comandos';
 import { redimensionarEInclinar } from '../document/transformacoes';
-import { Executador } from '../commands/executador';
+import { Executador, type PreparoFiltro } from '../commands/executador';
 import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
+import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/compositor';
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
-import { RabiscoDocument } from '../document/model';
+import { comoImageData, RabiscoDocument } from '../document/model';
+import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
+import { calcularFiltro } from '../filtros/worker';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
 import type { PixelBuffer, ToolId } from '../layers/types';
@@ -30,7 +34,7 @@ import { Persistencia } from './controle/persistencia';
 import { ControleSelecao } from './controle/selecao';
 import { SuperficieTela } from './controle/superficie';
 import type { DocumentInfo, EditorApi } from './editorTypes';
-import { medicaoAtiva, medirOperacao } from './medicao';
+import { medicaoAtiva, medirOperacao, registrarDuracao } from './medicao';
 import { ZOOM_MIN } from './zoom';
 
 const FORMATOS_COM_CAMADAS = new Set<string>(['rabisco', 'ora', 'psd', 'camadas-png']);
@@ -45,6 +49,16 @@ const MENSAGENS_RECUSA = {
 interface EventosEditor {
   mudar(info: DocumentInfo): void;
   avisar(mensagem: string): void;
+}
+
+type ConfiguracaoFiltro = Pick<ComandoAplicarFiltro, 'filtro' | 'parametros' | 'semente'>;
+
+interface ResultadoFiltro {
+  comando: ComandoAplicarFiltro;
+  preparo: PreparoFiltro;
+  depois: PixelBuffer;
+  revisao: number;
+  previa?: PreviaComposicao;
 }
 
 /**
@@ -63,6 +77,9 @@ export class EditorController implements EditorApi, NucleoEditor {
   private readonly papel: ControlePapel;
   private readonly desconectarOpcoes: () => void;
   private ultimaForma: ConfiguracaoForma | null = null;
+  private ultimoFiltro: ConfiguracaoFiltro | null = null;
+  private calculoFiltro: AbortController | null = null;
+  private resultadoFiltro: ResultadoFiltro | null = null;
   private pronto = false;
   private ligado = true;
   private acompanharAjuste = true;
@@ -108,7 +125,9 @@ export class EditorController implements EditorApi, NucleoEditor {
           : 'pincel'
         : comando.tipo === 'Preencher'
           ? 'balde'
-          : null);
+          : comando.tipo === 'AplicarFiltro'
+            ? 'filtro'
+            : null);
     const mudou = categoria
       ? medirOperacao(`historico:${categoria}`, () => this.comandos.executar(comando))
       : this.comandos.executar(comando);
@@ -120,7 +139,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
     if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
     aposExecutar?.();
-    this.edicaoAplicada();
+    this.edicaoAplicada(comando.tipo === 'AplicarFiltro');
     return true;
   }
 
@@ -185,6 +204,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     // o React monta o editor duas vezes, e a instância antiga anunciava "Salvo" enquanto a
     // nova ainda recuperava o desenho).
     this.ligado = false;
+    this.cancelarFiltro();
     this.persistencia.encerrar();
     this.desconectarOpcoes();
     this.ferramentas.encerrar();
@@ -247,7 +267,139 @@ export class EditorController implements EditorApi, NucleoEditor {
       : this.comandos[operacao]();
     if (!mudou) return;
     this.selecao.selecionar(null);
-    this.edicaoAplicada();
+    this.edicaoAplicada(true);
+  }
+
+  // ---- Filtros ----------------------------------------------------------------------------
+
+  async preverFiltro(filtro: IdFiltro, parametros: ParametrosFiltro, aoDemorar: () => void) {
+    const resultado = await this.processarFiltro({ filtro, parametros, semente: 1 }, aoDemorar);
+    if (!resultado || this.resultadoFiltro !== resultado) return false;
+    this.exibirPreviaFiltro(true);
+    return true;
+  }
+
+  exibirPreviaFiltro(mostrar: boolean) {
+    const resultado = this.resultadoFiltro;
+    if (!mostrar || !resultado) {
+      this.superficie.mostrarPreviaFiltro(null);
+      return;
+    }
+    if (!this.filtroAindaValido(resultado)) {
+      this.cancelarFiltro();
+      return;
+    }
+    if (resultado.depois === resultado.preparo.antes) return;
+    const exibir = () => {
+      if (!resultado.previa) {
+        const { preparo, depois } = resultado;
+        const canvas = document.createElement('canvas');
+        canvas.width = preparo.area.width;
+        canvas.height = preparo.area.height;
+        canvas.getContext('2d')!.putImageData(comoImageData(depois), 0, 0);
+        resultado.previa = { alvo: preparo.alvo, area: preparo.area, canvas };
+      }
+      this.superficie.mostrarPreviaFiltro(resultado.previa);
+    };
+    if (medicaoAtiva) medirOperacao('filtro:previa', exibir);
+    else exibir();
+  }
+
+  aplicarFiltro() {
+    const resultado = this.resultadoFiltro;
+    if (!resultado) return false;
+    if (!this.filtroAindaValido(resultado)) {
+      this.cancelarFiltro();
+      this.avisar('O desenho mudou. Abra o filtro novamente para atualizar a prévia.');
+      return false;
+    }
+    this.resultadoFiltro = null;
+    this.superficie.mostrarPreviaFiltro(null, false);
+    const { comando, preparo, depois } = resultado;
+    let mudou = false;
+    try {
+      this.comandos.receberFiltroCalculado(comando, preparo, depois);
+      mudou = this.executar(comando);
+      if (mudou) {
+        const { filtro, parametros, semente } = comando;
+        this.ultimoFiltro = { filtro, parametros, semente };
+      } else if (!this.comandos.motivoRecusa) this.avisar('O filtro não alterou os pixels.');
+      return mudou;
+    } finally {
+      if (!mudou && resultado.previa)
+        this.superficie.compor(areaDaPreviaFiltro(this.doc, preparo.area));
+    }
+  }
+
+  cancelarFiltro() {
+    this.calculoFiltro?.abort();
+    this.calculoFiltro = null;
+    this.resultadoFiltro = null;
+    this.superficie.mostrarPreviaFiltro(null);
+  }
+
+  async repetirFiltro(aoDemorar: () => void) {
+    if (!this.ultimoFiltro) return false;
+    const resultado = await this.processarFiltro(this.ultimoFiltro, aoDemorar);
+    return resultado !== null && this.resultadoFiltro === resultado && this.aplicarFiltro();
+  }
+
+  temUltimoFiltro() {
+    return this.ultimoFiltro !== null;
+  }
+
+  private async processarFiltro(configuracao: ConfiguracaoFiltro, aoDemorar: () => void) {
+    this.cancelarFiltro();
+    if (!this.disponivel()) return null;
+    this.ferramentas.confirmarPendente();
+    const revisao = this.revisao;
+    const comando: ComandoAplicarFiltro = {
+      tipo: 'AplicarFiltro',
+      ...configuracao,
+      parametros: structuredClone(configuracao.parametros),
+      area: this.selecao.area ?? undefined,
+      mascara: this.selecao.mascara,
+    };
+    const cancelamento = new AbortController();
+    this.calculoFiltro = cancelamento;
+    const { signal } = cancelamento;
+    const espera = setTimeout(() => {
+      if (!signal.aborted) aoDemorar();
+    }, 200);
+    try {
+      const preparar = () => this.comandos.prepararFiltro(comando);
+      const preparo = medicaoAtiva ? medirOperacao('filtro:preparo', preparar) : preparar();
+      if (!preparo) {
+        const motivo = this.comandos.motivoRecusa;
+        if (motivo) this.avisar(MENSAGENS_RECUSA[motivo]);
+        return null;
+      }
+      const inicio = medicaoAtiva ? performance.now() : 0;
+      const { antes, depois } = await calcularFiltro(comando, preparo, signal);
+      if (medicaoAtiva) registrarDuracao('filtro:worker', performance.now() - inicio);
+      if (signal.aborted) return null;
+      const resultado = { comando, preparo: { ...preparo, antes }, depois, revisao };
+      if (!this.filtroAindaValido(resultado))
+        throw new Error('O desenho mudou durante o cálculo. Abra o filtro novamente.');
+      this.resultadoFiltro = resultado;
+      return resultado;
+    } catch (erro) {
+      if (signal.aborted) return null;
+      throw erro;
+    } finally {
+      clearTimeout(espera);
+      if (this.calculoFiltro === cancelamento) this.calculoFiltro = null;
+    }
+  }
+
+  private filtroAindaValido({ comando, preparo, revisao }: ResultadoFiltro) {
+    return (
+      this.disponivel() &&
+      this.revisao === revisao &&
+      chaveDoAlvo(this.doc.alvoAtivo()) === chaveDoAlvo(preparo.alvo) &&
+      this.selecao.area === (comando.area ?? null) &&
+      this.selecao.mascara === comando.mascara
+    );
   }
 
   // ---- Arquivos ----------------------------------------------------------------------------
@@ -663,9 +815,13 @@ export class EditorController implements EditorApi, NucleoEditor {
 
   // ---- Internos ----------------------------------------------------------------------------
 
-  private edicaoAplicada() {
+  private edicaoAplicada(incluirEfeitos = false) {
     const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao } = this.comandos;
-    this.superficie.compor(ultimaAlteracao ?? undefined);
+    const trecho =
+      incluirEfeitos && ultimaAlteracao
+        ? areaDaPreviaFiltro(this.doc, ultimaAlteracao)
+        : ultimaAlteracao;
+    this.superficie.compor(trecho ?? undefined);
     for (const { alvo, area } of ultimasAlteracoes)
       this.persistencia.marcar(chaveDoAlvo(alvo), area);
     if (estruturaMudou) this.persistencia.marcarDescricao();

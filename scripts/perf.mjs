@@ -17,6 +17,7 @@ const canal = process.env.PLAYWRIGHT_CHANNEL || 'msedge';
 const data = new Date().toISOString();
 const corDoBalde = [48, 131, 197, 255];
 const branco = [255, 255, 255, 255];
+const corDoBaldeInvertida = [207, 124, 58, 255];
 
 function lerRotulo(argumentos) {
   if (!argumentos.length) return data.replace(/[:.]/g, '-');
@@ -238,6 +239,23 @@ async function medirPapel(browser, papel) {
       await pagina.keyboard.press('Control+y');
       await conferirCantos(pagina, corDoBalde);
     });
+    const filtro = await medir(pagina, autosave, async () => {
+      await pagina.getByRole('button', { name: 'Filtros', exact: true }).click();
+      await pagina.getByRole('menuitem', { name: 'Inverter cores', exact: true }).click();
+      const dialogo = pagina.getByRole('dialog', { name: 'Inverter cores', exact: true });
+      const aplicar = dialogo.getByRole('button', { name: 'Aplicar', exact: true });
+      await expect(aplicar).toBeEnabled({ timeout: 15_000 });
+      await conferirCantos(pagina, corDoBaldeInvertida);
+      await aplicar.click();
+      await expect(dialogo).toBeHidden();
+      await expect(
+        pagina.locator('.history-list').getByText('Inverter cores', { exact: true }),
+      ).toHaveCount(1);
+    });
+    for (const medida of ['filtro:preparo', 'filtro:worker', 'filtro:previa', 'historico:filtro']) {
+      if (filtro.operacoes[medida]?.amostras !== 1)
+        throw new Error(`O ensaio não recebeu uma amostra para ${medida}.`);
+    }
     for (const [nome, fase] of [
       ['balde', balde],
       ['desfazer', desfazer],
@@ -260,6 +278,7 @@ async function medirPapel(browser, papel) {
         balde,
         desfazer,
         refazer,
+        'inverter cores': filtro,
       },
     };
   } finally {

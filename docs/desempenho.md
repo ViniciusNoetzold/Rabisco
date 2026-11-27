@@ -13,6 +13,7 @@ O terminal imprime uma tabela por tamanho de papel. O relatório JSON fica em `o
 - O ensaio move o pincel 300 vezes e repete a trajetória com o spray, a 100% de zoom em todos os tamanhos. A trajetória tem 168 px de largura e oscila 40 px na vertical. Um papel em branco de cada tamanho recebe o balde, o desfazer e o refazer.
 - Os tempos de início, movimento e fim cobrem o trabalho síncrono dos manipuladores de ponteiro, incluindo a conversão de coordenadas e as chamadas ao Canvas 2D. O spray tem uma linha separada para o cálculo e o desenho que ocorrem no callback agendado entre movimentos.
 - A medição interna do histórico cobre a aplicação na camada e o registro dos pixels para recuperação. As linhas externas cobrem também a atualização da tela e o trabalho síncrono de preparação do autosave iniciado naquela chamada.
+- Em **Inverter cores**, `filtro:preparo` mede a leitura dos pixels, `filtro:worker` inclui a inicialização do worker e a transferência dos buffers, `filtro:previa` mede a recomposição da tela e `historico:filtro` mede a gravação da edição.
 - P50 é a mediana. P95 é o menor tempo que cobre pelo menos 95% das amostras. Quando a operação ocorre uma vez, os dois percentis e o máximo são a duração dessa execução.
 - `PerformanceObserver` registra tarefas da thread principal de 50 ms ou mais. A janela de observação de cada fase vai do começo da ação ao fim do autosave. O relatório informa quantas tarefas excederam 100 ms e a maior duração.
 - O heap JS é amostrado em repouso. O protocolo de depuração do Edge, quando disponível, coleta o heap e a memória de apoio de ArrayBuffers e strings externas após uma coleta de lixo. A coluna do espelho conta os bytes do buffer residente mantido pelo documento. Essas medidas tratam de memória JavaScript. O raster de um canvas também pode ocupar memória em outras partes do navegador.
@@ -21,6 +22,21 @@ O terminal imprime uma tabela por tamanho de papel. O relatório JSON fica em `o
 ## Resultados
 
 Máquina: Intel Core i7-8700 (12 núcleos lógicos), 16 GB de RAM, Windows 11, Edge 158. Tempos em ms (p95), zoom 100%. Relatório completo em `output/perf/passo-2.json`.
+
+### 0.5, Passo 1 — 27/11/2026 (Inverter cores)
+
+`npm run perf -- --rotulo=passo-1` mediu a prévia e a aplicação do filtro depois do balde, desfazer e refazer. O ensaio usa a camada inteira, sem seleção, a 100% de zoom. Relatório em `output/perf/passo-1.json`.
+
+| Operação (ms)                                       | 1024 × 640 | 4000 × 4000 | 8192 × 4096 |
+| --------------------------------------------------- | ---------: | ----------: | ----------: |
+| Pincel, maior p95 entre as três pinceladas           |        0,6 |         0,5 |         0,6 |
+| Filtro, leitura dos pixels                          |        4,6 |        87,0 |       177,5 |
+| Filtro, worker e transferência                      |       31,0 |       178,7 |       367,3 |
+| Filtro, prévia na tela                               |        0,8 |        15,2 |        28,2 |
+| Filtro, aplicação e registro no histórico           |        0,6 |         6,2 |        15,1 |
+| Filtro, maior tarefa na thread principal (≥ 50 ms)  |          — |       106,0 |       233,0 |
+
+O movimento do pincel ficou abaixo da meta de 4 ms (p95). Com 20 camadas de 4000 × 4000, o p95 foi de 0,3 ms. A inversão é calculada no worker e a leitura e a composição do Canvas 2D ainda ocupam a thread principal nos papéis grandes.
 
 ### Passo 2 — 24/11/2026 (linha de base)
 

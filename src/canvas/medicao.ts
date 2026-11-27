@@ -11,7 +11,10 @@ export type OperacaoMedida =
   | 'refazer'
   /** Comandos do painel de camadas (ocultar, mover, mesclar…), com a recomposição da tela. */
   | 'camada'
-  | `historico:${FerramentaDoTraco | 'balde' | 'desfazer' | 'refazer'}`;
+  | 'filtro:preparo'
+  | 'filtro:worker'
+  | 'filtro:previa'
+  | `historico:${FerramentaDoTraco | 'balde' | 'desfazer' | 'refazer' | 'filtro'}`;
 
 interface GravacaoMedida {
   bytes: number;

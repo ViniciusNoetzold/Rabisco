@@ -18,9 +18,12 @@ Validação da 0.4.0: 181 testes unitários e 91 E2E passando; `npm run build` e
 
 **A 0.4 está concluída.**
 
-## Próximo: a 0.5 — estilos e filtros
+## Em andamento: a 0.5 — estilos e filtros
 
-O plano está pronto em **[prompts/PROMPT_0.5.md](PROMPT_0.5.md)** (8 passos: arquitetura de filtros, filtros de cor, desfoque/nitidez/ruído, pixel art, ASCII, dithering e meio-tom, camadas de ajuste e fechamento). Decida as perguntas da seção "Decisões" (ou aceite os padrões), cole o bloco do prompt na IA de código e diga "começar".
+O plano completo está em **[PROMPT_0.5.md](PROMPT_0.5.md)**. Foram adotados os padrões sugeridos, com Canvas 2D e worker, algoritmos próprios de dithering e camadas de ajuste no Passo 7. A inclusão de `figlet.js` será avaliada no Passo 5, mediante aprovação da dependência.
+
+- **Passo 1** — registro, comando de filtro, worker cancelável, prévia, Inverter cores e repetição com `Ctrl+F`. ✅
+- **Próximo: Passo 2**, filtros de cor. Retome após "ok, próximo".
 
 ## Para rodar
 

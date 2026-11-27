@@ -1,9 +1,16 @@
 import type { Rect } from '../layers/types';
-import { MODOS_MESCLAGEM, type EfeitosCamada, type Grupo } from './camadas';
+import { MODOS_MESCLAGEM, type Alvo, type EfeitosCamada, type Grupo } from './camadas';
 import type { Layer, RabiscoDocument } from './model';
 
 type Contexto = CanvasRenderingContext2D;
 type Camada = Layer<HTMLCanvasElement>;
+
+/** Trecho que substitui temporariamente os pixels de uma camada ou da máscara dela. */
+export interface PreviaComposicao {
+  alvo: Alvo;
+  area: Rect;
+  canvas: HTMLCanvasElement;
+}
 
 /** Um item da pilha: camada solta, ou grupo com as camadas dele (sempre contíguas). */
 type No = { tipo: 'camada'; camada: Camada } | { tipo: 'grupo'; grupo: Grupo; camadas: Camada[] };
@@ -14,6 +21,21 @@ export function alcanceDosEfeitos(efeitos?: EfeitosCamada): number {
   const contorno = efeitos.contorno?.posicao === 'fora' ? efeitos.contorno.espessura : 0;
   const sombra = efeitos.sombra ? efeitos.sombra.distancia + efeitos.sombra.desfoque * 2 : 0;
   return Math.ceil(Math.max(contorno, sombra));
+}
+
+function margemDosEfeitos(doc: Pick<RabiscoDocument, 'layers'>): number {
+  return Math.max(0, ...doc.layers.map((camada) => alcanceDosEfeitos(camada.efeitos)));
+}
+
+/** Um filtro pode alterar a sombra ou o contorno da camada além do trecho filtrado. */
+export function areaDaPreviaFiltro(doc: Pick<RabiscoDocument, 'layers'>, area: Rect): Rect {
+  const margem = margemDosEfeitos(doc);
+  return {
+    x: area.x - margem,
+    y: area.y - margem,
+    width: area.width + 2 * margem,
+    height: area.height + 2 * margem,
+  };
 }
 
 function superficie(largura: number, altura: number): Contexto {
@@ -37,20 +59,65 @@ function montarNos(doc: RabiscoDocument): No[] {
   return nos;
 }
 
+function contemJanela(area: Rect, janela: Rect): boolean {
+  return (
+    area.x <= janela.x &&
+    area.y <= janela.y &&
+    area.x + area.width >= janela.x + janela.width &&
+    area.y + area.height >= janela.y + janela.height
+  );
+}
+
+function desenharJanela(
+  ctx: Contexto,
+  fonte: HTMLCanvasElement,
+  janela: Rect,
+  origemX = 0,
+  origemY = 0,
+) {
+  const { x, y, width, height } = janela;
+  ctx.drawImage(fonte, x - origemX, y - origemY, width, height, 0, 0, width, height);
+}
+
+function desenharComPrevia(
+  contexto: Contexto,
+  fonte: HTMLCanvasElement,
+  janela: Rect,
+  previa?: PreviaComposicao,
+) {
+  if (previa && contemJanela(previa.area, janela)) {
+    desenharJanela(contexto, previa.canvas, janela, previa.area.x, previa.area.y);
+    return;
+  }
+  desenharJanela(contexto, fonte, janela);
+  if (!previa) return;
+  const { x, y, width, height } = previa.area;
+  // Os pixels transparentes da prévia também substituem os pixels do documento.
+  contexto.clearRect(x - janela.x, y - janela.y, width, height);
+  contexto.drawImage(previa.canvas, x - janela.x, y - janela.y);
+}
+
 /** Pixels da camada na janela, já recortados pela máscara (luminância vira transparência). */
-function camadaComMascara(camada: Camada, janela: Rect): Contexto {
+function camadaComMascara(camada: Camada, janela: Rect, previa?: PreviaComposicao): Contexto {
   const ctx = superficie(janela.width, janela.height);
-  ctx.drawImage(camada.canvas, -janela.x, -janela.y);
+  const alvo = previa?.alvo.camada === camada.id ? previa : undefined;
+  desenharComPrevia(ctx, camada.canvas, janela, alvo?.alvo.mascara ? undefined : alvo);
   if (camada.mascara && camada.mascaraAtiva !== false) {
-    const mascara = camada.mascara
-      .getContext('2d', { willReadFrequently: true })!
-      .getImageData(janela.x, janela.y, janela.width, janela.height);
+    const alfa = superficie(janela.width, janela.height);
+    let mascara: ImageData;
+    if (alvo?.alvo.mascara) {
+      desenharComPrevia(alfa, camada.mascara, janela, alvo);
+      mascara = alfa.getImageData(0, 0, janela.width, janela.height);
+    } else {
+      mascara = camada.mascara
+        .getContext('2d', { willReadFrequently: true })!
+        .getImageData(janela.x, janela.y, janela.width, janela.height);
+    }
     const { data } = mascara;
     for (let i = 0; i < data.length; i += 4) {
       // Luminância (Rec. 601) da máscara vira o alfa: branco revela, preto esconde.
       data[i + 3] = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
     }
-    const alfa = superficie(janela.width, janela.height);
     alfa.putImageData(mascara, 0, 0);
     ctx.globalCompositeOperation = 'destination-in';
     ctx.drawImage(alfa.canvas, 0, 0);
@@ -137,32 +204,40 @@ function precisaDeSuperficie(camada: Camada, recortadas: Camada[]): boolean {
 }
 
 /** Desenha uma camada (com as camadas de recorte que dependem dela) em `destino`. */
-function desenharCamada(destino: Contexto, camada: Camada, recortadas: Camada[], janela: Rect) {
+function desenharCamada(
+  destino: Contexto,
+  camada: Camada,
+  recortadas: Camada[],
+  janela: Rect,
+  previa?: PreviaComposicao,
+) {
   destino.save();
   destino.globalAlpha = camada.opacity;
   destino.globalCompositeOperation = MODOS_MESCLAGEM[camada.modo]?.operacao ?? 'source-over';
-  if (!precisaDeSuperficie(camada, recortadas)) {
-    destino.drawImage(
-      camada.canvas,
-      janela.x,
-      janela.y,
-      janela.width,
-      janela.height,
-      0,
-      0,
-      janela.width,
-      janela.height,
-    );
+  const previaDosPixels = previa?.alvo.camada === camada.id && !previa.alvo.mascara ? previa : null;
+  if (
+    !precisaDeSuperficie(camada, recortadas) &&
+    (!previaDosPixels || contemJanela(previaDosPixels.area, janela))
+  ) {
+    if (previaDosPixels)
+      desenharJanela(
+        destino,
+        previaDosPixels.canvas,
+        janela,
+        previaDosPixels.area.x,
+        previaDosPixels.area.y,
+      );
+    else desenharJanela(destino, camada.canvas, janela);
     destino.restore();
     return;
   }
-  let pixels = camadaComMascara(camada, janela);
+  let pixels = camadaComMascara(camada, janela, previa);
   for (const acima of recortadas) {
     if (!acima.visible || acima.opacity <= 0) continue;
     // A camada de recorte só aparece onde a base tem pixels.
     pixels.globalAlpha = acima.opacity;
     pixels.globalCompositeOperation = 'source-atop';
-    pixels.drawImage(camadaComMascara(acima, janela).canvas, 0, 0);
+    pixels.drawImage(camadaComMascara(acima, janela, previa).canvas, 0, 0);
   }
   pixels.globalAlpha = 1;
   pixels.globalCompositeOperation = 'source-over';
@@ -172,13 +247,18 @@ function desenharCamada(destino: Contexto, camada: Camada, recortadas: Camada[],
   destino.restore();
 }
 
-function desenharLista(destino: Contexto, camadas: Camada[], janela: Rect) {
+function desenharLista(
+  destino: Contexto,
+  camadas: Camada[],
+  janela: Rect,
+  previa?: PreviaComposicao,
+) {
   for (let i = 0; i < camadas.length; i++) {
     const camada = camadas[i];
     const recortadas: Camada[] = [];
     while (camadas[i + 1]?.recorte) recortadas.push(camadas[++i]);
     if (!camada.visible || camada.opacity <= 0 || camada.foraDaTela) continue;
-    desenharCamada(destino, camada, recortadas, janela);
+    desenharCamada(destino, camada, recortadas, janela, previa);
   }
 }
 
@@ -186,7 +266,12 @@ function desenharLista(destino: Contexto, camadas: Camada[], janela: Rect) {
  * Compõe as camadas visíveis de baixo para cima no canvas da tela. Com `area`, só esse trecho
  * é refeito; a janela de trabalho cresce o bastante para sombras e contornos não serem cortados.
  */
-export function comporDocumento(doc: RabiscoDocument, tela: HTMLCanvasElement, area?: Rect): void {
+export function comporDocumento(
+  doc: RabiscoDocument,
+  tela: HTMLCanvasElement,
+  area?: Rect,
+  previa?: PreviaComposicao,
+): void {
   const tamanhoMudou = tela.width !== doc.width || tela.height !== doc.height;
   if (tamanhoMudou) {
     tela.width = doc.width;
@@ -200,7 +285,7 @@ export function comporDocumento(doc: RabiscoDocument, tela: HTMLCanvasElement, a
   const altura = Math.min(doc.height, Math.ceil(trecho.y + trecho.height)) - topo;
   if (largura <= 0 || altura <= 0) return;
 
-  const margem = Math.max(0, ...doc.layers.map((camada) => alcanceDosEfeitos(camada.efeitos)));
+  const margem = margemDosEfeitos(doc);
   const janela = {
     x: Math.max(0, esquerda - margem),
     y: Math.max(0, topo - margem),
@@ -222,7 +307,7 @@ export function comporDocumento(doc: RabiscoDocument, tela: HTMLCanvasElement, a
   // Camadas soltas consecutivas vão juntas: uma camada de recorte depende da que está abaixo.
   let soltas: Camada[] = [];
   const descarregar = () => {
-    if (soltas.length) desenharLista(contexto, soltas, janela);
+    if (soltas.length) desenharLista(contexto, soltas, janela, previa);
     soltas = [];
   };
   for (const no of montarNos(doc)) {
@@ -234,7 +319,7 @@ export function comporDocumento(doc: RabiscoDocument, tela: HTMLCanvasElement, a
     const { grupo, camadas } = no;
     if (!grupo.visible || grupo.opacity <= 0) continue;
     const interno = superficie(janela.width, janela.height);
-    desenharLista(interno, camadas, janela);
+    desenharLista(interno, camadas, janela, previa);
     contexto.save();
     contexto.globalAlpha = grupo.opacity;
     contexto.globalCompositeOperation = MODOS_MESCLAGEM[grupo.modo]?.operacao ?? 'source-over';

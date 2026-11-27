@@ -9,6 +9,7 @@ import type {
 } from '../commands/comandos';
 import type { EstruturaDocumento } from '../document/camadas';
 import type { DadosFormaPropria } from '../shapes/presets';
+import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 
 export interface DocumentInfo {
   name: string;
@@ -62,6 +63,16 @@ export interface EditorApi {
   importarComoCamada(pixels: PixelBuffer, nome: string): boolean;
   ativarCamada(id: string, mascara?: boolean): void;
   miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;
+  preverFiltro(
+    filtro: IdFiltro,
+    parametros: ParametrosFiltro,
+    aoDemorar: () => void,
+  ): Promise<boolean>;
+  exibirPreviaFiltro(mostrar: boolean): void;
+  aplicarFiltro(): boolean;
+  cancelarFiltro(): void;
+  repetirFiltro(aoDemorar: () => void): Promise<boolean>;
+  temUltimoFiltro(): boolean;
 }
 
 export interface CanvasCallbacks {

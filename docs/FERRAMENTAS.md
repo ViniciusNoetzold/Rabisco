@@ -64,11 +64,12 @@
 | Ferramenta                  | Para quê                                                      |  Licença  | Situação                              |
 | --------------------------- | ------------------------------------------------------------- | :-------: | ------------------------------------- |
 | Transformações próprias     | Girar, inverter, redimensionar, inclinar                      |     —     | 🟢 desde 0.2                          |
-| image-q / RgbQuant.js       | Reduzir paleta e dithering (Floyd-Steinberg, Atkinson, Bayer) |  ✅ MIT   | 🔵 0.5                                |
-| glfx.js ou shaders próprios | Filtros em tempo real (brilho, curvas, matiz, ondas)          |  ✅ MIT   | 🔵 0.5                                |
-| OpenCV.js                   | Bordas, desfoque, perspectiva, contornos                      | ✅ Apache | 🔵 0.5 (pesado: carregar sob demanda) |
+| Canvas 2D + Web Worker      | Filtros de cor, desfoque e estilos                            |    nativo | 🟢 desde o Passo 1 da 0.5              |
+| image-q / RgbQuant.js       | Reduzir paleta e dithering                                   |  ✅ MIT   | ⚪ se a quantização pedir              |
+| glfx.js ou shaders próprios | Filtros acelerados                                            |  ✅ MIT   | ⚪ se a medição de desempenho pedir   |
+| OpenCV.js                   | Bordas, desfoque, perspectiva, contornos                      | ✅ Apache | ⚪ fora do plano da 0.5                |
 | Pica                        | Redimensionar com alta qualidade                              |  ✅ MIT   | ⚪                                    |
-| figlet.js                   | Títulos em letras ASCII                                       |  ✅ MIT   | 🔵 0.5                                |
+| figlet.js                   | Títulos em letras ASCII                                       |  ✅ MIT   | 🔵 Passo 5 da 0.5, sujeito a aprovação |
 
 ## 6. Arquivos e formatos
 

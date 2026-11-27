@@ -6,7 +6,11 @@ import {
   opacidadeDoPincel,
 } from '../../brushes/motor';
 import { areaDoSegmento, desenharSegmento, limitarArea, unirAreas } from '../../commands/desenho';
-import { comporDocumento } from '../../document/compositor';
+import {
+  areaDaPreviaFiltro,
+  comporDocumento,
+  type PreviaComposicao,
+} from '../../document/compositor';
 import type { RabiscoDocument } from '../../document/model';
 import { pintarRecorte, type RecorteFlutuante } from '../../document/selecao';
 import type { Point, Rect } from '../../layers/types';
@@ -22,6 +26,7 @@ export class SuperficieTela {
   private readonly grafico: CanvasRenderingContext2D;
   private readonly overlay: CanvasRenderingContext2D;
   private areaPrevia: Rect | null = null;
+  private previaFiltro: PreviaComposicao | null = null;
   private areaOverlay: Rect | null = null;
   private previaPincel: {
     /** Um pintor por cópia simétrica (a original primeiro). */
@@ -87,6 +92,17 @@ export class SuperficieTela {
       canvas.width = this.doc.width;
       canvas.height = this.doc.height;
     }
+  }
+
+  /** Recompõe só o trecho da prévia, com os pixels filtrados na posição original da pilha. */
+  mostrarPreviaFiltro(previa: PreviaComposicao | null, redesenhar = true) {
+    if (this.previaFiltro === previa) return;
+    const area = previa ? areaDaPreviaFiltro(this.doc, previa.area) : null;
+    const atualizar = area ? unirAreas(this.areaPrevia, area) : this.areaPrevia;
+    this.previaFiltro = previa;
+    this.areaPrevia = area;
+    if (redesenhar && atualizar)
+      comporDocumento(this.doc, this.tela, atualizar, previa ?? undefined);
   }
 
   /** Uma imagem do documento sem prévias, para salvar ou imprimir. */
@@ -198,6 +214,7 @@ export class SuperficieTela {
     if (!this.areaPrevia) return;
     this.compor(this.areaPrevia);
     this.areaPrevia = null;
+    this.previaFiltro = null;
   }
 
   redesenharOverlay(ferramenta: Tool, contexto: () => ToolCtx) {

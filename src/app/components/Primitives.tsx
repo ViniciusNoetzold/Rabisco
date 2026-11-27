@@ -58,7 +58,9 @@ export function RibbonGroup({
       if (!grupo.current?.contains(evento.target as Node)) setAberto(false);
     }
     function tecla(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') setAberto(false);
+      if (evento.key !== 'Escape') return;
+      const menu = evento.target instanceof Element && evento.target.closest('[role="menu"]');
+      if (!menu || !grupo.current?.contains(menu)) setAberto(false);
     }
     document.addEventListener('pointerdown', fora, true);
     document.addEventListener('keydown', tecla, true);

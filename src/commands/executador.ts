@@ -25,6 +25,9 @@ import {
   redimensionarPapel,
   sobreporPixels,
 } from '../document/transformacoes';
+import { coberturaDaSelecao } from '../filtros/cobertura';
+import { processarFiltro } from '../filtros/processar';
+import { obterFiltro } from '../filtros/registro';
 import type { PixelBuffer, Rect } from '../layers/types';
 import {
   areaDaForma as areaFormaEditavel,
@@ -42,6 +45,7 @@ import {
   desserializarImagem,
   validarDimensoes,
   type Comando,
+  type ComandoAplicarFiltro,
   type ComandoCamada,
   type ComandoTraco,
 } from './comandos';
@@ -79,6 +83,7 @@ const PINTURA = new Set<Comando['tipo']>([
   'DesenharForma',
   'AplicarForma',
   'AplicarTexto',
+  'AplicarFiltro',
   'Preencher',
   'Gradiente',
   'Borrar',
@@ -88,6 +93,14 @@ const PINTURA = new Set<Comando['tipo']>([
 ]);
 
 export type DocumentoEditavel = RabiscoDocument;
+
+export interface PreparoFiltro {
+  alvo: Alvo;
+  area: Rect;
+  antes: PixelBuffer;
+  cobertura?: Uint8ClampedArray;
+  travarAlfa: boolean;
+}
 
 /** Por que o último comando não fez nada (para a interface avisar). */
 export type MotivoRecusa = 'bloqueada' | 'oculta' | 'ultima-camada' | 'sem-camada-abaixo' | null;
@@ -135,6 +148,12 @@ export class Executador {
     referencia: PixelBuffer;
   } | null = null;
 
+  private filtroPronto: {
+    comando: ComandoAplicarFiltro;
+    preparo: PreparoFiltro;
+    depois: PixelBuffer;
+  } | null = null;
+
   constructor(private readonly doc: DocumentoEditavel) {}
 
   /** Os pixels em que o balde decide a área (a camada ativa, ou o que se vê). */
@@ -149,6 +168,32 @@ export class Executador {
     referencia: PixelBuffer,
   ) {
     this.planoPronto = { comando, plano, referencia };
+  }
+
+  /** Captura os pixels do alvo e o recorte que a prévia e o comando usam. */
+  prepararFiltro(comando: ComandoAplicarFiltro): PreparoFiltro | null {
+    this.motivoRecusa = this.recusaDePintura();
+    if (this.motivoRecusa) return null;
+    const papel = { x: 0, y: 0, width: this.doc.width, height: this.doc.height };
+    const area = comando.area ? limitarArea(comando.area, papel) : papel;
+    if (!area) return null;
+    const alvo = this.doc.alvoAtivo();
+    return {
+      alvo,
+      area,
+      antes: this.doc.lerPixels(area, alvo),
+      cobertura: comando.mascara ? coberturaDaSelecao(area, comando.mascara) : undefined,
+      travarAlfa: this.preservaAlfa(alvo),
+    };
+  }
+
+  /** O próximo comando usa o resultado já exibido na prévia, sem recalculá-lo. */
+  receberFiltroCalculado(
+    comando: ComandoAplicarFiltro,
+    preparo: PreparoFiltro,
+    depois: PixelBuffer,
+  ): void {
+    this.filtroPronto = { comando, preparo, depois };
   }
 
   /** Área alterada para recompor a tela; `null` quando é preciso recompor tudo. */
@@ -167,7 +212,9 @@ export class Executador {
     this.estruturaMudou = false;
     this.ultimaSelecaoTransformada = null;
     this.motivoRecusa = null;
+    if (this.filtroPronto?.comando !== comando) this.filtroPronto = null;
     const entrada = this.aplicar(comando);
+    this.filtroPronto = null;
     if (!entrada) return false;
     if (comando.tipo === 'NovoDocumento') this.historico.clear();
     else this.historico.registrarComando(entrada);
@@ -182,17 +229,17 @@ export class Executador {
     return this.restaurar(this.historico.refazer(), 'after');
   }
 
+  private recusaDePintura(): MotivoRecusa {
+    const camada = this.doc.activeLayer;
+    if (camada.locked) return 'bloqueada';
+    if (!camada.visible) return 'oculta';
+    return null;
+  }
+
   private aplicar(comando: Comando): EntradaComando | null {
     if (PINTURA.has(comando.tipo)) {
-      const camada = this.doc.activeLayer;
-      if (camada.locked) {
-        this.motivoRecusa = 'bloqueada';
-        return null;
-      }
-      if (!camada.visible) {
-        this.motivoRecusa = 'oculta';
-        return null;
-      }
+      this.motivoRecusa = this.recusaDePintura();
+      if (this.motivoRecusa) return null;
     }
 
     switch (comando.tipo) {
@@ -224,6 +271,8 @@ export class Executador {
         const area = areaDoTexto(this.doc.contextoAtivo(), configuracao);
         return this.pintar(comando, 'Texto', area, (ctx) => desenharTexto(ctx, configuracao));
       }
+      case 'AplicarFiltro':
+        return this.aplicarFiltro(comando);
       case 'Borrar': {
         const limites = areaDoBorrao(comando.pontos, comando.espessura);
         const area = limites && limitarArea(limites, this.doc);
@@ -805,6 +854,36 @@ export class Executador {
 
   // ---- Pintura na camada ativa ---------------------------------------------------------
 
+  private aplicarFiltro(comando: ComandoAplicarFiltro): EntradaComando | null {
+    const pronto = this.filtroPronto;
+    this.filtroPronto = null;
+    const preparo = pronto?.preparo ?? this.prepararFiltro(comando);
+    if (!preparo) return null;
+    const { alvo, area, antes, cobertura, travarAlfa } = preparo;
+    if (
+      chaveDoAlvo(alvo) !== chaveDoAlvo(this.doc.alvoAtivo()) ||
+      travarAlfa !== this.preservaAlfa(alvo) ||
+      area.x + area.width > this.doc.width ||
+      area.y + area.height > this.doc.height
+    ) {
+      return null;
+    }
+    const depois = pronto?.depois ?? processarFiltro(antes, comando, cobertura, travarAlfa);
+    if (
+      depois.width !== area.width ||
+      depois.height !== area.height ||
+      depois.data.length !== area.width * area.height * 4
+    ) {
+      throw new Error('O filtro devolveu um recorte de tamanho diferente.');
+    }
+    return this.escreverAlteracao(comando, obterFiltro(comando.filtro).nome, {
+      alvo,
+      rect: area,
+      before: antes,
+      after: depois,
+    });
+  }
+
   private tracar(original: ComandoTraco): EntradaComando | null {
     // Borracha numa camada que não é o papel de fundo (nem máscara): apaga para transparência.
     const alvo = this.doc.alvoAtivo();
@@ -926,11 +1005,26 @@ export class Executador {
     const alvo = this.doc.alvoAtivo();
     const before = this.doc.lerPixels(area, alvo);
     const after = this.preservaAlfa(alvo) ? preservarAlfa(before, novos) : novos;
+    return this.escreverAlteracao(
+      comando,
+      label,
+      { alvo, rect: area, before, after },
+      partesDoTraco,
+    );
+  }
+
+  private escreverAlteracao(
+    comando: Comando,
+    label: string,
+    alteracao: AlteracaoPixels & { rect: Rect },
+    partesDoTraco?: readonly Rect[],
+  ): EntradaComando | null {
+    const { alvo, rect: area, before, after } = alteracao;
     if (pixelsIguais(before, after)) return null;
     this.doc.aplicarPixels(after, area.x, area.y, alvo);
     const recortes = partesDoTraco && this.recortesParaGuardar(partesDoTraco);
     if (!recortes || recortes.partes.length === 1)
-      return this.registrarPixels(comando, label, [{ alvo, rect: area, before, after }]);
+      return this.registrarPixels(comando, label, [alteracao]);
     const local = (parte: Rect) => ({ ...parte, x: parte.x - area.x, y: parte.y - area.y });
     return this.registrarPartes(
       comando,

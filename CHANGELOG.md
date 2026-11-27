@@ -1,5 +1,13 @@
 # Histórico de alterações
 
+## 0.5 — Em desenvolvimento
+
+### Passo 1 — Arquitetura de filtros e estilos
+
+- **Início › Filtros › Inverter cores** abre uma janela com prévia no papel. Segure **Antes/depois** para ver o original, use **Aplicar** para gravar a edição ou `Esc` para cancelar. `Ctrl+F` repete o último filtro aplicado na sessão.
+- O registro reúne os parâmetros, padrões e funções determinísticas dos filtros. O worker devolve o resultado usado na prévia e no comando `AplicarFiltro`. Cada aplicação registra uma edição no histórico, respeitando a seleção, o alvo de edição e **Travar transparência**.
+- Validação deste passo com 187 testes unitários, 94 fluxos E2E, build de produção e ensaio completo de desempenho. O movimento do pincel em 4000 × 4000 ficou em 0,5 ms (p95). Os tempos do filtro estão em [docs/desempenho.md](docs/desempenho.md).
+
 ## 0.4.0 — 2026-11-26 — "Desenhar fica fácil"
 
 Estabilizador, pressão, simetria e mandala, formas inteligentes, régua e guias, vista girada e espelhada, gradiente, varinha mágica, seleção elíptica, dedo, várias camadas e balde em worker. Validação: 181 testes unitários, 91 fluxos E2E, build de produção e `npm run perf` completo (estabilizador e simetria ligados) aprovados.

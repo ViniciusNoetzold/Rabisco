@@ -23,6 +23,8 @@ import type { ReferenciaEditorForma } from './components/CustomShapeEditor';
 import { useTelaInteira } from './useTelaInteira';
 import { nivelSeguinte } from '../canvas/zoom';
 import { novoId } from '../document/camadas';
+import type { IdFiltro } from '../filtros/registro';
+import { FiltroDialog } from './components/FiltroDialog';
 
 const CustomShapeEditor = lazy(() =>
   import('./components/CustomShapeEditor').then(({ CustomShapeEditor: defaultExport }) => ({
@@ -68,11 +70,17 @@ export default function App() {
   const [tab, setTab] = useState('Início');
   const ferramenta = useEditor((estado) => estado.tool);
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+  const [filtroDialog, setFiltroDialog] = useState<IdFiltro | 'repetir' | null>(null);
+  const fecharFiltro = useCallback(() => setFiltroDialog(null), []);
+  const repetirFiltro = useCallback(() => {
+    if (editor.current?.temUltimoFiltro()) setFiltroDialog('repetir');
+  }, []);
   const [colagemMaior, definirColagemMaior] = useState<PixelBuffer | null>(null);
   const sequenciaColagem = useRef(0);
   const colarNaCamadaAtual = useRef(false);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
+  const modalAberto = Boolean(dialog || filtroDialog || painelFormas);
   const corDeFundo = useEditor((estado) => estado.color2);
   const corAtiva = useEditor((estado) =>
     estado.colorTarget === 1 ? estado.color1 : estado.color2,
@@ -183,11 +191,21 @@ export default function App() {
       if (
         (editandoTexto(target) && !(mod && ['s', 'o', 'n', 'p'].includes(key))) ||
         (target instanceof Element && target.closest('[role="menu"]')) ||
-        dialog ||
-        painelFormas ||
+        modalAberto ||
         info.saving === 'loading'
       )
         return;
+      if (
+        mod &&
+        !event.shiftKey &&
+        !event.altKey &&
+        key === 'f' &&
+        editor.current?.temUltimoFiltro()
+      ) {
+        event.preventDefault();
+        if (!event.repeat) repetirFiltro();
+        return;
+      }
       if (mod && key === 'v') {
         // Deixa o navegador entregar os dados pelo evento de colagem antes de tentar o botão.
         const versao = sequenciaColagem.current;
@@ -338,8 +356,7 @@ export default function App() {
       }
     }
     function receberColagem(evento: ClipboardEvent) {
-      if (editandoTexto(evento.target) || dialog || painelFormas || info.saving === 'loading')
-        return;
+      if (editandoTexto(evento.target) || modalAberto || info.saving === 'loading') return;
       sequenciaColagem.current++;
       const arquivo = imagemDaTransferencia(evento.clipboardData);
       evento.preventDefault();
@@ -351,7 +368,7 @@ export default function App() {
     }
     function teclaSolta(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== 'r' || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.shiftKey || editandoTexto(event.target) || dialog || painelFormas) return;
+      if (event.shiftKey || editandoTexto(event.target) || modalAberto) return;
       // Soltou o R sem girar a vista: é o atalho do retângulo.
       if (teclaDeGiro.girou) teclaDeGiro.girou = false;
       else useEditor.getState().setTool('rectangle');
@@ -365,8 +382,7 @@ export default function App() {
       window.removeEventListener('paste', receberColagem);
     };
   }, [
-    dialog,
-    painelFormas,
+    modalAberto,
     info.saving,
     info.estrutura,
     run,
@@ -375,6 +391,7 @@ export default function App() {
     sairDaTelaInteira,
     colar,
     prepararColagem,
+    repetirFiltro,
   ]);
   useEffect(
     () => () => {
@@ -393,11 +410,11 @@ export default function App() {
       onDragOver={(evento) => {
         if (!evento.dataTransfer.types.includes('Files')) return;
         evento.preventDefault();
-        evento.dataTransfer.dropEffect = dialog || painelFormas ? 'none' : 'copy';
+        evento.dataTransfer.dropEffect = modalAberto ? 'none' : 'copy';
       }}
       onDrop={(evento) => {
         if (evento.dataTransfer.types.includes('Files')) evento.preventDefault();
-        if (dialog || painelFormas || info.saving === 'loading') return;
+        if (modalAberto || info.saving === 'loading') return;
         // Várias imagens soltas de uma vez: uma camada para cada, na ordem em que vieram.
         const arquivos = Array.from(evento.dataTransfer.files).filter((item) =>
           item.type.startsWith('image/'),
@@ -443,6 +460,8 @@ export default function App() {
         onPropriedades={() => setDialog('properties')}
         onTransformar={() => setDialog('transform')}
         onEditarCores={() => setDialog('colors')}
+        onFiltro={setFiltroDialog}
+        onRepetirFiltro={repetirFiltro}
         onColar={() => run(colar)}
         onColarDe={() => arquivoColagem.current?.click()}
         alternarTelaInteira={alternarTelaInteira}
@@ -516,6 +535,15 @@ export default function App() {
             ×
           </button>
         </div>
+      )}
+      {filtroDialog && (
+        <FiltroDialog
+          key={filtroDialog}
+          acao={filtroDialog}
+          editor={editor}
+          fechar={fecharFiltro}
+          run={run}
+        />
       )}
       <Suspense fallback={<CarregandoDiscreto />}>
         {dialog && (

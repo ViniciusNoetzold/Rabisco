@@ -2,8 +2,10 @@ import { useRef, type RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import type { ToolId } from '../../layers/types';
 import { toolRegistry } from '../../tools/toolRegistry';
+import type { IdFiltro } from '../../filtros/registro';
 import { PALETTE, useEditor } from '../store';
 import { BrushGallery } from './BrushGallery';
+import { FiltrosMenu } from './FiltrosMenu';
 import { OrientationMenu } from './OrientationMenu';
 import { Icon, RibbonGroup, type RunAction } from './Primitives';
 import { ShapeGallery, type ShapeGalleryProps } from './ShapeGallery';
@@ -30,6 +32,8 @@ interface RibbonProps {
   onPropriedades(): void;
   onTransformar(): void;
   onEditarCores(): void;
+  onFiltro(filtro: IdFiltro): void;
+  onRepetirFiltro(): void;
   onColar(): void;
   onColarDe(): void;
   alternarTelaInteira(): void;
@@ -45,6 +49,8 @@ export function Ribbon({
   onPropriedades,
   onTransformar,
   onEditarCores,
+  onFiltro,
+  onRepetirFiltro,
   onColar,
   onColarDe,
   alternarTelaInteira,
@@ -138,7 +144,7 @@ export function Ribbon({
                     <Icon name={toolRegistry.select.icone} className="large-icon" />
                     <span>Selecionar</span>
                   </button>
-                  <div className="ribbon-stack">
+                  <div className="ribbon-stack imagem-principais">
                     <button
                       onClick={() => editor.current?.crop()}
                       disabled={!info.selection || !info.selection.width || !info.selection.height}
@@ -150,6 +156,12 @@ export function Ribbon({
                       <Icon name="folder-open" />
                       Abrir
                     </button>
+                    <FiltrosMenu
+                      desabilitado={carregando}
+                      podeRepetir={Boolean(editor.current?.temUltimoFiltro())}
+                      escolher={onFiltro}
+                      repetir={onRepetirFiltro}
+                    />
                   </div>
                   <div className="ribbon-stack image-actions">
                     <button

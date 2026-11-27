@@ -8,6 +8,7 @@ import type { ConfigSimetria } from '../brushes/simetria';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import type { EfeitosCamada, Grupo, PropriedadesCamada } from '../document/camadas';
+import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 
 export { validarDimensoes } from '../document/dimensoes';
 
@@ -64,12 +65,22 @@ export interface ImagemSerializada {
   rgba: string;
 }
 
+export interface ComandoAplicarFiltro {
+  tipo: 'AplicarFiltro';
+  filtro: IdFiltro;
+  parametros: ParametrosFiltro;
+  semente: number;
+  area?: Rect;
+  mascara?: MascaraSelecao;
+}
+
 export type Comando =
   | ComandoTraco
   | ComandoPincel
   | ComandoForma
   | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
   | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
+  | ComandoAplicarFiltro
   | ({ tipo: 'Gradiente' } & ConfigGradiente)
   | {
       /** Dedo: arrasta os pixels pelos pontos (força 0–1). */
