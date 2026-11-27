@@ -2,6 +2,12 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 3 — Desfoque, nitidez e ruído
+
+- **Desfoque** agora reúne o gaussiano e o de movimento. **Detalhes** inclui nitidez, ruído com semente, redução de ruído por mediana, bordas Sobel e relevo.
+- Os filtros de vizinhança leem uma margem além da seleção e registram apenas os pixels selecionados. Os desfoques misturam cores em alfa pré-multiplicado para evitar que as bordas transparentes escureçam.
+- Validação com 206 testes unitários, 96 E2E e build de produção. O gaussiano em 4000 × 4000 levou 1,26 s no worker e o movimento do pincel ficou em 0,7 ms (p95). [Ensaio de desempenho](docs/desempenho.md)
+
 ### Passo 2 — Filtros de cor
 
 - O menu **Filtros** ganhou brilho e contraste, matiz/saturação/luminosidade, níveis, curvas, preto e branco com mistura de canais, sépia, limiar e posterização.

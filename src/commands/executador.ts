@@ -100,6 +100,8 @@ export interface PreparoFiltro {
   antes: PixelBuffer;
   cobertura?: Uint8ClampedArray;
   travarAlfa: boolean;
+  /** Parte da leitura a aplicar, em coordenadas locais aos pixels recebidos pelo filtro. */
+  recorte?: Rect;
 }
 
 /** Por que o último comando não fez nada (para a interface avisar). */
@@ -178,12 +180,29 @@ export class Executador {
     const area = comando.area ? limitarArea(comando.area, papel) : papel;
     if (!area) return null;
     const alvo = this.doc.alvoAtivo();
+    const margem = obterFiltro(comando.filtro).margem?.(comando.parametros) ?? 0;
+    const leitura = margem
+      ? limitarArea(
+          {
+            x: area.x - margem,
+            y: area.y - margem,
+            width: area.width + margem * 2,
+            height: area.height + margem * 2,
+          },
+          papel,
+        )!
+      : area;
+    const recorte =
+      leitura.width !== area.width || leitura.height !== area.height
+        ? { ...area, x: area.x - leitura.x, y: area.y - leitura.y }
+        : undefined;
     return {
       alvo,
       area,
-      antes: this.doc.lerPixels(area, alvo),
+      antes: this.doc.lerPixels(leitura, alvo),
       cobertura: comando.mascara ? coberturaDaSelecao(area, comando.mascara) : undefined,
       travarAlfa: this.preservaAlfa(alvo),
+      recorte,
     };
   }
 
@@ -859,7 +878,7 @@ export class Executador {
     this.filtroPronto = null;
     const preparo = pronto?.preparo ?? this.prepararFiltro(comando);
     if (!preparo) return null;
-    const { alvo, area, antes, cobertura, travarAlfa } = preparo;
+    const { alvo, area, antes: entrada, cobertura, travarAlfa, recorte } = preparo;
     if (
       chaveDoAlvo(alvo) !== chaveDoAlvo(this.doc.alvoAtivo()) ||
       travarAlfa !== this.preservaAlfa(alvo) ||
@@ -868,7 +887,9 @@ export class Executador {
     ) {
       return null;
     }
-    const depois = pronto?.depois ?? processarFiltro(antes, comando, cobertura, travarAlfa);
+    const { antes, depois } = pronto
+      ? { antes: entrada, depois: pronto.depois }
+      : processarFiltro(entrada, comando, cobertura, travarAlfa, recorte);
     if (
       depois.width !== area.width ||
       depois.height !== area.height ||

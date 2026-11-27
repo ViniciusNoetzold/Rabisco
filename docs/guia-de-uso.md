@@ -39,6 +39,7 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - Em **Curvas**, clique no gráfico ou em **Adicionar ponto**. Arraste os pontos ou ajuste **Entrada** e **Saída** para remapear os tons. Com um ponto em foco, use as setas para mover de um em um, ou `Shift` para mover de dez em dez.
 - Em **Níveis**, ajuste os extremos e o gama. **Amostrar preto** e **Amostrar branco** mostram o original enquanto você escolhe no papel o que deve virar preto ou branco.
 - **Matiz, saturação e luminosidade** controla as cores e o brilho. **Preto e branco** permite misturar os canais. **Sépia**, **Limiar** e **Posterizar** convertem as cores com a intensidade, o limite ou a quantidade de níveis escolhidos.
+- Em **Desfoque**, ajuste o raio do gaussiano ou o raio e o ângulo do desfoque de movimento. Em **Detalhes**, use **Nitidez**, **Adicionar ruído**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** ou **Relevo**. Os pixels vizinhos ajudam no cálculo das bordas sem ampliar a seleção.
 
 ## Ferramentas clássicas
 

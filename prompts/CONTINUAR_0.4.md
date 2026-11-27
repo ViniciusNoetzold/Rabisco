@@ -24,7 +24,8 @@ O plano completo está em **[PROMPT_0.5.md](PROMPT_0.5.md)**. Foram adotados os 
 
 - **Passo 1** — registro, comando de filtro, worker cancelável, prévia, Inverter cores e repetição com `Ctrl+F`. ✅
 - **Passo 2** — filtros de cor, editor de curvas e amostragem do ponto preto e branco nos níveis. ✅
-- **Próximo: Passo 3**, filtros espaciais (desfoque, nitidez e ruído).
+- **Passo 3** — filtros espaciais com transparência preservada nas bordas e cálculo no worker. ✅
+- **Próximo: Passo 4**, pixel art, paletas e exportação ampliada.
 
 ## Para rodar
 

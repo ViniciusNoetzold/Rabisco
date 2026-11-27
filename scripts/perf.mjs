@@ -201,6 +201,54 @@ async function memoriaEmRepouso(pagina, cdp) {
   return { ...(await pagina.evaluate(() => window.rabiscoMedicao.memoria())), dadosDoRuntime };
 }
 
+async function aplicarFiltroPeloMenu(pagina, nome, conferirPrevia) {
+  await pagina.getByRole('button', { name: 'Filtros', exact: true }).click();
+  await pagina.getByRole('menuitem', { name: nome, exact: true }).click();
+  const dialogo = pagina.getByRole('dialog', { name: nome, exact: true });
+  const aplicar = dialogo.getByRole('button', { name: 'Aplicar', exact: true });
+  await expect(aplicar).toBeEnabled({ timeout: 30_000 });
+  await conferirPrevia();
+  await aplicar.click();
+  await expect(dialogo).toBeHidden();
+  await expect(pagina.locator('.history-list').getByText(nome, { exact: true })).toHaveCount(1);
+}
+
+function conferirMedidasDoFiltro(fase, nome) {
+  for (const medida of ['filtro:preparo', 'filtro:worker', 'filtro:previa', 'historico:filtro']) {
+    if (fase.operacoes[medida]?.amostras !== 1)
+      throw new Error(`O ensaio de ${nome} não recebeu uma amostra para ${medida}.`);
+  }
+}
+
+async function medirDesfoque(pagina, autosave) {
+  const tela = pagina.locator('.drawing-canvas');
+  await tela.focus();
+  await pagina.keyboard.press('p');
+  const espessura = pagina.getByRole('spinbutton', { name: 'Espessura do traço', exact: true });
+  await espessura.fill('1');
+  await espessura.press('Tab');
+  await pagina.getByRole('button', { name: 'Usar cor #252a34', exact: true }).click();
+  const ponto = await pontoNaAreaVisivel(pagina);
+  // Um ponto sobre a área uniforme permite conferir a prévia antes de confirmar o desfoque.
+  await pagina.mouse.click(ponto.x, ponto.y);
+  const ler = () =>
+    tela.evaluate((canvas, { x, y }) => {
+      const caixa = canvas.getBoundingClientRect();
+      const px = Math.floor(((x - caixa.x) / caixa.width) * canvas.width);
+      const py = Math.floor(((y - caixa.y) / caixa.height) * canvas.height);
+      return Array.from(canvas.getContext('2d').getImageData(px - 1, py - 1, 3, 3).data);
+    }, ponto);
+  const fundo = Array.from({ length: 9 }, () => corDoBaldeInvertida).flat();
+  await expect.poll(ler).not.toEqual(fundo);
+  const antes = await ler();
+  const nome = 'Desfoque gaussiano';
+  const fase = await medir(pagina, autosave, () =>
+    aplicarFiltroPeloMenu(pagina, nome, () => expect.poll(ler).not.toEqual(antes)),
+  );
+  conferirMedidasDoFiltro(fase, nome);
+  return fase;
+}
+
 async function medirPapel(browser, papel) {
   const contexto = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   try {
@@ -239,23 +287,16 @@ async function medirPapel(browser, papel) {
       await pagina.keyboard.press('Control+y');
       await conferirCantos(pagina, corDoBalde);
     });
-    const filtro = await medir(pagina, autosave, async () => {
-      await pagina.getByRole('button', { name: 'Filtros', exact: true }).click();
-      await pagina.getByRole('menuitem', { name: 'Inverter cores', exact: true }).click();
-      const dialogo = pagina.getByRole('dialog', { name: 'Inverter cores', exact: true });
-      const aplicar = dialogo.getByRole('button', { name: 'Aplicar', exact: true });
-      await expect(aplicar).toBeEnabled({ timeout: 15_000 });
-      await conferirCantos(pagina, corDoBaldeInvertida);
-      await aplicar.click();
-      await expect(dialogo).toBeHidden();
-      await expect(
-        pagina.locator('.history-list').getByText('Inverter cores', { exact: true }),
-      ).toHaveCount(1);
-    });
-    for (const medida of ['filtro:preparo', 'filtro:worker', 'filtro:previa', 'historico:filtro']) {
-      if (filtro.operacoes[medida]?.amostras !== 1)
-        throw new Error(`O ensaio não recebeu uma amostra para ${medida}.`);
-    }
+    const filtro = await medir(pagina, autosave, () =>
+      aplicarFiltroPeloMenu(pagina, 'Inverter cores', () =>
+        conferirCantos(pagina, corDoBaldeInvertida),
+      ),
+    );
+    conferirMedidasDoFiltro(filtro, 'Inverter cores');
+    const desfoque =
+      papel.largura === 4000 && papel.altura === 4000
+        ? await medirDesfoque(pagina, autosave)
+        : null;
     for (const [nome, fase] of [
       ['balde', balde],
       ['desfazer', desfazer],
@@ -279,6 +320,7 @@ async function medirPapel(browser, papel) {
         desfazer,
         refazer,
         'inverter cores': filtro,
+        ...(desfoque ? { 'desfoque gaussiano': desfoque } : {}),
       },
     };
   } finally {

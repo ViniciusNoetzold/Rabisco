@@ -3,7 +3,7 @@ import type { PreparoFiltro } from '../commands/executador';
 import type { PixelBuffer } from '../layers/types';
 import { processarFiltro } from './processar';
 
-export type PedidoFiltro = Pick<PreparoFiltro, 'antes' | 'cobertura' | 'travarAlfa'> & {
+export type PedidoFiltro = Pick<PreparoFiltro, 'antes' | 'cobertura' | 'travarAlfa' | 'recorte'> & {
   comando: ComandoAplicarFiltro;
 };
 
@@ -21,9 +21,9 @@ export async function calcularFiltro(
   sinal: AbortSignal,
 ): Promise<ResultadoFiltro> {
   sinal.throwIfAborted();
-  const { antes, cobertura, travarAlfa } = preparo;
+  const { antes, cobertura, travarAlfa, recorte } = preparo;
   if (typeof Worker === 'undefined')
-    return { antes, depois: processarFiltro(antes, comando, cobertura, travarAlfa) };
+    return processarFiltro(antes, comando, cobertura, travarAlfa, recorte);
 
   const worker = new Worker(new URL('./filtros.worker.ts', import.meta.url), { type: 'module' });
   const { filtro, parametros, semente, area } = comando;
@@ -33,6 +33,7 @@ export async function calcularFiltro(
     antes,
     cobertura,
     travarAlfa,
+    recorte,
   };
   const transferir: Transferable[] = [antes.data.buffer];
   if (cobertura) transferir.push(cobertura.buffer);

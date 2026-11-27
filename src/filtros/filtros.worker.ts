@@ -5,11 +5,20 @@ import type { PedidoFiltro, RespostaFiltro } from './worker';
 const worker = self as DedicatedWorkerGlobalScope;
 
 worker.onmessage = ({ data }: MessageEvent<PedidoFiltro>) => {
-  const { antes, comando, cobertura, travarAlfa } = data;
+  const { antes: entrada, comando, cobertura, travarAlfa, recorte } = data;
   try {
-    const filtrado = processarFiltro(antes, comando, cobertura, travarAlfa);
+    const { antes, depois: filtrado } = processarFiltro(
+      entrada,
+      comando,
+      cobertura,
+      travarAlfa,
+      recorte,
+    );
     // Uma edição sem efeito devolve só o original. A comparação fica no worker.
-    const depois = antes.data.every((byte, i) => byte === filtrado.data[i]) ? antes : filtrado;
+    let i = 0;
+    if (antes === filtrado) i = antes.data.length;
+    while (i < antes.data.length && antes.data[i] === filtrado.data[i]) i++;
+    const depois = i === antes.data.length ? antes : filtrado;
     const resultado: RespostaFiltro = { antes, depois };
     const transferir = new Set([antes.data.buffer, depois.data.buffer]);
     worker.postMessage(resultado, [...transferir]);

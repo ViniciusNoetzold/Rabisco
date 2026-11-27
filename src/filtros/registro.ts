@@ -11,6 +11,15 @@ import {
   sepia,
   type PontoCurva,
 } from './cores';
+import {
+  adicionarRuido,
+  aplicarRelevo,
+  desfoqueGaussiano,
+  desfoqueMovimento,
+  detectarBordas,
+  mascaraNitidez,
+  reduzirRuidoMediana,
+} from './espaciais';
 
 export type IdFiltro =
   | 'inverter'
@@ -21,7 +30,14 @@ export type IdFiltro =
   | 'preto-e-branco'
   | 'sepia'
   | 'limiar'
-  | 'posterizar';
+  | 'posterizar'
+  | 'desfoque-gaussiano'
+  | 'desfoque-movimento'
+  | 'nitidez'
+  | 'ruido'
+  | 'mediana'
+  | 'bordas'
+  | 'relevo';
 export type ParametrosFiltro = Record<string, number | boolean | string | readonly PontoCurva[]>;
 
 type ParametroFiltro = { nome: string } & (
@@ -37,6 +53,7 @@ export interface DefinicaoFiltro {
   categoria: string;
   parametros: Readonly<Record<string, ParametroFiltro>>;
   porBlocos: boolean;
+  margem?(parametros: ParametrosFiltro): number;
   aplicar(pixels: PixelBuffer, parametros: ParametrosFiltro, semente: number): PixelBuffer;
 }
 
@@ -53,6 +70,13 @@ function inverterCores(pixels: PixelBuffer): PixelBuffer {
 
 function numero(nome: string, padrao: number, minimo: number, maximo: number, passo = 1) {
   return { tipo: 'numero' as const, nome, padrao, minimo, maximo, passo };
+}
+
+function margemDoRaio(padrao: number, maximo: number) {
+  return ({ raio }: ParametrosFiltro) =>
+    typeof raio === 'number' && Number.isFinite(raio)
+      ? Math.round(Math.min(maximo, Math.max(0, raio)))
+      : padrao;
 }
 
 export const FILTROS: readonly DefinicaoFiltro[] = [
@@ -144,6 +168,74 @@ export const FILTROS: readonly DefinicaoFiltro[] = [
     parametros: { niveis: numero('Níveis por canal', 4, 2, 32) },
     porBlocos: true,
     aplicar: posterizar,
+  },
+  {
+    id: 'desfoque-gaussiano',
+    nome: 'Desfoque gaussiano',
+    categoria: 'Desfoque',
+    parametros: { raio: numero('Raio (px)', 3, 0, 24) },
+    porBlocos: true,
+    margem: margemDoRaio(3, 24),
+    aplicar: desfoqueGaussiano,
+  },
+  {
+    id: 'desfoque-movimento',
+    nome: 'Desfoque de movimento',
+    categoria: 'Desfoque',
+    parametros: { raio: numero('Raio (px)', 6, 0, 24), angulo: numero('Ângulo', 0, -180, 180) },
+    porBlocos: true,
+    margem: margemDoRaio(6, 24),
+    aplicar: desfoqueMovimento,
+  },
+  {
+    id: 'nitidez',
+    nome: 'Nitidez',
+    categoria: 'Detalhes',
+    parametros: {
+      raio: numero('Raio (px)', 2, 0, 24),
+      intensidade: numero('Intensidade', 80, 0, 200),
+    },
+    porBlocos: true,
+    margem: margemDoRaio(2, 24),
+    aplicar: mascaraNitidez,
+  },
+  {
+    id: 'ruido',
+    nome: 'Adicionar ruído',
+    categoria: 'Detalhes',
+    parametros: {
+      intensidade: numero('Intensidade', 15, 0, 100),
+      monocromatico: { tipo: 'booleano', nome: 'Monocromático', padrao: true },
+    },
+    porBlocos: false,
+    aplicar: adicionarRuido,
+  },
+  {
+    id: 'mediana',
+    nome: 'Reduzir ruído (mediana)',
+    categoria: 'Detalhes',
+    parametros: { raio: numero('Raio (px)', 1, 1, 3) },
+    porBlocos: true,
+    margem: (parametros) => Math.max(1, margemDoRaio(1, 3)(parametros)),
+    aplicar: reduzirRuidoMediana,
+  },
+  {
+    id: 'bordas',
+    nome: 'Detectar bordas (Sobel)',
+    categoria: 'Detalhes',
+    parametros: { intensidade: numero('Intensidade', 100, 0, 200) },
+    porBlocos: true,
+    margem: () => 1,
+    aplicar: detectarBordas,
+  },
+  {
+    id: 'relevo',
+    nome: 'Relevo',
+    categoria: 'Detalhes',
+    parametros: { intensidade: numero('Intensidade', 100, 0, 200) },
+    porBlocos: true,
+    margem: () => 1,
+    aplicar: aplicarRelevo,
   },
 ];
 

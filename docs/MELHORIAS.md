@@ -51,7 +51,7 @@
 - [ ] **ASCII**: converter camada ou seleção, conjuntos de caracteres, colorido (ANSI/HTML), editar letra por letra, títulos com figlet; exportar .txt, .html e .png
 - [ ] **Pixel art**: grade, paletas (Game Boy, NES, PICO-8, CGA), pixelizar foto, papel-cebola
 - [ ] **Dithering** retrô, **meio-tom**, mosaico, pontilhismo, vitral, "CRT"
-- [ ] Filtros espaciais: desfoque, nitidez, ruído, mediana, bordas e relevo
+- [x] Filtros espaciais: desfoque, nitidez, ruído, mediana, bordas e relevo. ✅ 0.5, Passo 3.
 - [ ] Camadas de ajuste não destrutivas
 - [ ] Arquitetura de plugins para novos estilos
 

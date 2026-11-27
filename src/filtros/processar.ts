@@ -1,25 +1,30 @@
 import type { ComandoAplicarFiltro } from '../commands/comandos';
-import type { PixelBuffer } from '../layers/types';
+import { recortarPixels } from '../commands/history';
+import type { PixelBuffer, Rect } from '../layers/types';
 import { obterFiltro } from './registro';
 
 /** Executa em memória, com a mesma cobertura e alfa na prévia e no comando. */
 export function processarFiltro(
-  antes: PixelBuffer,
+  entrada: PixelBuffer,
   comando: ComandoAplicarFiltro,
   cobertura?: Uint8ClampedArray,
   travarAlfa = false,
-): PixelBuffer {
+  recorte?: Rect,
+): { antes: PixelBuffer; depois: PixelBuffer } {
   const filtro = obterFiltro(comando.filtro);
-  const depois = filtro.aplicar(antes, comando.parametros, comando.semente);
+  const filtrado = filtro.aplicar(entrada, comando.parametros, comando.semente);
   if (
-    depois.width !== antes.width ||
-    depois.height !== antes.height ||
-    depois.data.length !== antes.data.length
+    filtrado.width !== entrada.width ||
+    filtrado.height !== entrada.height ||
+    filtrado.data.length !== entrada.data.length
   ) {
     throw new Error('O filtro devolveu um recorte de tamanho diferente.');
   }
-  if (depois === antes) return antes;
-  if (!cobertura && !travarAlfa) return depois;
+  // Filtros espaciais recebem a margem de vizinhos e a descartam antes de misturar a seleção.
+  const antes = recorte ? recortarPixels(entrada, recorte) : entrada;
+  if (filtrado === entrada) return { antes, depois: antes };
+  const depois = recorte ? recortarPixels(filtrado, recorte) : filtrado;
+  if (!cobertura && !travarAlfa) return { antes, depois };
 
   for (let pixel = 0, i = 0; i < antes.data.length; pixel++, i += 4) {
     const opacidade = cobertura ? cobertura[pixel] : 255;
@@ -43,5 +48,5 @@ export function processarFiltro(
     }
     depois.data[i + 3] = pesoTotal / 255;
   }
-  return depois;
+  return { antes, depois };
 }

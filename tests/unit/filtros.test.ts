@@ -35,7 +35,7 @@ describe('filtros', () => {
   it('mantém a parte de fora da seleção e mistura a borda sem mudar o alfa bloqueado', () => {
     const antes = faixa([16, 32, 48, 128], [16, 32, 48, 128], [16, 32, 48, 128]);
     const cobertura = new Uint8ClampedArray([255, 128, 0]);
-    const depois = processarFiltro(antes, INVERTER, cobertura, true);
+    const { depois } = processarFiltro(antes, INVERTER, cobertura, true);
     expect(depois).toEqual(faixa([239, 223, 207, 128], [128, 128, 128, 128], [16, 32, 48, 128]));
   });
 
@@ -45,7 +45,7 @@ describe('filtros', () => {
       .spyOn(obterFiltro('inverter'), 'aplicar')
       .mockReturnValue(faixa([239, 223, 207, 255], [255, 255, 255, 255]));
     try {
-      expect(processarFiltro(antes, INVERTER, undefined, true)).toEqual(
+      expect(processarFiltro(antes, INVERTER, undefined, true).depois).toEqual(
         faixa([239, 223, 207, 128], [0, 0, 0, 0]),
       );
     } finally {
@@ -81,12 +81,40 @@ describe('filtros', () => {
     expect(preparo.alvo).toEqual(alvo);
     expect(preparo.travarAlfa).toBe(false);
 
-    const depois = processarFiltro(preparo.antes, INVERTER, preparo.cobertura, preparo.travarAlfa);
+    const { depois } = processarFiltro(
+      preparo.antes,
+      INVERTER,
+      preparo.cobertura,
+      preparo.travarAlfa,
+    );
     editor.receberFiltroCalculado(INVERTER, preparo, depois);
     expect(editor.executar(INVERTER)).toBe(true);
     expect(doc.lerPixels).toHaveBeenCalledTimes(1);
     expect(doc.aplicarPixels).toHaveBeenCalledWith(depois, 0, 0, alvo);
     expect(editor.historico.desfazer()?.alteracoes[0].alvo).toEqual(alvo);
+  });
+
+  it('lê a margem do desfoque sem gravar os pixels vizinhos', () => {
+    const vermelho = [255, 0, 0, 255];
+    const original = faixa(vermelho, [0, 0, 0, 0], vermelho);
+    const doc = documentoFalso(original);
+    const editor = new Executador(doc);
+    const area = { x: 1, y: 0, width: 1, height: 1 };
+    expect(
+      editor.executar({
+        tipo: 'AplicarFiltro',
+        filtro: 'desfoque-gaussiano',
+        parametros: { raio: 2 },
+        semente: 0,
+        area,
+      }),
+    ).toBe(true);
+    expect(Array.from(doc.raster.data.subarray(0, 7))).toEqual([...vermelho, 255, 0, 0]);
+    expect(doc.raster.data[7]).toBeGreaterThan(0);
+    expect(Array.from(doc.raster.data.subarray(8))).toEqual(vermelho);
+    expect(editor.ultimaAlteracao).toEqual(area);
+    expect(editor.desfazer()).toBe(true);
+    expect(doc.raster).toEqual(original);
   });
 
   it('recusa o filtro em camadas bloqueadas e ocultas sem ler os pixels', () => {
