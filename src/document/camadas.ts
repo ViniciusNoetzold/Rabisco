@@ -1,3 +1,5 @@
+import type { CamadaAscii } from '../estilos/camadaAscii';
+
 /** Modos de mesclagem das camadas, com os nomes usados na interface em português. */
 export const MODOS_MESCLAGEM = {
   normal: { nome: 'Normal', operacao: 'source-over' },
@@ -56,6 +58,7 @@ export interface PropriedadesCamada {
   /** Máscara ligada (Shift+clique na miniatura desliga temporariamente). */
   mascaraAtiva?: boolean;
   efeitos?: EfeitosCamada;
+  ascii?: CamadaAscii;
 }
 
 export interface Grupo {

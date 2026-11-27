@@ -1,6 +1,7 @@
 // ag-psd é grande: só carrega quando um PSD é salvo ou aberto.
 import type { BlendMode, Layer as CamadaPsd, Psd } from 'ag-psd';
 import { guiasSeguras, SEM_GUIAS, type GuiasDocumento } from '../document/guias';
+import { normalizarCamadaAscii } from '../estilos/camadaAscii';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import {
   chaveDoAlvo,
@@ -179,6 +180,8 @@ function propriedadesSeguras(
   if (typeof dados.grupo === 'string' && grupos.has(dados.grupo)) propriedades.grupo = dados.grupo;
   if (dados.recorte === true) propriedades.recorte = true;
   if (dados.fundo === true) propriedades.fundo = true;
+  const ascii = normalizarCamadaAscii(dados.ascii);
+  if (ascii) propriedades.ascii = ascii;
   if (dados.temMascara === true) {
     propriedades.temMascara = true;
     propriedades.mascaraAtiva = dados.mascaraAtiva !== false;

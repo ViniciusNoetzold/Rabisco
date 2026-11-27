@@ -2,6 +2,12 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 5 — ASCII
+
+- **Início › Imagem › Filtros › Converter em ASCII** converte a camada ativa ou a seleção com os conjuntos simples, detalhado, blocos e Braille. A janela tem prévia monoespaçada, inversão, cores, cópia e exportação `.txt`, `.html` e `.png`.
+- A arte pode entrar como camada rasterizada ou texto editável. **Editar ASCII** altera os caracteres em uma edição reversível e o arquivo `.rabisco` mantém o texto editável. Operações como mesclar ou aplicar uma máscara produzem pixels rasterizados. Desfazer recupera o texto.
+- Validação com 222 testes unitários, build de produção e 100 fluxos E2E concluídos. O teste da biblioteca de formas passou na retentativa. Os dois fluxos de ASCII passaram na primeira tentativa da suíte completa.
+
 ### Passo 4 — Pixel art
 
 - **Pixelizar** usa blocos com média ponderada pela transparência. **Reduzir paleta** aceita Game Boy, NES, PICO-8, CGA ou uma paleta extraída do desenho, com dithering Floyd–Steinberg opcional.

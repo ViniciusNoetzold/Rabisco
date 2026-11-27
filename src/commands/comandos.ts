@@ -1,6 +1,8 @@
 import { validarDimensoes } from '../document/dimensoes';
 import type { ConfigGradiente } from '../tools/gradiente';
 import type { MascaraSelecao } from '../document/selecao';
+import type { ArteAscii } from '../estilos/ascii';
+import type { CamadaAscii } from '../estilos/camadaAscii';
 import type { FormatoImagem } from '../io/imagens';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
@@ -150,9 +152,13 @@ export type ComandoCamada =
       propriedades?: AlteracaoCamada;
       /** Pixels iniciais (importar como camada, colar como nova camada). */
       imagem?: ImagemSerializada;
+      /** Conteúdo ASCII inicial, com a área no papel. */
+      ascii?: CamadaAscii;
+      rasterizarAscii?: boolean;
       x?: number;
       y?: number;
     }
+  | { tipo: 'EditarCamadaAscii'; id: string; arte: ArteAscii }
   | { tipo: 'DuplicarCamada'; id: string; novoId: string }
   | { tipo: 'ExcluirCamada'; id: string }
   | { tipo: 'AlterarCamada'; id: string; propriedades: AlteracaoCamada }

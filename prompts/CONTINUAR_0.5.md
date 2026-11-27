@@ -2,9 +2,9 @@
 
 ## Ponto de parada
 
-A branch `main` está publicada e validada até o **Passo 4 (Pixel art)**, no commit `e156f64`. Confira `git log -5 --oneline` ao retomar. O **Passo 5 (ASCII)** estava em integração na hora deste checkpoint. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
+A branch `main` está publicada e validada até o **Passo 5 (ASCII)**. Confira `git log -5 --oneline` ao retomar. O **próximo passo é o 6 (dithering, meio-tom e estilos artísticos)**. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
 
-O [rascunho completo do ASCII](retomada-0.5/passo-5-ascii-em-validacao.patch), com código e testes, está no GitHub. Se o Passo 5 ainda aparecer como pendente no changelog, confira com `git apply --check prompts/retomada-0.5/passo-5-ascii-em-validacao.patch` e aplique com `git apply` no mesmo arquivo. O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos dos Passos 6 a 8 e aponta as integrações e verificações que faltam.
+O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos dos Passos 6 a 8 e aponta as integrações e verificações que faltam. Os títulos ASCII com `figlet` seguem condicionados à aprovação da dependência.
 
 ## Em outro computador
 
@@ -19,9 +19,8 @@ Para abrir em outro aparelho conectado à mesma rede, execute `npm run dev -- --
 
 ## O que falta
 
-1. Validar o Passo 5 e confirmar a conversão, a edição de texto ASCII e as exportações. A inclusão de `figlet` depende da aprovação da dependência.
-2. Integrar o dithering e os estilos artísticos no Passo 6.
-3. Integrar as camadas de ajuste, compatibilidade de arquivos e exportações no Passo 7.
-4. Fechar as pendências da 0.4, medir balde, desfoque e dithering, atualizar as capturas e publicar a versão 0.5.0 no Passo 8.
+1. Integrar o dithering e os estilos artísticos no Passo 6.
+2. Integrar as camadas de ajuste, compatibilidade de arquivos e exportações no Passo 7.
+3. Fechar as pendências da 0.4, medir balde, desfoque e dithering, atualizar as capturas e publicar a versão 0.5.0 no Passo 8.
 
 O [CHANGELOG](../CHANGELOG.md) registra a validação de cada passo publicado. O [guia de desempenho](../docs/desempenho.md) contém as medições feitas no Edge.

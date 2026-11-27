@@ -26,6 +26,11 @@ import {
   sobreporPixels,
 } from '../document/transformacoes';
 import { coberturaDaSelecao } from '../filtros/cobertura';
+import {
+  moverCamadaAscii,
+  normalizarCamadaAscii,
+  renderizarCamadaAscii,
+} from '../estilos/camadaAscii';
 import { processarFiltro } from '../filtros/processar';
 import { obterFiltro } from '../filtros/registro';
 import type { PixelBuffer, Rect } from '../layers/types';
@@ -105,7 +110,13 @@ export interface PreparoFiltro {
 }
 
 /** Por que o último comando não fez nada (para a interface avisar). */
-export type MotivoRecusa = 'bloqueada' | 'oculta' | 'ultima-camada' | 'sem-camada-abaixo' | null;
+export type MotivoRecusa =
+  | 'bloqueada'
+  | 'oculta'
+  | 'ultima-camada'
+  | 'sem-camada-abaixo'
+  | 'texto-ascii'
+  | null;
 
 type ComandoTransformacao = Extract<
   Comando,
@@ -252,6 +263,7 @@ export class Executador {
     const camada = this.doc.activeLayer;
     if (camada.locked) return 'bloqueada';
     if (!camada.visible) return 'oculta';
+    if (camada.ascii && !this.doc.editandoMascara) return 'texto-ascii';
     return null;
   }
 
@@ -391,6 +403,7 @@ export class Executador {
             return [alvo, recortado] as const;
           });
           this.doc.redimensionarDocumento(area.width, area.height);
+          for (const camada of this.doc.layers) delete camada.ascii;
           for (const [alvo, pixels] of novos) this.doc.aplicarPixels(pixels, 0, 0, alvo);
         });
       }
@@ -471,6 +484,8 @@ export class Executador {
 
     switch (comando.tipo) {
       case 'NovaCamada': {
+        const ascii = normalizarCamadaAscii(comando.ascii);
+        if (comando.ascii && !ascii) throw new Error('O conteúdo da camada ASCII é inválido.');
         const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
         const propriedades: PropriedadesCamada = {
           ...propriedadesPadrao(comando.id, comando.nome),
@@ -479,27 +494,53 @@ export class Executador {
           grupo: comando.propriedades?.grupo ?? estrutura.camadas[referencia]?.grupo,
         };
         if (!propriedades.grupo) delete propriedades.grupo;
+        if (ascii && !comando.rasterizarAscii) propriedades.ascii = ascii;
         estrutura.camadas.splice(referencia + 1, 0, propriedades);
         estrutura.ativa = comando.id;
         estrutura.editandoMascara = false;
         const alvo = { camada: comando.id };
-        return this.alterarDocumento(comando, 'Nova camada', [alvo], () => {
-          doc.aplicarEstrutura(estrutura);
-          if (comando.imagem) {
-            const imagem = desserializarImagem(comando.imagem);
-            const area = limitarArea(
-              { x: comando.x ?? 0, y: comando.y ?? 0, width: imagem.width, height: imagem.height },
-              doc,
-            );
-            if (area) {
-              const visivel = recortarPixels(imagem, {
-                ...area,
-                x: area.x - (comando.x ?? 0),
-                y: area.y - (comando.y ?? 0),
-              });
-              doc.aplicarPixels(visivel, area.x, area.y, alvo);
+        return this.alterarDocumento(
+          comando,
+          ascii ? 'Converter em ASCII' : 'Nova camada',
+          [alvo],
+          () => {
+            doc.aplicarEstrutura(estrutura);
+            if (ascii) renderizarCamadaAscii(doc.contexto(alvo), ascii);
+            else if (comando.imagem) {
+              const imagem = desserializarImagem(comando.imagem);
+              const area = limitarArea(
+                {
+                  x: comando.x ?? 0,
+                  y: comando.y ?? 0,
+                  width: imagem.width,
+                  height: imagem.height,
+                },
+                doc,
+              );
+              if (area) {
+                const visivel = recortarPixels(imagem, {
+                  ...area,
+                  x: area.x - (comando.x ?? 0),
+                  y: area.y - (comando.y ?? 0),
+                });
+                doc.aplicarPixels(visivel, area.x, area.y, alvo);
+              }
             }
-          }
+          },
+        );
+      }
+      case 'EditarCamadaAscii': {
+        const camada = estrutura.camadas[indice(comando.id)];
+        if (!camada?.ascii || camada.locked) return null;
+        const ascii = normalizarCamadaAscii({ area: camada.ascii.area, arte: comando.arte });
+        if (!ascii || JSON.stringify(ascii) === JSON.stringify(camada.ascii)) return null;
+        camada.ascii = ascii;
+        const alvo = { camada: comando.id };
+        return this.alterarDocumento(comando, 'Editar texto ASCII', [alvo], () => {
+          doc.aplicarEstrutura(estrutura);
+          const contexto = doc.contexto(alvo);
+          contexto.clearRect(0, 0, doc.width, doc.height);
+          renderizarCamadaAscii(contexto, ascii);
         });
       }
       case 'DuplicarCamada': {
@@ -570,6 +611,13 @@ export class Executador {
         }
         const alvos = this.alvosDa(comando.id);
         return this.alterarDocumento(comando, 'Mover camada', alvos, () => {
+          if (camada.ascii) {
+            estrutura.camadas[indice(comando.id)].ascii = moverCamadaAscii(camada.ascii, {
+              x: comando.dx,
+              y: comando.dy,
+            });
+            doc.aplicarEstrutura(estrutura);
+          }
           for (const alvo of alvos) {
             // O que sai do papel é perdido; a máscara anda junto com os pixels.
             const copia = document.createElement('canvas');
@@ -594,6 +642,7 @@ export class Executador {
         }
         const alvos = this.alvosDa(comando.id);
         return this.alterarDocumento(comando, 'Transformação livre', alvos, () => {
+          delete camada.ascii;
           for (const alvo of alvos) {
             const copia = document.createElement('canvas');
             copia.width = doc.width;
@@ -631,6 +680,7 @@ export class Executador {
         }
         const alvos = this.alvosDa(comando.id);
         return this.alterarDocumento(comando, 'Distorcer', alvos, () => {
+          delete camada.ascii;
           for (const alvo of alvos) {
             const recorte = document.createElement('canvas');
             recorte.width = origem.width;
@@ -673,6 +723,7 @@ export class Executador {
         const base = estrutura.camadas[posicao - 1];
         delete base.temMascara;
         delete base.mascaraAtiva;
+        delete base.ascii;
         estrutura.ativa = baixo.id;
         estrutura.editandoMascara = false;
         this.limparGruposVazios(estrutura);
@@ -813,6 +864,7 @@ export class Executador {
         if (!camada?.mascara || !propriedades) return null;
         delete propriedades.temMascara;
         delete propriedades.mascaraAtiva;
+        delete propriedades.ascii;
         estrutura.editandoMascara = false;
         return this.alterarDocumento(comando, 'Aplicar máscara', this.alvosDa(comando.id), () => {
           const aplicada = document.createElement('canvas');
@@ -1105,11 +1157,16 @@ export class Executador {
         );
         const [, primeira] = novos[0];
         this.doc.redimensionarDocumento(primeira.width, primeira.height);
+        for (const camada of this.doc.layers) delete camada.ascii;
         for (const [alvo, pixels] of novos) this.doc.aplicarPixels(pixels, 0, 0, alvo);
       });
     }
     if (this.doc.activeLayer.locked) {
       this.motivoRecusa = 'bloqueada';
+      return null;
+    }
+    if (this.doc.activeLayer.ascii && !this.doc.editandoMascara) {
+      this.motivoRecusa = 'texto-ascii';
       return null;
     }
     const papel = this.doc.copiarPixels();

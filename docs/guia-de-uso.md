@@ -41,6 +41,12 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Matiz, saturação e luminosidade** controla as cores e o brilho. **Preto e branco** permite misturar os canais. **Sépia**, **Limiar** e **Posterizar** convertem as cores com a intensidade, o limite ou a quantidade de níveis escolhidos.
 - Em **Desfoque**, ajuste o raio do gaussiano ou o raio e o ângulo do desfoque de movimento. Em **Detalhes**, use **Nitidez**, **Adicionar ruído**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** ou **Relevo**. Os pixels vizinhos ajudam no cálculo das bordas sem ampliar a seleção.
 
+## ASCII (0.5)
+
+- Abra **Início › Imagem › Filtros › Converter em ASCII**. Se houver uma seleção, o conversor usa a região selecionada. Ajuste as **Colunas**, escolha o conjunto de caracteres e use **Inverter** ou **Colorido** para comparar o resultado na prévia.
+- **Criar camada de texto** mantém os caracteres para editar. Selecione a nova camada e clique em **Editar ASCII** no painel de camadas. O texto editável vai junto no arquivo `.rabisco`.
+- **Rasterizar em camada** cria pixels para as ferramentas de desenho. **Copiar texto** leva os caracteres à área de transferência. **Exportar** oferece `.txt`, HTML com as cores da prévia e PNG.
+
 ## Pixel art (0.5)
 
 - Abra **Início › Imagem › Filtros › Pixelizar** para trocar cada bloco por uma cor. **Reduzir paleta** usa Game Boy, NES, PICO-8, CGA ou uma paleta com as cores do desenho. Marque **Dithering** para distribuir o erro de cor.

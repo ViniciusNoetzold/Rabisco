@@ -48,7 +48,8 @@
 
 - [x] Registro de filtros, worker cancelável, prévia no papel e repetição do último filtro. **Inverter cores** inaugura o menu. ✅ 0.5, Passo 1.
 - [x] Filtros de cor, editor de curvas e conta-gotas de níveis. ✅ 0.5, Passo 2.
-- [ ] **ASCII**: converter camada ou seleção, conjuntos de caracteres, colorido (ANSI/HTML), editar letra por letra, títulos com figlet; exportar .txt, .html e .png
+- [x] **ASCII**: conversão de camada ou seleção, conjuntos de caracteres, cor, edição, cópia e exportações .txt, .html e .png. ✅ 0.5, Passo 5.
+- [ ] Títulos ASCII com `figlet`, sujeitos a aprovação da dependência
 - [x] **Pixel art**: lápis de 1 px, grade, paletas, pixelização e exportação ampliada. ✅ 0.5, Passo 4.
 - [ ] Papel-cebola para animação de pixel art
 - [ ] **Dithering** retrô, **meio-tom**, mosaico, pontilhismo, vitral, "CRT"

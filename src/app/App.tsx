@@ -24,6 +24,8 @@ import { useTelaInteira } from './useTelaInteira';
 import { nivelSeguinte } from '../canvas/zoom';
 import { novoId } from '../document/camadas';
 import type { IdFiltro } from '../filtros/registro';
+import type { FonteAscii } from '../canvas/editorTypes';
+import type { ArteAscii } from '../estilos/ascii';
 import { FiltroDialog } from './components/FiltroDialog';
 
 const CustomShapeEditor = lazy(() =>
@@ -39,6 +41,14 @@ const ShapeLibrary = lazy(() =>
 const EditorDialogs = lazy(() =>
   import('./components/EditorDialogs').then(({ EditorDialogs: defaultExport }) => ({
     default: defaultExport,
+  })),
+);
+const AsciiDialog = lazy(() =>
+  import('./components/AsciiDialog').then(({ AsciiDialog }) => ({ default: AsciiDialog })),
+);
+const AsciiTextoDialog = lazy(() =>
+  import('./components/AsciiTextoDialog').then(({ AsciiTextoDialog }) => ({
+    default: AsciiTextoDialog,
   })),
 );
 
@@ -71,6 +81,12 @@ export default function App() {
   const ferramenta = useEditor((estado) => estado.tool);
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
   const [filtroDialog, setFiltroDialog] = useState<IdFiltro | 'repetir' | null>(null);
+  const [asciiDialog, setAsciiDialog] = useState<
+    | { tipo: 'converter'; fonte: FonteAscii }
+    | { tipo: 'editar'; id: string; arte: ArteAscii }
+    | null
+  >(null);
+  const fecharAscii = useCallback(() => setAsciiDialog(null), []);
   const fecharFiltro = useCallback(() => setFiltroDialog(null), []);
   const repetirFiltro = useCallback(() => {
     if (editor.current?.temUltimoFiltro()) setFiltroDialog('repetir');
@@ -80,7 +96,7 @@ export default function App() {
   const colarNaCamadaAtual = useRef(false);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
-  const modalAberto = Boolean(dialog || filtroDialog || painelFormas);
+  const modalAberto = Boolean(dialog || filtroDialog || painelFormas || asciiDialog);
   const corDeFundo = useEditor((estado) => estado.color2);
   const corAtiva = useEditor((estado) =>
     estado.colorTarget === 1 ? estado.color1 : estado.color2,
@@ -462,6 +478,12 @@ export default function App() {
         onEditarCores={() => setDialog('colors')}
         onFiltro={setFiltroDialog}
         onRepetirFiltro={repetirFiltro}
+        onConverterAscii={() =>
+          run(() => {
+            const fonte = editor.current?.obterFonteAscii();
+            if (fonte) setAsciiDialog({ tipo: 'converter', fonte });
+          })
+        }
         onColar={() => run(colar)}
         onColarDe={() => arquivoColagem.current?.click()}
         alternarTelaInteira={alternarTelaInteira}
@@ -500,7 +522,15 @@ export default function App() {
           />
           <ToolHint />
         </div>
-        <StudioPanel info={info} editor={editor} onHelp={() => setDialog('help')} />
+        <StudioPanel
+          info={info}
+          editor={editor}
+          onHelp={() => setDialog('help')}
+          onEditarAscii={(id) => {
+            const camada = info.estrutura.camadas.find((item) => item.id === id);
+            if (camada?.ascii) setAsciiDialog({ tipo: 'editar', id, arte: camada.ascii.arte });
+          }}
+        />
       </div>
       <EditorStatus ref={cursorStatus} info={info} editor={editor} />
       <input
@@ -546,6 +576,37 @@ export default function App() {
         />
       )}
       <Suspense fallback={<CarregandoDiscreto />}>
+        {asciiDialog?.tipo === 'converter' && (
+          <AsciiDialog
+            origem={asciiDialog.fonte.pixels}
+            fechar={fecharAscii}
+            run={run}
+            aplicar={(arte, rasterizar) =>
+              run(() => {
+                editor.current?.criarCamadaAscii(asciiDialog.fonte, arte, rasterizar);
+              })
+            }
+            copiar={async (arte) => (await import('../estilos/arquivoAscii')).copiarArteAscii(arte)}
+            exportar={async (arte, formato) =>
+              (await import('../estilos/arquivoAscii')).exportarArteAscii(arte, formato)
+            }
+          />
+        )}
+        {asciiDialog?.tipo === 'editar' && (
+          <AsciiTextoDialog
+            arte={asciiDialog.arte}
+            aplicar={(arte) =>
+              run(() => {
+                editor.current?.executarCamada({
+                  tipo: 'EditarCamadaAscii',
+                  id: asciiDialog.id,
+                  arte,
+                });
+              })
+            }
+            fechar={fecharAscii}
+          />
+        )}
         {dialog && (
           <EditorDialogs
             dialog={dialog}

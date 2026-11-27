@@ -10,6 +10,13 @@ import type {
 import type { EstruturaDocumento } from '../document/camadas';
 import type { DadosFormaPropria } from '../shapes/presets';
 import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
+import type { ArteAscii } from '../estilos/ascii';
+
+export interface FonteAscii {
+  pixels: PixelBuffer;
+  area: Rect;
+  revisao: number;
+}
 
 export interface DocumentInfo {
   name: string;
@@ -74,6 +81,8 @@ export interface EditorApi {
   repetirFiltro(aoDemorar: () => void): Promise<boolean>;
   temUltimoFiltro(): boolean;
   amostrarNivelFiltro(cliente: Point): number | null;
+  obterFonteAscii(): FonteAscii | null;
+  criarCamadaAscii(fonte: FonteAscii, arte: ArteAscii, rasterizar: boolean): boolean;
 }
 
 export interface CanvasCallbacks {

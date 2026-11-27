@@ -1,0 +1,113 @@
+.ascii-dialog.app-dialog.window {
+  width: min(820px, calc(100vw - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+}
+
+.ascii-corpo.dialog-body.window-body {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+}
+
+.ascii-opcoes {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ascii-campo {
+  display: grid;
+  gap: 4px;
+}
+
+.ascii-campo input,
+.ascii-campo select {
+  min-width: 0;
+  width: 100%;
+}
+
+.ascii-marcacao {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ascii-status {
+  min-height: 1lh;
+  color: #244a69;
+}
+
+.ascii-previa {
+  min-height: 10rem;
+  max-height: min(48dvh, 420px);
+  min-width: 0;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #9eb6cd;
+  background: #fff;
+  color: #000;
+  font: 0.875rem/1.2 monospace;
+  font-variant-ligatures: none;
+  white-space: pre;
+  scrollbar-gutter: stable;
+}
+
+.ascii-previa[data-invertido] {
+  background: #111;
+  color: #fff;
+}
+
+.ascii-acoes {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ascii-acoes > button {
+  min-height: 28px;
+  padding-inline: 8px;
+}
+
+.ascii-acoes-camada {
+  justify-content: flex-end;
+  border-top: 1px solid #b8cce0;
+  padding-top: 10px;
+}
+
+@media (max-width: 540px) {
+  .ascii-corpo.dialog-body.window-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ascii-opcoes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .ascii-status {
+    grid-column: 1 / -1;
+  }
+
+  .ascii-previa {
+    min-height: 7rem;
+    max-height: 30dvh;
+  }
+}
+.ascii-texto-dialog .ascii-texto-campo {
+  display: grid;
+  gap: 6px;
+}
+
+.ascii-texto-dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: 14px/1.2 monospace;
+  font-variant-ligatures: none;
+  resize: vertical;
+}

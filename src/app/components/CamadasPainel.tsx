@@ -13,6 +13,7 @@ import {
 interface CamadasPainelProps {
   info: DocumentInfo;
   editor: RefObject<EditorApi | null>;
+  onEditarAscii(id: string): void;
 }
 
 /** Miniatura que se redesenha no máximo 4 vezes por segundo enquanto se desenha. */
@@ -44,7 +45,7 @@ function Miniatura({
 }
 
 /** Painel de camadas: lista (a de cima primeiro), propriedades da ativa e ações. */
-export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProps) {
   const { estrutura, revisao } = info;
   const formasEmNovaCamada = useEditor((estado) => estado.formasEmNovaCamada);
   const [renomeando, setRenomeando] = useState<string | null>(null);
@@ -337,6 +338,11 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
       {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
 
       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">
+        {ativa?.ascii && (
+          <button type="button" disabled={ativa.locked} onClick={() => onEditarAscii(ativa.id)}>
+            Editar ASCII
+          </button>
+        )}
         <button
           type="button"
           title="Nova camada (Ctrl+Shift+N)"

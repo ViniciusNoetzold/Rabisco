@@ -17,6 +17,8 @@ import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/composito
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { comoImageData, RabiscoDocument } from '../document/model';
 import { luminancia } from '../filtros/cores';
+import { coberturaDaSelecao } from '../filtros/cobertura';
+import type { ArteAscii } from '../estilos/ascii';
 import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 import { calcularFiltro } from '../filtros/worker';
 import type { OpcoesExportacao } from '../io/imagens';
@@ -34,7 +36,7 @@ import type { NucleoEditor } from './controle/nucleo';
 import { Persistencia } from './controle/persistencia';
 import { ControleSelecao } from './controle/selecao';
 import { SuperficieTela } from './controle/superficie';
-import type { DocumentInfo, EditorApi } from './editorTypes';
+import type { DocumentInfo, EditorApi, FonteAscii } from './editorTypes';
 import { medicaoAtiva, medirOperacao, registrarDuracao } from './medicao';
 import { ZOOM_MIN } from './zoom';
 
@@ -45,6 +47,7 @@ const MENSAGENS_RECUSA = {
   oculta: 'Esta camada está oculta. Mostre-a no painel Camadas (o olho) para pintar nela.',
   'ultima-camada': 'O desenho precisa de pelo menos uma camada.',
   'sem-camada-abaixo': 'Não há camada abaixo para mesclar.',
+  'texto-ascii': 'Use Editar ASCII no painel Camadas para alterar os caracteres desta camada.',
 } as const;
 
 interface EventosEditor {
@@ -272,6 +275,43 @@ export class EditorController implements EditorApi, NucleoEditor {
   }
 
   // ---- Filtros ----------------------------------------------------------------------------
+
+  obterFonteAscii(): FonteAscii | null {
+    if (!this.disponivel()) return null;
+    this.ferramentas.confirmarPendente();
+    const area = this.selecao.area ?? {
+      x: 0,
+      y: 0,
+      width: this.doc.width,
+      height: this.doc.height,
+    };
+    const pixels = this.doc.lerPixels(area);
+    const camada = this.doc.activeLayer;
+    if (!this.doc.editandoMascara && camada.mascara && camada.mascaraAtiva !== false) {
+      const { data: mascara } = this.doc.lerPixels(area, { camada: camada.id, mascara: true });
+      for (let i = 0; i < mascara.length; i += 4)
+        pixels.data[i + 3] *= luminancia(mascara[i], mascara[i + 1], mascara[i + 2]) / 255;
+    }
+    if (this.selecao.mascara) {
+      const cobertura = coberturaDaSelecao(area, this.selecao.mascara);
+      for (let i = 0; i < cobertura.length; i++) pixels.data[i * 4 + 3] *= cobertura[i] / 255;
+    }
+    return { area, pixels, revisao: this.revisao };
+  }
+
+  criarCamadaAscii(fonte: FonteAscii, arte: ArteAscii, rasterizar: boolean) {
+    if (!this.disponivel() || this.revisao !== fonte.revisao) {
+      this.avisar('O desenho mudou durante a conversão. Abra o conversor novamente.');
+      return false;
+    }
+    return this.executar({
+      tipo: 'NovaCamada',
+      id: novoId('camada'),
+      nome: rasterizar ? 'ASCII rasterizado' : 'Texto ASCII',
+      ascii: { arte, area: fonte.area },
+      rasterizarAscii: rasterizar,
+    });
+  }
 
   async preverFiltro(filtro: IdFiltro, parametros: ParametrosFiltro, aoDemorar: () => void) {
     const resultado = await this.processarFiltro({ filtro, parametros, semente: 1 }, aoDemorar);

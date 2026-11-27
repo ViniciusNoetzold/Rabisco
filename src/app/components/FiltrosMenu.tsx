@@ -9,11 +9,13 @@ export function FiltrosMenu({
   podeRepetir,
   escolher,
   repetir,
+  converterAscii,
 }: {
   desabilitado: boolean;
   podeRepetir: boolean;
   escolher(filtro: IdFiltro): void;
   repetir(): void;
+  converterAscii(): void;
 }) {
   const id = useId();
   const botao = useRef<HTMLButtonElement>(null);
@@ -152,6 +154,18 @@ export function FiltrosMenu({
               ))}
             </div>
           ))}
+          <div className="filtros-separador" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              fechar();
+              converterAscii();
+            }}
+          >
+            Converter em ASCII
+          </button>
           <div className="filtros-separador" role="separator" />
           <button
             type="button"

@@ -10,9 +10,10 @@ interface StudioPanelProps {
   info: DocumentInfo;
   editor: RefObject<EditorApi | null>;
   onHelp(): void;
+  onEditarAscii(id: string): void;
 }
 
-export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
+export function StudioPanel({ info, editor, onHelp, onEditarAscii }: StudioPanelProps) {
   const state = useEditor();
   if (!state.sidebar) return null;
   return (
@@ -202,7 +203,7 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
           </button>
         </div>
       </section>
-      <CamadasPainel info={info} editor={editor} />
+      <CamadasPainel info={info} editor={editor} onEditarAscii={onEditarAscii} />
       <section className="history-panel">
         <div className="section-heading">
           <span>

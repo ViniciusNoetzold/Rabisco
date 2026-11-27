@@ -34,6 +34,7 @@ interface RibbonProps {
   onEditarCores(): void;
   onFiltro(filtro: IdFiltro): void;
   onRepetirFiltro(): void;
+  onConverterAscii(): void;
   onColar(): void;
   onColarDe(): void;
   alternarTelaInteira(): void;
@@ -51,6 +52,7 @@ export function Ribbon({
   onEditarCores,
   onFiltro,
   onRepetirFiltro,
+  onConverterAscii,
   onColar,
   onColarDe,
   alternarTelaInteira,
@@ -161,6 +163,7 @@ export function Ribbon({
                       podeRepetir={Boolean(editor.current?.temUltimoFiltro())}
                       escolher={onFiltro}
                       repetir={onRepetirFiltro}
+                      converterAscii={onConverterAscii}
                     />
                   </div>
                   <div className="ribbon-stack image-actions">
