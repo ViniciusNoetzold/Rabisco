@@ -79,6 +79,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
     const zoom = useEditor((estado) => estado.zoom);
     const tool = useEditor((estado) => estado.tool);
     const grid = useEditor((estado) => estado.grid);
+    const modoPixelArt = useEditor((estado) => estado.modoPixelArt);
+    const gradePixelArt = useEditor((estado) => estado.gradePixelArt);
     const ruler = useEditor((estado) => estado.ruler);
     const miniatura = useEditor((estado) => estado.miniatura);
     const rotacaoVista = useEditor((estado) => estado.rotacaoVista);
@@ -228,7 +230,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             >
               <canvas
                 ref={tela}
-                className={`drawing-canvas tool-${tool} ${zoom >= 1 ? 'zoom-nitido' : ''}`}
+                className={`drawing-canvas tool-${tool} ${zoom >= 1 || modoPixelArt ? 'zoom-nitido' : ''}`}
                 width={dimensoesIniciais.width}
                 height={dimensoesIniciais.height}
                 tabIndex={0}
@@ -281,6 +283,13 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
                   style={{
                     backgroundSize: `${(zoom >= 4 ? 1 : 16) * zoom}px ${(zoom >= 4 ? 1 : 16) * zoom}px`,
                   }}
+                />
+              )}
+              {modoPixelArt && gradePixelArt > 0 && (
+                <div
+                  className="canvas-grid grade-de-blocos"
+                  aria-hidden="true"
+                  style={{ backgroundSize: `${gradePixelArt * zoom}px ${gradePixelArt * zoom}px` }}
                 />
               )}
               {selecao && (

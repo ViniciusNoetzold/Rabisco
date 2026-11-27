@@ -13,10 +13,12 @@ import { gravarDpiPng } from './pngResolution';
 
 export type FormatoImagem = 'png' | 'jpeg' | 'bmp' | 'gif' | 'webp' | 'ico';
 export type FormatoExportacao = Exclude<FormatoImagem, 'ico'>;
+export type EscalaExportacao = 1 | 2 | 4 | 8;
 export interface OpcoesExportacao {
   nome: string;
   formato: FormatoExportacao | import('./camadas').FormatoCamadas;
   qualidade: number;
+  escala?: EscalaExportacao;
 }
 export interface ImagemAberta extends OpenedPng {
   formato: FormatoImagem;
@@ -350,13 +352,32 @@ function fundoBranco(canvas: HTMLCanvasElement): HTMLCanvasElement {
   return copia;
 }
 
+function ampliarImagem(
+  canvas: HTMLCanvasElement,
+  largura: number,
+  altura: number,
+): HTMLCanvasElement {
+  const copia = document.createElement('canvas');
+  copia.width = largura;
+  copia.height = altura;
+  const ctx = copia.getContext('2d');
+  if (!ctx) throw new Error('O navegador não conseguiu ampliar a imagem para salvar.');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, 0, 0, largura, altura);
+  return copia;
+}
+
 export async function exportarImagem(
   canvas: HTMLCanvasElement,
   formato: FormatoExportacao,
   qualidade = 0.92,
   dpi = DPI_PADRAO,
+  escala: EscalaExportacao = 1,
 ): Promise<Blob> {
-  validarDimensoes(canvas.width, canvas.height);
+  const largura = canvas.width * escala;
+  const altura = canvas.height * escala;
+  validarDimensoes(largura, altura);
+  if (escala !== 1) canvas = ampliarImagem(canvas, largura, altura);
   if (formato === 'bmp') return codificarBmp(lerPixels(canvas), dpi);
   if (formato === 'gif') return codificarGif(lerPixels(canvas));
   const origem = formato === 'jpeg' ? fundoBranco(canvas) : canvas;

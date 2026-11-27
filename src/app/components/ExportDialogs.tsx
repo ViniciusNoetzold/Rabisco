@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import type { FormatoExportacao, OpcoesExportacao } from '../../io/imagens';
+import type { EscalaExportacao, OpcoesExportacao } from '../../io/imagens';
 import type { OpcoesImpressao } from '../../io/imprimir';
 import './export-dialogs.css';
 
@@ -94,8 +94,10 @@ export function SalvarComo({
   const [nomeArquivo, definirNome] = useState(nome);
   const [formato, definirFormato] = useState<FormatoSaida>('png');
   const [qualidade, definirQualidade] = useState(92);
+  const [escala, definirEscala] = useState<EscalaExportacao>(1);
   const idFormato = useId();
   const ajustarQualidade = formato === 'jpeg' || formato === 'webp';
+  const ampliar = !['rabisco', 'psd', 'ora', 'camadas-png'].includes(formato);
 
   return (
     <FormularioSaida
@@ -103,7 +105,12 @@ export function SalvarComo({
       rotulo="Salvar arquivo"
       acao={() => {
         if (!nomeArquivo.trim()) throw new Error('Informe o nome do arquivo.');
-        return salvar({ nome: nomeArquivo.trim(), formato, qualidade: qualidade / 100 });
+        return salvar({
+          nome: nomeArquivo.trim(),
+          formato,
+          qualidade: qualidade / 100,
+          escala: ampliar ? escala : 1,
+        });
       }}
     >
       <label className="field">
@@ -130,6 +137,20 @@ export function SalvarComo({
           ))}
         </select>
       </div>
+      {ampliar && (
+        <label className="field">
+          Ampliação
+          <select
+            value={escala}
+            onChange={(evento) => definirEscala(Number(evento.target.value) as EscalaExportacao)}
+          >
+            <option value={1}>1× (tamanho original)</option>
+            <option value={2}>2×</option>
+            <option value={4}>4×</option>
+            <option value={8}>8×</option>
+          </select>
+        </label>
+      )}
       {ajustarQualidade && (
         <label className="field">
           Qualidade

@@ -25,6 +25,8 @@ export interface EstiloTraco {
   ferramenta: 'pencil' | 'brush' | 'eraser';
   cor: string;
   espessura: number;
+  /** Lápis de 1 px alinhado à grade, sem antisserrilhado. */
+  pixelArt?: boolean;
   /** Cor que a borracha de cor pode trocar, em vez de pintar todo o traço. */
   substituirCor?: string;
   toleranciaSubstituicao?: number;

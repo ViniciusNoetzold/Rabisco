@@ -151,67 +151,69 @@ export function FiltroDialog({
       </div>
       <div className="window-body dialog-body filtro-corpo">
         {filtro &&
-          Object.entries(filtro.parametros).map(([id, parametro]) => {
-            const alterar = (valor: ParametrosFiltro[string]) =>
-              definirParametros((atuais) => ({ ...atuais, [id]: valor }));
-            if (parametro.tipo === 'curva') {
-              const pontos = parametros[id];
-              return (
-                <CurvaFiltro
-                  key={id}
-                  nome={parametro.nome}
-                  pontos={Array.isArray(pontos) ? pontos : parametro.padrao}
-                  alterar={alterar}
-                />
-              );
-            }
-            if (parametro.tipo === 'numero') {
-              const valor = Number(parametros[id]);
+          Object.entries(filtro.parametros)
+            .filter(([, parametro]) => parametro.mostrarQuando?.(parametros) ?? true)
+            .map(([id, parametro]) => {
+              const alterar = (valor: ParametrosFiltro[string]) =>
+                definirParametros((atuais) => ({ ...atuais, [id]: valor }));
+              if (parametro.tipo === 'curva') {
+                const pontos = parametros[id];
+                return (
+                  <CurvaFiltro
+                    key={id}
+                    nome={parametro.nome}
+                    pontos={Array.isArray(pontos) ? pontos : parametro.padrao}
+                    alterar={alterar}
+                  />
+                );
+              }
+              if (parametro.tipo === 'numero') {
+                const valor = Number(parametros[id]);
+                return (
+                  <label key={id} className="filtro-parametro">
+                    <span>
+                      {parametro.nome} <output aria-hidden="true">{valor}</output>
+                    </span>
+                    <input
+                      type="range"
+                      aria-label={parametro.nome}
+                      min={parametro.minimo}
+                      max={parametro.maximo}
+                      step={parametro.passo}
+                      value={valor}
+                      onChange={(evento) => alterar(evento.target.valueAsNumber)}
+                    />
+                  </label>
+                );
+              }
+              if (parametro.tipo === 'booleano') {
+                return (
+                  <label key={id} className="filtro-parametro filtro-parametro-marcacao">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(parametros[id])}
+                      onChange={(evento) => alterar(evento.target.checked)}
+                    />
+                    {parametro.nome}
+                  </label>
+                );
+              }
               return (
                 <label key={id} className="filtro-parametro">
-                  <span>
-                    {parametro.nome} <output aria-hidden="true">{valor}</output>
-                  </span>
-                  <input
-                    type="range"
-                    aria-label={parametro.nome}
-                    min={parametro.minimo}
-                    max={parametro.maximo}
-                    step={parametro.passo}
-                    value={valor}
-                    onChange={(evento) => alterar(evento.target.valueAsNumber)}
-                  />
-                </label>
-              );
-            }
-            if (parametro.tipo === 'booleano') {
-              return (
-                <label key={id} className="filtro-parametro filtro-parametro-marcacao">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(parametros[id])}
-                    onChange={(evento) => alterar(evento.target.checked)}
-                  />
                   {parametro.nome}
+                  <select
+                    value={String(parametros[id])}
+                    onChange={(evento) => alterar(evento.target.value)}
+                  >
+                    {parametro.opcoes.map(({ valor, nome }) => (
+                      <option key={valor} value={valor}>
+                        {nome}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               );
-            }
-            return (
-              <label key={id} className="filtro-parametro">
-                {parametro.nome}
-                <select
-                  value={String(parametros[id])}
-                  onChange={(evento) => alterar(evento.target.value)}
-                >
-                  {parametro.opcoes.map(({ valor, nome }) => (
-                    <option key={valor} value={valor}>
-                      {nome}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            );
-          })}
+            })}
         {acao === 'niveis' && (
           <div className="filtro-acoes">
             {(['preto', 'branco'] as const).map((ponto) => (

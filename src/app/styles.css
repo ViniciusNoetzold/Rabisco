@@ -629,6 +629,10 @@ input[type='range']::-webkit-slider-thumb {
   gap: 8px;
   font-size: 12px;
 }
+.pixel-art-controles {
+  grid-template-columns: auto;
+  gap: 6px;
+}
 .view-note {
   font-size: 13px;
   line-height: 1.7;
@@ -756,6 +760,11 @@ input[type='range']::-webkit-slider-thumb {
   background-image:
     linear-gradient(to right, #718ca329 1px, transparent 1px),
     linear-gradient(to bottom, #718ca329 1px, transparent 1px);
+}
+.grade-de-blocos {
+  background-image:
+    linear-gradient(to right, #42688894 1px, transparent 1px),
+    linear-gradient(to bottom, #42688894 1px, transparent 1px);
 }
 .selection-marquee {
   position: absolute;

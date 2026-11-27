@@ -157,7 +157,8 @@ export class ControleFerramentas {
     // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
     this.inteligente =
       useEditor.getState().formasInteligentes &&
-      (id === 'pencil' || (id === 'brush' && useEditor.getState().pincel !== 'dedo')) &&
+      ((id === 'pencil' && !useEditor.getState().modoPixelArt) ||
+        (id === 'brush' && useEditor.getState().pincel !== 'dedo')) &&
       !config
         ? { pontos: [evento.ponto], ancora: evento.ponto, relogio: null, ultimo: evento }
         : null;

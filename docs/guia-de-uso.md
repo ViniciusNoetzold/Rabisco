@@ -41,6 +41,12 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Matiz, saturação e luminosidade** controla as cores e o brilho. **Preto e branco** permite misturar os canais. **Sépia**, **Limiar** e **Posterizar** convertem as cores com a intensidade, o limite ou a quantidade de níveis escolhidos.
 - Em **Desfoque**, ajuste o raio do gaussiano ou o raio e o ângulo do desfoque de movimento. Em **Detalhes**, use **Nitidez**, **Adicionar ruído**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** ou **Relevo**. Os pixels vizinhos ajudam no cálculo das bordas sem ampliar a seleção.
 
+## Pixel art (0.5)
+
+- Abra **Início › Imagem › Filtros › Pixelizar** para trocar cada bloco por uma cor. **Reduzir paleta** usa Game Boy, NES, PICO-8, CGA ou uma paleta com as cores do desenho. Marque **Dithering** para distribuir o erro de cor.
+- Em **Exibir › Pixel art**, ligue **Modo pixel art** e escolha a grade de 8, 16 ou 32 px. O lápis desenha pixels inteiros de 1 px. A simetria espelha o traço, e o conta-gotas lê um pixel exato.
+- Em **Salvar como**, escolha um formato de imagem e **Ampliação** de 2×, 4× ou 8×. A exportação mantém os pixels quadrados.
+
 ## Ferramentas clássicas
 
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.

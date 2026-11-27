@@ -20,6 +20,7 @@ import {
   mascaraNitidez,
   reduzirRuidoMediana,
 } from './espaciais';
+import { OPCOES_PALETA_PIXEL_ART, pixelizar, reduzirPaleta } from './pixelArt';
 
 export type IdFiltro =
   | 'inverter'
@@ -37,10 +38,12 @@ export type IdFiltro =
   | 'ruido'
   | 'mediana'
   | 'bordas'
-  | 'relevo';
+  | 'relevo'
+  | 'pixelizar'
+  | 'reduzir-paleta';
 export type ParametrosFiltro = Record<string, number | boolean | string | readonly PontoCurva[]>;
 
-type ParametroFiltro = { nome: string } & (
+type ParametroFiltro = { nome: string; mostrarQuando?(parametros: ParametrosFiltro): boolean } & (
   | { tipo: 'numero'; padrao: number; minimo: number; maximo: number; passo: number }
   | { tipo: 'booleano'; padrao: boolean }
   | { tipo: 'curva'; padrao: readonly PontoCurva[] }
@@ -236,6 +239,29 @@ export const FILTROS: readonly DefinicaoFiltro[] = [
     porBlocos: true,
     margem: () => 1,
     aplicar: aplicarRelevo,
+  },
+  {
+    id: 'pixelizar',
+    nome: 'Pixelizar',
+    categoria: 'Pixel art',
+    parametros: { tamanho: numero('Tamanho do bloco (px)', 8, 1, 128) },
+    porBlocos: false,
+    aplicar: pixelizar,
+  },
+  {
+    id: 'reduzir-paleta',
+    nome: 'Reduzir paleta',
+    categoria: 'Pixel art',
+    parametros: {
+      paleta: { tipo: 'opcao', nome: 'Paleta', padrao: 'pico-8', opcoes: OPCOES_PALETA_PIXEL_ART },
+      cores: {
+        ...numero('Cores na paleta do desenho', 16, 2, 64),
+        mostrarQuando: (parametros) => parametros.paleta === 'desenho',
+      },
+      dithering: { tipo: 'booleano', nome: 'Dithering', padrao: false },
+    },
+    porBlocos: false,
+    aplicar: reduzirPaleta,
   },
 ];
 

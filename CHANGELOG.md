@@ -2,6 +2,12 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 4 — Pixel art
+
+- **Pixelizar** usa blocos com média ponderada pela transparência. **Reduzir paleta** aceita Game Boy, NES, PICO-8, CGA ou uma paleta extraída do desenho, com dithering Floyd–Steinberg opcional.
+- **Exibir › Pixel art** liga o lápis de 1 px sem antisserrilhado e mostra a grade de 8, 16 ou 32 px. O modo usa a simetria e o conta-gotas do editor. Em **Salvar como**, a ampliação de 2×, 4× ou 8× usa vizinho mais próximo.
+- Validação com 216 testes unitários, 98 E2E, build de produção e ensaio completo. Em 4000 × 4000, **Pixelizar** levou 226,8 ms no worker. [Desempenho](docs/desempenho.md)
+
 ### Passo 3 — Desfoque, nitidez e ruído
 
 - **Desfoque** agora reúne o gaussiano e o de movimento. **Detalhes** inclui nitidez, ruído com semente, redução de ruído por mediana, bordas Sobel e relevo.

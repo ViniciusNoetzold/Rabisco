@@ -390,6 +390,38 @@ export function Ribbon({
             <RibbonGroup title="Vista" chave="vista" prioridade={1.2} icone="arrow-curve">
               <VistaControles />
             </RibbonGroup>
+            <RibbonGroup title="Pixel art" chave="pixel-art" prioridade={0.5} icone="grid">
+              <div className="view-checks pixel-art-controles">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={state.modoPixelArt}
+                    onChange={(evento) => {
+                      const modoPixelArt = evento.target.checked;
+                      state.set({ modoPixelArt });
+                      if (modoPixelArt) state.setTool('pencil');
+                    }}
+                  />
+                  Modo pixel art
+                </label>
+                <label>
+                  Grade
+                  <select
+                    aria-label="Grade de pixel art"
+                    disabled={!state.modoPixelArt}
+                    value={state.gradePixelArt}
+                    onChange={(evento) =>
+                      state.set({ gradePixelArt: Number(evento.target.value) as 0 | 8 | 16 | 32 })
+                    }
+                  >
+                    <option value={0}>Oculta</option>
+                    <option value={8}>8 px</option>
+                    <option value={16}>16 px</option>
+                    <option value={32}>32 px</option>
+                  </select>
+                </label>
+              </div>
+            </RibbonGroup>
             <RibbonGroup title="Régua e guias" chave="guias" prioridade={1.5} icone="ruler">
               <div className="view-buttons guias-botoes">
                 <button

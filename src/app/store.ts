@@ -72,6 +72,8 @@ interface EditorState {
   parametrosForma: ParametrosForma;
   zoom: number;
   grid: boolean;
+  modoPixelArt: boolean;
+  gradePixelArt: 0 | 8 | 16 | 32;
   ruler: boolean;
   miniatura: boolean;
   sidebar: boolean;
@@ -151,6 +153,8 @@ interface EditorState {
         | 'preenchimentoForma'
         | 'zoom'
         | 'grid'
+        | 'modoPixelArt'
+        | 'gradePixelArt'
         | 'ruler'
         | 'miniatura'
         | 'sidebar'
@@ -216,6 +220,8 @@ export const useEditor = create<EditorState>()(
     parametrosForma: { ...PARAMETROS_PADRAO },
     zoom: 1,
     grid: false,
+    modoPixelArt: false,
+    gradePixelArt: 8,
     ruler: false,
     miniatura: false,
     sidebar: true,

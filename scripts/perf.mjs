@@ -220,7 +220,7 @@ function conferirMedidasDoFiltro(fase, nome) {
   }
 }
 
-async function medirDesfoque(pagina, autosave) {
+async function medirFiltroComMarca(pagina, autosave, nome) {
   const tela = pagina.locator('.drawing-canvas');
   await tela.focus();
   await pagina.keyboard.press('p');
@@ -229,7 +229,7 @@ async function medirDesfoque(pagina, autosave) {
   await espessura.press('Tab');
   await pagina.getByRole('button', { name: 'Usar cor #252a34', exact: true }).click();
   const ponto = await pontoNaAreaVisivel(pagina);
-  // Um ponto sobre a área uniforme permite conferir a prévia antes de confirmar o desfoque.
+  // Um ponto sobre a área uniforme permite conferir a prévia antes de confirmar o filtro.
   await pagina.mouse.click(ponto.x, ponto.y);
   const ler = () =>
     tela.evaluate((canvas, { x, y }) => {
@@ -241,7 +241,6 @@ async function medirDesfoque(pagina, autosave) {
   const fundo = Array.from({ length: 9 }, () => corDoBaldeInvertida).flat();
   await expect.poll(ler).not.toEqual(fundo);
   const antes = await ler();
-  const nome = 'Desfoque gaussiano';
   const fase = await medir(pagina, autosave, () =>
     aplicarFiltroPeloMenu(pagina, nome, () => expect.poll(ler).not.toEqual(antes)),
   );
@@ -293,10 +292,13 @@ async function medirPapel(browser, papel) {
       ),
     );
     conferirMedidasDoFiltro(filtro, 'Inverter cores');
-    const desfoque =
-      papel.largura === 4000 && papel.altura === 4000
-        ? await medirDesfoque(pagina, autosave)
-        : null;
+    const filtrosGrandes = papel.largura === 4000 && papel.altura === 4000;
+    const desfoque = filtrosGrandes
+      ? await medirFiltroComMarca(pagina, autosave, 'Desfoque gaussiano')
+      : null;
+    const pixelizar = filtrosGrandes
+      ? await medirFiltroComMarca(pagina, autosave, 'Pixelizar')
+      : null;
     for (const [nome, fase] of [
       ['balde', balde],
       ['desfazer', desfazer],
@@ -321,6 +323,7 @@ async function medirPapel(browser, papel) {
         refazer,
         'inverter cores': filtro,
         ...(desfoque ? { 'desfoque gaussiano': desfoque } : {}),
+        ...(pixelizar ? { pixelizar } : {}),
       },
     };
   } finally {

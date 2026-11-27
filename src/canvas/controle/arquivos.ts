@@ -13,10 +13,10 @@ export async function salvarPng(doc: RabiscoDocument, tela: HTMLCanvasElement) {
 export async function salvarComo(
   doc: RabiscoDocument,
   tela: HTMLCanvasElement,
-  { nome, formato, qualidade }: OpcoesExportacao & { formato: FormatoExportacao },
+  { nome, formato, qualidade, escala }: OpcoesExportacao & { formato: FormatoExportacao },
 ) {
   const { exportarImagem, baixarImagem } = await import('../../io/imagens');
-  const blob = await exportarImagem(tela, formato, qualidade, doc.dpi);
+  const blob = await exportarImagem(tela, formato, qualidade, doc.dpi, escala);
   baixarImagem(blob, nome, formato);
 }
 

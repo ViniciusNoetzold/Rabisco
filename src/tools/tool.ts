@@ -58,6 +58,7 @@ export interface ToolCtx {
     toleranciaBalde: number;
     preenchimentoGlobal: boolean;
     amostrarTudo: boolean;
+    modoPixelArt: boolean;
     formasEmNovaCamada: boolean;
     guiasInteligentes: boolean;
     /** Pontas afinadas, 0–100% (o fim é aplicado ao soltar). */

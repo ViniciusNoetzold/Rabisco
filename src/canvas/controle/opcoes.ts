@@ -15,6 +15,7 @@ export function opcoesDaFerramenta(estado: EstadoEditor): ToolCtx['opcoes'] {
     toleranciaBalde: estado.toleranciaBalde,
     preenchimentoGlobal: estado.preenchimentoGlobal,
     amostrarTudo: estado.amostrarTudo,
+    modoPixelArt: estado.modoPixelArt,
     formasEmNovaCamada: estado.formasEmNovaCamada,
     guiasInteligentes: estado.guiasInteligentes,
     afinar: estado.afinar,

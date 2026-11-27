@@ -39,14 +39,57 @@ export function limitarArea(area: Rect, tamanho: Pick<Rect, 'width' | 'height'>)
 }
 
 export function areaDoSegmento(de: Point, ate: Point, estilo: EstiloTraco): Rect {
+  if (estilo.pixelArt) {
+    const x = Math.floor(Math.min(de.x, ate.x));
+    const y = Math.floor(Math.min(de.y, ate.y));
+    return {
+      x,
+      y,
+      width: Math.floor(Math.max(de.x, ate.x)) - x + 1,
+      height: Math.floor(Math.max(de.y, ate.y)) - y + 1,
+    };
+  }
   // Um pixel além do raio cobre o antialias da pincelada e o ponto inicial.
   return areaEntre(de, ate, larguraDoTraco(estilo) / 2 + 1);
+}
+
+/** Bresenham liga as células inicial e final sem preencher pixels parcialmente. */
+function linhaDePixels(ctx: Contexto2D, de: Point, ate: Point) {
+  let x = Math.floor(de.x);
+  let y = Math.floor(de.y);
+  const fimX = Math.floor(ate.x);
+  const fimY = Math.floor(ate.y);
+  const dx = Math.abs(fimX - x);
+  const dy = -Math.abs(fimY - y);
+  const passoX = Math.sign(fimX - x);
+  const passoY = Math.sign(fimY - y);
+  let erro = dx + dy;
+  const comprimento = Math.max(dx, -dy);
+  if (!Number.isFinite(comprimento)) return;
+  for (let i = 0; i <= comprimento; i++) {
+    ctx.fillRect(x, y, 1, 1);
+    const dobro = 2 * erro;
+    if (dobro >= dy) {
+      erro += dy;
+      x += passoX;
+    }
+    if (dobro <= dx) {
+      erro += dx;
+      y += passoY;
+    }
+  }
 }
 
 export function desenharSegmento(ctx: Contexto2D, de: Point, ate: Point, estilo: EstiloTraco) {
   ctx.save();
   // Borracha em camada transparente: remove os pixels em vez de pintar a Cor 2.
   if (estilo.transparente) ctx.globalCompositeOperation = 'destination-out';
+  if (estilo.pixelArt) {
+    ctx.fillStyle = estilo.cor;
+    linhaDePixels(ctx, de, ate);
+    ctx.restore();
+    return;
+  }
   ctx.lineWidth = larguraDoTraco(estilo);
   ctx.strokeStyle = estilo.cor;
   ctx.lineCap = 'round';
