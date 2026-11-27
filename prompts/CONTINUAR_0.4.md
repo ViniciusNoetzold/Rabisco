@@ -22,6 +22,8 @@ Validação da 0.4.0: 181 testes unitários e 91 E2E passando; `npm run build` e
 
 O plano completo está em **[PROMPT_0.5.md](PROMPT_0.5.md)**. Foram adotados os padrões sugeridos, com Canvas 2D e worker, algoritmos próprios de dithering e camadas de ajuste no Passo 7. A inclusão de `figlet.js` será avaliada no Passo 5, mediante aprovação da dependência.
 
+O ponto mais recente fica em **[CONTINUAR_0.5.md](CONTINUAR_0.5.md)**.
+
 - **Passo 1** — registro, comando de filtro, worker cancelável, prévia, Inverter cores e repetição com `Ctrl+F`. ✅
 - **Passo 2** — filtros de cor, editor de curvas e amostragem do ponto preto e branco nos níveis. ✅
 - **Passo 3** — filtros espaciais com transparência preservada nas bordas e cálculo no worker. ✅
