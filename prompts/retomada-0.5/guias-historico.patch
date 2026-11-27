@@ -1,0 +1,872 @@
+diff --git a/src/document/guias.ts b/src/document/guias.ts
+index 703d1c3..8fb2651 100644
+--- a/src/document/guias.ts
++++ b/src/document/guias.ts
+@@ -13,6 +13,9 @@ export interface GuiasDocumento {
+   regua: Regua | null;
+ }
+ 
++export type EixoGuia = 'horizontal' | 'vertical';
++export type PosicoesGuias = Pick<GuiasDocumento, 'horizontais' | 'verticais'>;
++
+ export const SEM_GUIAS: GuiasDocumento = { horizontais: [], verticais: [], regua: null };
+ 
+ /** Limite de guias por direção (um arquivo não pode pedir milhões). */
+@@ -121,11 +124,7 @@ export function prenderAnguloDaRegua(fixa: Point, movel: Point): Point {
+ }
+ 
+ /** Acrescenta uma guia (sem repetir), arredondada no pixel. */
+-export function comGuia(
+-  guias: GuiasDocumento,
+-  eixo: 'horizontal' | 'vertical',
+-  valor: number,
+-): GuiasDocumento {
++export function comGuia(guias: GuiasDocumento, eixo: EixoGuia, valor: number): GuiasDocumento {
+   const chave = eixo === 'horizontal' ? 'horizontais' : 'verticais';
+   const lista = guias[chave];
+   const arredondado = Math.round(valor);
+@@ -133,11 +132,7 @@ export function comGuia(
+   return { ...guias, [chave]: [...lista, arredondado].sort((a, b) => a - b) };
+ }
+ 
+-export function semGuia(
+-  guias: GuiasDocumento,
+-  eixo: 'horizontal' | 'vertical',
+-  valor: number,
+-): GuiasDocumento {
++export function semGuia(guias: GuiasDocumento, eixo: EixoGuia, valor: number): GuiasDocumento {
+   const chave = eixo === 'horizontal' ? 'horizontais' : 'verticais';
+   return { ...guias, [chave]: guias[chave].filter((guia) => guia !== valor) };
+ }
+diff --git a/src/commands/comandos.ts b/src/commands/comandos.ts
+index 93f4848..c828eaf 100644
+--- a/src/commands/comandos.ts
++++ b/src/commands/comandos.ts
+@@ -1,6 +1,7 @@
+ import { validarDimensoes } from '../document/dimensoes';
+ import type { ConfigGradiente } from '../tools/gradiente';
+ import type { MascaraSelecao } from '../document/selecao';
++import type { EixoGuia } from '../document/guias';
+ import type { FormatoImagem } from '../io/imagens';
+ import type { ConfiguracaoTexto } from '../tools/texto';
+ import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
+@@ -76,6 +77,12 @@ export interface ComandoAplicarFiltro {
+   mascara?: MascaraSelecao;
+ }
+ 
++export type ComandoGuia =
++  | { tipo: 'AdicionarGuia'; eixo: EixoGuia; valor: number }
++  | { tipo: 'MoverGuia'; eixo: EixoGuia; origem: number; destino: number }
++  | { tipo: 'RemoverGuia'; eixo: EixoGuia; valor: number }
++  | { tipo: 'LimparGuias' };
++
+ export type Comando =
+   | ComandoTraco
+   | ComandoPincel
+@@ -83,6 +90,7 @@ export type Comando =
+   | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
+   | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
+   | ComandoAplicarFiltro
++  | ComandoGuia
+   | ({ tipo: 'Gradiente' } & ConfigGradiente)
+   | {
+       /** Dedo: arrasta os pixels pelos pontos (força 0–1). */
+diff --git a/src/commands/history.ts b/src/commands/history.ts
+index 9e8312c..c42d336 100644
+--- a/src/commands/history.ts
++++ b/src/commands/history.ts
+@@ -1,4 +1,5 @@
+ import type { Alvo, EstruturaDocumento } from '../document/camadas';
++import type { PosicoesGuias } from '../document/guias';
+ import type { PixelBuffer, Rect } from '../layers/types';
+ import type { Comando } from './comandos';
+ 
+@@ -33,6 +34,7 @@ export interface EntradaComando extends DadosHistorico {
+   };
+   nome?: { antes: string; depois: string };
+   dpi?: { antes: number; depois: number };
++  guias?: { antes: PosicoesGuias; depois: PosicoesGuias };
+   /** Lote: sub-itens aplicados em ordem (refazer) ou ao contrário (desfazer). */
+   subentradas?: EntradaComando[];
+ }
+@@ -41,6 +43,15 @@ function bytesDaEntrada(entrada: DadosHistorico): number {
+   const comando = entrada as Partial<EntradaComando>;
+   if (comando.alteracoes || comando.subentradas) {
+     let total = 0;
++    if (comando.guias) {
++      const { antes, depois } = comando.guias;
++      total +=
++        (antes.horizontais.length +
++          antes.verticais.length +
++          depois.horizontais.length +
++          depois.verticais.length) *
++        Float64Array.BYTES_PER_ELEMENT;
++    }
+     for (const { before, after } of comando.alteracoes ?? []) {
+       total += before.data.byteLength + after.data.byteLength;
+     }
+diff --git a/src/commands/executador.ts b/src/commands/executador.ts
+index 2a33754..daca8ea 100644
+--- a/src/commands/executador.ts
++++ b/src/commands/executador.ts
+@@ -10,6 +10,7 @@ import {
+ import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
+ import { desenharDistorcido } from '../document/distorcer';
+ import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
++import { comGuia, semGuia, type GuiasDocumento, type PosicoesGuias } from '../document/guias';
+ import type { RabiscoDocument } from '../document/model';
+ import {
+   apagarRecorte,
+@@ -47,6 +48,7 @@ import {
+   type Comando,
+   type ComandoAplicarFiltro,
+   type ComandoCamada,
++  type ComandoGuia,
+   type ComandoTraco,
+ } from './comandos';
+ import {
+@@ -68,6 +70,12 @@ import { copiasDosPontos } from '../brushes/simetria';
+ 
+ const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
+ const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
++const NOMES_GUIA: Record<ComandoGuia['tipo'], string> = {
++  AdicionarGuia: 'Adicionar guia',
++  MoverGuia: 'Mover guia',
++  RemoverGuia: 'Remover guia',
++  LimparGuias: 'Limpar guias',
++};
+ const NOMES_ROTACAO = {
+   90: 'Girar 90° à direita',
+   [-90]: 'Girar 90° à esquerda',
+@@ -94,6 +102,15 @@ const PINTURA = new Set<Comando['tipo']>([
+ 
+ export type DocumentoEditavel = RabiscoDocument;
+ 
++interface AcessoGuias {
++  ler(): GuiasDocumento;
++  aplicar(posicoes: PosicoesGuias): void;
++}
++
++function copiarPosicoes({ horizontais, verticais }: PosicoesGuias): PosicoesGuias {
++  return { horizontais: [...horizontais], verticais: [...verticais] };
++}
++
+ export interface PreparoFiltro {
+   alvo: Alvo;
+   area: Rect;
+@@ -140,6 +157,7 @@ export class Executador {
+   ultimasAlteracoes: { alvo: Alvo; area: Rect | null }[] = [];
+   /** Camadas, grupos, tamanho ou propriedades mudaram (recompor tudo, salvar a descrição). */
+   estruturaMudou = false;
++  guiasMudaram = false;
+   ultimaSelecaoTransformada: Rect | null = null;
+   motivoRecusa: MotivoRecusa = null;
+ 
+@@ -156,7 +174,10 @@ export class Executador {
+     depois: PixelBuffer;
+   } | null = null;
+ 
+-  constructor(private readonly doc: DocumentoEditavel) {}
++  constructor(
++    private readonly doc: DocumentoEditavel,
++    private readonly guias?: AcessoGuias,
++  ) {}
+ 
+   /** Os pixels em que o balde decide a área (a camada ativa, ou o que se vê). */
+   referenciaDoBalde(comando: Extract<Comando, { tipo: 'Preencher' }>): PixelBuffer {
+@@ -229,6 +250,7 @@ export class Executador {
+   executar(comando: Comando): boolean {
+     this.ultimasAlteracoes = [];
+     this.estruturaMudou = false;
++    this.guiasMudaram = false;
+     this.ultimaSelecaoTransformada = null;
+     this.motivoRecusa = null;
+     if (this.filtroPronto?.comando !== comando) this.filtroPronto = null;
+@@ -262,6 +284,11 @@ export class Executador {
+     }
+ 
+     switch (comando.tipo) {
++      case 'AdicionarGuia':
++      case 'MoverGuia':
++      case 'RemoverGuia':
++      case 'LimparGuias':
++        return this.alterarGuias(comando);
+       case 'TracarPincel':
+         return this.tracar(comando);
+       case 'Pincelar': {
+@@ -398,15 +425,17 @@ export class Executador {
+         const imagem = desserializarImagem(comando.imagem);
+         const dpi = comando.dpi ?? DPI_PADRAO;
+         if (!dpiValido(dpi)) throw new Error(`Use uma resolução de 1 a ${DPI_MAXIMO} DPI.`);
+-        return this.alterarDocumento(
+-          comando,
+-          `Abrir ${(comando.formato ?? 'png').toUpperCase()}`,
+-          this.todosOsAlvos(),
+-          () => {
+-            this.doc.substituir(comando.nome, imagem);
+-            this.doc.dpi = dpi;
+-          },
+-        );
++        const rotulo = `Abrir ${(comando.formato ?? 'png').toUpperCase()}`;
++        const entrada = this.alterarDocumento(comando, rotulo, this.todosOsAlvos(), () => {
++          this.doc.substituir(comando.nome, imagem);
++          this.doc.dpi = dpi;
++        });
++        // Uma imagem sem guias substitui as posições como parte da própria abertura.
++        const removidas = this.alterarGuias({ tipo: 'LimparGuias' });
++        if (!removidas) return entrada;
++        const abertura = entrada ?? this.entradaVazia(comando, rotulo);
++        abertura.guias = removidas.guias;
++        return abertura;
+       }
+       case 'NovoDocumento': {
+         // Novo desenho inicia uma sessão de edição independente, como na versão 0.1.
+@@ -1134,6 +1163,40 @@ export class Executador {
+ 
+   // ---- Documento inteiro, lote e histórico ---------------------------------------------
+ 
++  private alterarGuias(comando: ComandoGuia): EntradaComando | null {
++    const antes = this.guias?.ler();
++    if (!antes) return null;
++    let depois: GuiasDocumento;
++    if (comando.tipo === 'LimparGuias') {
++      if (!antes.horizontais.length && !antes.verticais.length) return null;
++      depois = { ...antes, horizontais: [], verticais: [] };
++    } else {
++      const { eixo } = comando;
++      if (eixo !== 'horizontal' && eixo !== 'vertical') return null;
++      const horizontal = eixo === 'horizontal';
++      const lista = horizontal ? antes.horizontais : antes.verticais;
++      const limite = horizontal ? this.doc.height : this.doc.width;
++      const valida = (valor: number) => Number.isFinite(valor) && valor >= 0 && valor <= limite;
++      if (comando.tipo === 'AdicionarGuia') {
++        if (!valida(comando.valor)) return null;
++        depois = comGuia(antes, eixo, comando.valor);
++      } else if (comando.tipo === 'RemoverGuia') {
++        if (!lista.includes(comando.valor)) return null;
++        depois = semGuia(antes, eixo, comando.valor);
++      } else {
++        const { origem, destino } = comando;
++        if (!lista.includes(origem) || !valida(destino) || Math.round(destino) === origem)
++          return null;
++        depois = comGuia(semGuia(antes, eixo, origem), eixo, destino);
++      }
++    }
++    if (depois === antes) return null;
++    const entrada = this.entradaVazia(comando, NOMES_GUIA[comando.tipo]);
++    entrada.guias = { antes: copiarPosicoes(antes), depois: copiarPosicoes(depois) };
++    this.aplicarEntrada(entrada, 'after');
++    return entrada;
++  }
++
+   /** Pixels e máscara de uma camada, se existirem. */
+   private alvosDa(id: string): Alvo[] {
+     const camada = this.doc.camada(id);
+@@ -1279,11 +1342,13 @@ export class Executador {
+       this.ultimasAlteracoes.push({ alvo, area: rect });
+     if (entrada.estrutura || entrada.dimensoes || entrada.nome || entrada.dpi)
+       this.estruturaMudou = true;
++    if (entrada.guias) this.guiasMudaram = true;
+   }
+ 
+   private restaurar(entrada: EntradaComando | null, lado: 'before' | 'after'): boolean {
+     this.ultimasAlteracoes = [];
+     this.estruturaMudou = false;
++    this.guiasMudaram = false;
+     this.ultimaSelecaoTransformada = null;
+     if (!entrada) return false;
+     this.aplicarEntrada(entrada, lado);
+@@ -1312,6 +1377,7 @@ export class Executador {
+     }
+     if (entrada.nome) doc.name = entrada.nome[chave];
+     if (entrada.dpi) doc.dpi = entrada.dpi[chave];
++    if (entrada.guias) this.guias?.aplicar(copiarPosicoes(entrada.guias[chave]));
+     this.anotar(entrada);
+   }
+ }
+diff --git a/src/canvas/editorController.ts b/src/canvas/editorController.ts
+index 9caa512..e46281d 100644
+--- a/src/canvas/editorController.ts
++++ b/src/canvas/editorController.ts
+@@ -6,6 +6,7 @@ import { reguaPadrao, SEM_GUIAS } from '../document/guias';
+ import {
+   type Comando,
+   type ComandoAplicarFiltro,
++  type ComandoGuia,
+   type OpcoesTransformacao,
+   type OrientacaoImagem,
+ } from '../commands/comandos';
+@@ -69,7 +70,13 @@ interface ResultadoFiltro {
+  */
+ export class EditorController implements EditorApi, NucleoEditor {
+   readonly doc = new RabiscoDocument();
+-  readonly comandos = new Executador(this.doc);
++  readonly comandos = new Executador(this.doc, {
++    ler: () => useEditor.getState().guiasDoPapel,
++    aplicar: (posicoes) => {
++      const estado = useEditor.getState();
++      estado.set({ guiasDoPapel: { ...estado.guiasDoPapel, ...posicoes }, guiaNova: null });
++    },
++  });
+   private readonly superficie: SuperficieTela;
+   private readonly selecao: ControleSelecao;
+   private readonly colagem: ControleColagem;
+@@ -245,6 +252,7 @@ export class EditorController implements EditorApi, NucleoEditor {
+   }
+ 
+   tecla(evento: KeyboardEvent) {
++    if (evento.key === 'Escape' && this.cancelarGuia()) return true;
+     return this.ferramentas.tecla(evento);
+   }
+ 
+@@ -261,7 +269,12 @@ export class EditorController implements EditorApi, NucleoEditor {
+   }
+ 
+   private mudarHistorico(operacao: 'desfazer' | 'refazer') {
+-    if (!this.disponivel() || this.colagem.descartar() || this.ferramentas.descartarPendente())
++    if (
++      !this.disponivel() ||
++      this.cancelarGuia() ||
++      this.colagem.descartar() ||
++      this.ferramentas.descartarPendente()
++    )
+       return;
+     const mudou = medicaoAtiva
+       ? medirOperacao(`historico:${operacao}`, () => this.comandos[operacao]())
+@@ -498,6 +511,13 @@ export class EditorController implements EditorApi, NucleoEditor {
+     useEditor.getState().set({ guiasDoPapel: SEM_GUIAS, guiaNova: null });
+   }
+ 
++  /** Registra a edição de guia sem alterar a prévia de pintura. */
++  executarGuia(comando: ComandoGuia) {
++    if (!this.disponivel() || !this.comandos.executar(comando)) return false;
++    this.edicaoAplicada();
++    return true;
++  }
++
+   /** Liga a régua de desenho no meio da área visível do papel, ou a desliga. */
+   alternarRegua() {
+     const estado = useEditor.getState();
+@@ -839,13 +859,21 @@ export class EditorController implements EditorApi, NucleoEditor {
+ 
+   // ---- Internos ----------------------------------------------------------------------------
+ 
++  private cancelarGuia() {
++    const estado = useEditor.getState();
++    if (!estado.guiaNova) return false;
++    estado.set({ guiaNova: null });
++    return true;
++  }
++
+   private edicaoAplicada(incluirEfeitos = false) {
+-    const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao } = this.comandos;
++    const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao, guiasMudaram } = this.comandos;
+     const trecho =
+       incluirEfeitos && ultimaAlteracao
+         ? areaDaPreviaFiltro(this.doc, ultimaAlteracao)
+         : ultimaAlteracao;
+-    this.superficie.compor(trecho ?? undefined);
++    if (!guiasMudaram || estruturaMudou || ultimasAlteracoes.length)
++      this.superficie.compor(trecho ?? undefined);
+     for (const { alvo, area } of ultimasAlteracoes)
+       this.persistencia.marcar(chaveDoAlvo(alvo), area);
+     if (estruturaMudou) this.persistencia.marcarDescricao();
+diff --git a/src/canvas/editorTypes.ts b/src/canvas/editorTypes.ts
+index cb4f696..3b85ea6 100644
+--- a/src/canvas/editorTypes.ts
++++ b/src/canvas/editorTypes.ts
+@@ -4,6 +4,7 @@ import type { OpcoesImpressao } from '../io/imprimir';
+ import type {
+   Comando,
+   ComandoCamada,
++  ComandoGuia,
+   OpcoesTransformacao,
+   OrientacaoImagem,
+ } from '../commands/comandos';
+@@ -32,6 +33,7 @@ export interface EditorApi {
+   distribuirCamadas(ids: readonly string[], eixo: 'horizontal' | 'vertical'): boolean;
+   /** Liga ou desliga a régua de desenho. Devolve true se ficou ligada. */
+   alternarRegua(): boolean;
++  executarGuia(comando: ComandoGuia): boolean;
+   undo(): void;
+   redo(): void;
+   save(): Promise<void>;
+diff --git a/src/app/store.ts b/src/app/store.ts
+index 13d1609..e9d78d7 100644
+--- a/src/app/store.ts
++++ b/src/app/store.ts
+@@ -1,6 +1,6 @@
+ import type { ModoSimetria } from '../brushes/simetria';
+ import type { FormaGradiente } from '../tools/gradiente';
+-import { SEM_GUIAS, type GuiasDocumento } from '../document/guias';
++import { SEM_GUIAS, type EixoGuia, type GuiasDocumento } from '../document/guias';
+ import type { CurvaPressao } from '../brushes/pressao';
+ import { create } from 'zustand';
+ import { immer } from 'zustand/middleware/immer';
+@@ -129,7 +129,7 @@ interface EditorState {
+   /** Vista espelhada (H), para conferir proporções. */
+   espelharVista: boolean;
+   /** Guia sendo arrastada da régua lateral ou com a ferramenta Mover. */
+-  guiaNova: { eixo: 'horizontal' | 'vertical'; valor: number } | null;
++  guiaNova: { eixo: EixoGuia; valor: number; origem?: number } | null;
+   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
+   guiasInteligentes: boolean;
+   setTool: (tool: ToolId) => void;
+diff --git a/src/app/components/Ribbon.tsx b/src/app/components/Ribbon.tsx
+index 896d642..773d907 100644
+--- a/src/app/components/Ribbon.tsx
++++ b/src/app/components/Ribbon.tsx
+@@ -449,11 +449,7 @@ export function Ribbon({
+                     disabled={
+                       !state.guiasDoPapel.horizontais.length && !state.guiasDoPapel.verticais.length
+                     }
+-                    onClick={() =>
+-                      state.set({
+-                        guiasDoPapel: { ...state.guiasDoPapel, horizontais: [], verticais: [] },
+-                      })
+-                    }
++                    onClick={() => editor.current?.executarGuia({ tipo: 'LimparGuias' })}
+                   >
+                     <Icon name="cross" />
+                     Limpar guias
+diff --git a/src/canvas/soltarGuia.ts b/src/canvas/soltarGuia.ts
+index 6ec4d2f..7fef741 100644
+--- a/src/canvas/soltarGuia.ts
++++ b/src/canvas/soltarGuia.ts
+@@ -1,17 +1,24 @@
+ import { useEditor } from '../app/store';
+-import { comGuia } from '../document/guias';
++import type { ComandoGuia } from '../commands/comandos';
+ 
+ /** Solta uma guia: dentro do papel ela fica; arrastada para fora, some. */
+-export function soltarGuia(largura: number, altura: number) {
++export function soltarGuia(
++  largura: number,
++  altura: number,
++  executar: (comando: ComandoGuia) => void,
++) {
+   const estado = useEditor.getState();
+   const nova = estado.guiaNova;
+   if (!nova) return;
+-  const limite = nova.eixo === 'horizontal' ? altura : largura;
+-  estado.set({
+-    guiaNova: null,
+-    guiasDoPapel:
+-      nova.valor >= 0 && nova.valor <= limite
+-        ? comGuia(estado.guiasDoPapel, nova.eixo, nova.valor)
+-        : estado.guiasDoPapel,
+-  });
++  const { eixo, valor, origem } = nova;
++  const limite = eixo === 'horizontal' ? altura : largura;
++  const dentro = valor >= 0 && valor <= limite;
++  estado.set({ guiaNova: null });
++  if (origem === undefined) {
++    if (dentro) executar({ tipo: 'AdicionarGuia', eixo, valor });
++  } else if (dentro) {
++    executar({ tipo: 'MoverGuia', eixo, origem, destino: valor });
++  } else {
++    executar({ tipo: 'RemoverGuia', eixo, valor: origem });
++  }
+ }
+diff --git a/src/canvas/GuiasPapel.tsx b/src/canvas/GuiasPapel.tsx
+index b1b1e27..a0b28f7 100644
+--- a/src/canvas/GuiasPapel.tsx
++++ b/src/canvas/GuiasPapel.tsx
+@@ -1,7 +1,8 @@
+ import { useRef, type PointerEvent as EventoPonteiro } from 'react';
+ import { clienteNoPapel } from './vistaAtual';
+ import { useEditor } from '../app/store';
+-import { prenderAnguloDaRegua, semGuia, type Regua } from '../document/guias';
++import type { ComandoGuia } from '../commands/comandos';
++import { prenderAnguloDaRegua, type EixoGuia, type Regua } from '../document/guias';
+ import { soltarGuia } from './soltarGuia';
+ import type { Point } from '../layers/types';
+ import './guias.css';
+@@ -10,10 +11,11 @@ interface Props {
+   largura: number;
+   altura: number;
+   zoom: number;
++  executarGuia(comando: ComandoGuia): void;
+ }
+ 
+ type Arrasto =
+-  | { tipo: 'guia'; eixo: 'horizontal' | 'vertical' }
++  | { tipo: 'guia'; eixo: EixoGuia }
+   | { tipo: 'ponta'; ponta: 'a' | 'b' }
+   | { tipo: 'regua'; inicio: Point; original: Regua };
+ 
+@@ -29,7 +31,7 @@ function passoDasMarcas(zoom: number) {
+  * alças recebem o ponteiro: dá para desenhar colado na régua e nas guias. Com a ferramenta
+  * Mover (V), as guias também se arrastam (para fora do papel, somem).
+  */
+-export function GuiasPapel({ largura, altura, zoom }: Props) {
++export function GuiasPapel({ largura, altura, zoom, executarGuia }: Props) {
+   const guias = useEditor((e) => e.guiasDoPapel);
+   const mostrar = useEditor((e) => e.mostrarGuias);
+   const nova = useEditor((e) => e.guiaNova);
+@@ -58,9 +60,10 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
+     const estado = useEditor.getState();
+     const { dados } = atual;
+     if (dados.tipo === 'guia') {
++      if (!estado.guiaNova) return;
+       estado.set({
+         guiaNova: {
+-          eixo: dados.eixo,
++          ...estado.guiaNova,
+           valor: Math.round(dados.eixo === 'horizontal' ? ponto.y : ponto.x),
+         },
+       });
+@@ -87,18 +90,29 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
+     if (!atual || atual.ponteiro !== evento.pointerId) return;
+     mover(evento);
+     arrasto.current = null;
+-    if (atual.dados.tipo === 'guia') soltarGuia(largura, altura);
++    if (atual.dados.tipo === 'guia') soltarGuia(largura, altura, executarGuia);
+   }
+ 
+-  const eventos = { onPointerMove: mover, onPointerUp: terminar, onPointerCancel: terminar };
++  function cancelarGuia(evento: EventoPonteiro<SVGElement>) {
++    const atual = arrasto.current;
++    if (atual?.ponteiro !== evento.pointerId || atual.dados.tipo !== 'guia') return false;
++    arrasto.current = null;
++    useEditor.getState().set({ guiaNova: null });
++    return true;
++  }
+ 
+-  function linhaGuia(
+-    eixo: 'horizontal' | 'vertical',
+-    valor: number,
+-    chave: string,
+-    arrastando = false,
+-  ) {
++  const eventos = {
++    onPointerMove: mover,
++    onPointerUp: terminar,
++    onPointerCancel: (evento: EventoPonteiro<SVGElement>) => {
++      if (!cancelarGuia(evento)) terminar(evento);
++    },
++    onLostPointerCapture: cancelarGuia,
++  };
++
++  function linhaGuia(eixo: EixoGuia, valor: number, chave: string, arrastando = false) {
+     const horizontal = eixo === 'horizontal';
++    const deslocando = !arrastando && nova?.eixo === eixo && nova.origem === valor;
+     const linha = {
+       x1: horizontal ? 0 : valor * zoom,
+       x2: horizontal ? largura * zoom : valor * zoom,
+@@ -107,18 +121,21 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
+     };
+     return (
+       <g key={chave} className={arrastando ? 'guia guia-arrastada' : 'guia'}>
+-        <line {...linha} data-testid={`guia-${eixo}`} data-valor={valor} />
+-        {moverGuias && !arrastando && (
++        <line
++          {...linha}
++          visibility={deslocando ? 'hidden' : undefined}
++          data-testid={deslocando ? undefined : `guia-${eixo}`}
++          data-valor={valor}
++        />
++        {(moverGuias || deslocando) && !arrastando && (
+           <line
+             {...linha}
+             className={`guia-alvo guia-alvo-${eixo}`}
+             onPointerDown={(evento) => {
++              if (evento.button !== 0 || arrasto.current || useEditor.getState().guiaNova) return;
+               comecar(evento, { tipo: 'guia', eixo });
+-              const estado = useEditor.getState();
+-              estado.set({
+-                guiasDoPapel: semGuia(estado.guiasDoPapel, eixo, valor),
+-                guiaNova: { eixo, valor },
+-              });
++              // A alça e a guia gravada ficam no lugar enquanto a prévia acompanha o ponteiro.
++              useEditor.getState().set({ guiaNova: { eixo, valor, origem: valor } });
+             }}
+             {...eventos}
+           >
+diff --git a/src/canvas/Reguas.tsx b/src/canvas/Reguas.tsx
+index 7e0f1a2..d7c84df 100644
+--- a/src/canvas/Reguas.tsx
++++ b/src/canvas/Reguas.tsx
+@@ -1,5 +1,6 @@
+ import { useLayoutEffect, useRef, type PointerEvent as EventoPonteiro } from 'react';
+ import { useEditor } from '../app/store';
++import type { ComandoGuia } from '../commands/comandos';
+ import { soltarGuia } from './soltarGuia';
+ import type { Point } from '../layers/types';
+ import { telaParaPapel } from './vista';
+@@ -83,7 +84,15 @@ function desenharRegua(
+   }
+ }
+ 
+-export function Reguas({ viewport, tela, zoom, largura, altura, vista }: PropsViewportVisual) {
++export function Reguas({
++  viewport,
++  tela,
++  zoom,
++  largura,
++  altura,
++  vista,
++  executarGuia,
++}: PropsViewportVisual & { executarGuia(comando: ComandoGuia): void }) {
+   const moldura = useRef<HTMLDivElement>(null);
+   const horizontal = useRef<HTMLCanvasElement>(null);
+   const vertical = useRef<HTMLCanvasElement>(null);
+@@ -197,7 +206,7 @@ export function Reguas({ viewport, tela, zoom, largura, altura, vista }: PropsVi
+     };
+     return {
+       onPointerDown(evento: EventoPonteiro<HTMLCanvasElement>) {
+-        if (evento.button !== 0 || !tela.current) return;
++        if (evento.button !== 0 || !tela.current || useEditor.getState().guiaNova) return;
+         evento.preventDefault();
+         evento.currentTarget.setPointerCapture(evento.pointerId);
+         useEditor
+@@ -211,11 +220,14 @@ export function Reguas({ viewport, tela, zoom, largura, altura, vista }: PropsVi
+       onPointerUp(evento: EventoPonteiro<HTMLCanvasElement>) {
+         if (!evento.currentTarget.hasPointerCapture(evento.pointerId)) return;
+         atualizar(evento);
+-        soltarGuia(largura, altura);
++        soltarGuia(largura, altura, executarGuia);
+       },
+       onPointerCancel() {
+         useEditor.getState().set({ guiaNova: null });
+       },
++      onLostPointerCapture() {
++        useEditor.getState().set({ guiaNova: null });
++      },
+     };
+   }
+ 
+diff --git a/src/canvas/CanvasSurface.tsx b/src/canvas/CanvasSurface.tsx
+index f6928e9..ca206d2 100644
+--- a/src/canvas/CanvasSurface.tsx
++++ b/src/canvas/CanvasSurface.tsx
+@@ -4,6 +4,7 @@ import { caixaGirada, transformacaoCss, vistaNormal } from './vista';
+ import { clienteNoPapel } from './vistaAtual';
+ import type { PointerEvent as EventoPonteiro } from 'react';
+ import { useEditor } from '../app/store';
++import type { ComandoGuia } from '../commands/comandos';
+ import type { Rect } from '../layers/types';
+ import { EditorController } from './editorController';
+ import type { CanvasCallbacks, EditorApi } from './editorTypes';
+@@ -212,6 +213,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+       largura: dimensoes.width,
+       altura: dimensoes.height,
+     };
++    const executarGuia = (comando: ComandoGuia) => editor.current?.executarGuia(comando);
+     return (
+       <div className="canvas-viewport-frame">
+         <div
+@@ -296,7 +298,12 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+                 />
+               )}
+               <GuiasSimetria largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
+-              <GuiasPapel largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
++              <GuiasPapel
++                largura={dimensoes.width}
++                altura={dimensoes.height}
++                zoom={zoom}
++                executarGuia={executarGuia}
++              />
+               {!girada && (
+                 <PaperResizeHandles
+                   tamanho={dimensoes}
+@@ -327,7 +334,9 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+             </span>
+           </div>
+         </div>
+-        {ruler && !callbacks.telaInteira && <Reguas {...propsViewport} />}
++        {ruler && !callbacks.telaInteira && (
++          <Reguas {...propsViewport} executarGuia={executarGuia} />
++        )}
+         {miniatura && !callbacks.telaInteira && (
+           <Miniatura
+             {...propsViewport}
+diff --git a/tests/unit/guias-historico.test.ts b/tests/unit/guias-historico.test.ts
+new file mode 100644
+index 0000000..f7fccb9
+--- /dev/null
++++ b/tests/unit/guias-historico.test.ts
+@@ -0,0 +1,100 @@
++import { describe, expect, it, vi } from 'vitest';
++import { serializarImagem, type ComandoGuia } from '../../src/commands/comandos';
++import { Executador } from '../../src/commands/executador';
++import { SEM_GUIAS, type GuiasDocumento } from '../../src/document/guias';
++import { documentoFalso, papelBranco } from './documentoFalso';
++
++function editorComGuias() {
++  const doc = documentoFalso(papelBranco(80, 60));
++  let atuais: GuiasDocumento = structuredClone(SEM_GUIAS);
++  const editor = new Executador(doc, {
++    ler: () => atuais,
++    aplicar: (posicoes) => {
++      atuais = { ...atuais, ...posicoes };
++    },
++  });
++  return {
++    doc,
++    editor,
++    get atuais() {
++      return atuais;
++    },
++  };
++}
++
++describe('histórico de guias', () => {
++  it('registra comandos JSON e refaz/desfaz as posições sem ler o raster', () => {
++    const cenario = editorComGuias();
++    const { editor, doc } = cenario;
++    const registrar = vi.spyOn(editor.historico, 'registrarComando');
++    const comandos: ComandoGuia[] = [
++      { tipo: 'AdicionarGuia', eixo: 'horizontal', valor: 12 },
++      { tipo: 'MoverGuia', eixo: 'horizontal', origem: 12, destino: 25 },
++      { tipo: 'AdicionarGuia', eixo: 'vertical', valor: 20 },
++      { tipo: 'RemoverGuia', eixo: 'horizontal', valor: 25 },
++      { tipo: 'LimparGuias' },
++    ];
++    for (const comando of comandos)
++      expect(editor.executar(JSON.parse(JSON.stringify(comando)))).toBe(true);
++    expect(registrar.mock.calls.map(([entrada]) => entrada.comando)).toEqual(comandos);
++    expect(editor.historico.entries.map(({ label }) => label)).toEqual([
++      'Adicionar guia',
++      'Mover guia',
++      'Adicionar guia',
++      'Remover guia',
++      'Limpar guias',
++    ]);
++    expect(cenario.atuais).toEqual(SEM_GUIAS);
++    expect(editor.desfazer()).toBe(true);
++    expect(cenario.atuais.verticais).toEqual([20]);
++    expect(editor.desfazer()).toBe(true);
++    expect(cenario.atuais.horizontais).toEqual([25]);
++    expect(editor.refazer()).toBe(true);
++    expect(cenario.atuais.horizontais).toEqual([]);
++    expect(editor.refazer()).toBe(true);
++    expect(cenario.atuais).toEqual(SEM_GUIAS);
++    expect(doc.lerPixels).not.toHaveBeenCalled();
++    expect(doc.aplicarPixels).not.toHaveBeenCalled();
++  });
++
++  it('mantém a posição atual da régua de desenho e ignora operações sem efeito', () => {
++    const cenario = editorComGuias();
++    const { editor } = cenario;
++    expect(editor.executar({ tipo: 'AdicionarGuia', eixo: 'vertical', valor: 11 })).toBe(true);
++    expect(editor.executar({ tipo: 'AdicionarGuia', eixo: 'vertical', valor: 11 })).toBe(false);
++    expect(editor.executar({ tipo: 'AdicionarGuia', eixo: 'horizontal', valor: 61 })).toBe(false);
++    expect(
++      editor.executar({ tipo: 'MoverGuia', eixo: 'vertical', origem: 11, destino: 11.2 }),
++    ).toBe(false);
++    expect(editor.executar({ tipo: 'RemoverGuia', eixo: 'vertical', valor: 13 })).toBe(false);
++    const regua = { a: { x: 3, y: 5 }, b: { x: 30, y: 5 } };
++    cenario.atuais.regua = regua;
++    expect(editor.historico.entries).toHaveLength(1);
++    editor.desfazer();
++    expect(cenario.atuais).toEqual({ ...SEM_GUIAS, regua });
++    editor.refazer();
++    expect(cenario.atuais).toEqual({ ...SEM_GUIAS, verticais: [11], regua });
++  });
++
++  it('recupera as guias anteriores ao desfazer a abertura de uma imagem comum', () => {
++    const cenario = editorComGuias();
++    const { editor } = cenario;
++    editor.executar({ tipo: 'AdicionarGuia', eixo: 'vertical', valor: 11 });
++    expect(
++      editor.executar({
++        tipo: 'AbrirImagem',
++        nome: 'Outra imagem',
++        imagem: serializarImagem(papelBranco(16, 16)),
++      }),
++    ).toBe(true);
++    expect(cenario.atuais.verticais).toEqual([]);
++    expect(editor.historico.entries.map(({ label }) => label)).toEqual([
++      'Adicionar guia',
++      'Abrir PNG',
++    ]);
++    editor.desfazer();
++    expect(cenario.atuais.verticais).toEqual([11]);
++    editor.refazer();
++    expect(cenario.atuais.verticais).toEqual([]);
++  });
++});
+diff --git a/tests/e2e/guias-historico.spec.ts b/tests/e2e/guias-historico.spec.ts
+new file mode 100644
+index 0000000..23447d6
+--- /dev/null
++++ b/tests/e2e/guias-historico.spec.ts
+@@ -0,0 +1,77 @@
++import { expect, test, type Page } from '@playwright/test';
++
++async function pontoNaTela(page: Page, x: number, y: number) {
++  const tela = page.locator('.drawing-canvas');
++  const caixa = (await tela.boundingBox())!;
++  const zoom = caixa.width / Number(await tela.getAttribute('width'));
++  return { x: caixa.x + x * zoom, y: caixa.y + y * zoom };
++}
++
++test('guias registram só o fim do arraste, desfazem e são recuperadas sem histórico', async ({
++  page,
++}) => {
++  await page.goto('/');
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  const tela = page.locator('.drawing-canvas');
++  await tela.focus();
++  await page.keyboard.press('Control+r');
++  const regua = (await page.locator('.canvas-ruler-x').boundingBox())!;
++  const origem = await pontoNaTela(page, 300, 200);
++  await page.mouse.move(origem.x, regua.y + regua.height / 2);
++  await page.mouse.down();
++  await page.mouse.move(origem.x, origem.y, { steps: 6 });
++  await page.mouse.up();
++  const guia = page.getByTestId('guia-horizontal');
++  const historico = page.locator('.history-list');
++  await expect(historico.getByText('Adicionar guia', { exact: true })).toHaveCount(1);
++  const valor = Number(await guia.getAttribute('data-valor'));
++  const inicio = await pontoNaTela(page, 300, valor);
++
++  await tela.focus();
++  await page.keyboard.press('v');
++  const destino = await pontoNaTela(page, 300, 270);
++  await page.mouse.move(inicio.x, inicio.y);
++  await page.mouse.down();
++  await page.mouse.move(destino.x, destino.y, { steps: 8 });
++  await expect(page.locator('.guia-arrastada')).toBeVisible();
++  await expect(historico.getByText('Mover guia', { exact: true })).toHaveCount(0);
++  await page.keyboard.press('Escape');
++  await page.mouse.up();
++  await expect(guia).toHaveAttribute('data-valor', String(valor));
++  await expect(historico.getByText('Mover guia', { exact: true })).toHaveCount(0);
++
++  await page.mouse.move(inicio.x, inicio.y);
++  await page.mouse.down();
++  await page.mouse.move(destino.x, destino.y, { steps: 8 });
++  await page.mouse.up();
++  await expect(historico.getByText('Mover guia', { exact: true })).toHaveCount(1);
++  const movida = Number(await guia.getAttribute('data-valor'));
++  expect(Math.abs(movida - 270)).toBeLessThanOrEqual(1);
++  await page.keyboard.press('Control+z');
++  await expect(guia).toHaveAttribute('data-valor', String(valor));
++  await page.keyboard.press('Control+y');
++  await expect(guia).toHaveAttribute('data-valor', String(movida));
++
++  const parar = await pontoNaTela(page, 300, movida);
++  const fora = await pontoNaTela(page, 300, -16);
++  await page.mouse.move(parar.x, parar.y);
++  await page.mouse.down();
++  await page.mouse.move(fora.x, fora.y, { steps: 8 });
++  await page.mouse.up();
++  await expect(historico.getByText('Remover guia', { exact: true })).toHaveCount(1);
++  await expect(guia).toHaveCount(0);
++  await page.keyboard.press('Control+z');
++  await expect(guia).toHaveAttribute('data-valor', String(movida));
++
++  await page.getByRole('tab', { name: 'Exibir', exact: true }).click();
++  await page.getByRole('button', { name: 'Limpar guias', exact: true }).click();
++  await expect(historico.getByText('Limpar guias', { exact: true })).toHaveCount(1);
++  await expect(guia).toHaveCount(0);
++  await tela.focus();
++  await page.keyboard.press('Control+z');
++  await expect(guia).toHaveAttribute('data-valor', String(movida));
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  await page.reload();
++  await expect(guia).toHaveAttribute('data-valor', String(movida));
++  await expect(historico.getByText('Adicionar guia', { exact: true })).toHaveCount(0);
++});

@@ -1,0 +1,1439 @@
+diff --git a/src/app/components/AjusteCamadaDialog.tsx b/src/app/components/AjusteCamadaDialog.tsx
+new file mode 100644
+index 0000000..da48c4e
+--- /dev/null
++++ b/src/app/components/AjusteCamadaDialog.tsx
+@@ -0,0 +1,113 @@
++import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
++import type { EditorApi } from '../../canvas/editorTypes';
++import { ajustePadrao, FILTROS_AJUSTE, type AjusteCamada, type IdAjuste } from '../../document/ajustes';
++import { novoId } from '../../document/camadas';
++import { obterFiltro, type ParametrosFiltro } from '../../filtros/registro';
++import { CurvaFiltro } from './CurvaFiltro';
++import './filtros.css';
++
++export interface AlvoDialogoAjuste {
++  id?: string;
++  acimaDe?: string;
++  ajuste?: AjusteCamada;
++}
++
++export function AjusteCamadaDialog({
++  alvo,
++  editor,
++  fechar,
++}: {
++  alvo: AlvoDialogoAjuste;
++  editor: RefObject<EditorApi | null>;
++  fechar(): void;
++}) {
++  const titulo = useId();
++  const janela = useRef<HTMLDialogElement>(null);
++  const [ajuste, definirAjuste] = useState(() => alvo.ajuste ?? ajustePadrao(FILTROS_AJUSTE[0]));
++  const filtro = obterFiltro(ajuste.filtro);
++
++  useLayoutEffect(() => {
++    const dialogo = janela.current;
++    dialogo?.showModal();
++    return () => dialogo?.close();
++  }, []);
++
++  useEffect(() => {
++    const api = editor.current;
++    return () => api?.mostrarPreviaAjuste();
++  }, [editor]);
++
++  useEffect(() => {
++    const espera = setTimeout(() => {
++      editor.current?.mostrarPreviaAjuste({ id: alvo.id, acimaDe: alvo.acimaDe, ajuste });
++    }, 90);
++    return () => clearTimeout(espera);
++  }, [editor, alvo, ajuste]);
++
++  function confirmar() {
++    const api = editor.current;
++    if (alvo.id) api?.executarCamada({ tipo: 'EditarCamadaAjuste', id: alvo.id, ajuste });
++    else api?.executarCamada({ tipo: 'NovaCamadaAjuste', id: novoId('camada'), nome: filtro.nome, acimaDe: alvo.acimaDe, ajuste });
++    fechar();
++  }
++
++  return (
++    <dialog
++      ref={janela}
++      className="window glass app-dialog filtro-dialog"
++      aria-labelledby={titulo}
++      onKeyDown={(evento) => evento.stopPropagation()}
++      onCancel={(evento) => {
++        evento.preventDefault();
++        fechar();
++      }}
++    >
++      <div className="title-bar">
++        <div className="title-bar-text" id={titulo}>
++          {alvo.id ? 'Editar camada de ajuste' : 'Nova camada de ajuste'}
++        </div>
++        <button type="button" className="dialog-close" aria-label="Fechar janela" onClick={fechar}>
++          ×
++        </button>
++      </div>
++      <div className="window-body dialog-body filtro-corpo">
++        <label className="filtro-parametro">
++          Filtro de ajuste
++          <select value={ajuste.filtro} onChange={(evento) => definirAjuste(ajustePadrao(evento.target.value as IdAjuste))}>
++            {FILTROS_AJUSTE.map((id) => <option key={id} value={id}>{obterFiltro(id).nome}</option>)}
++          </select>
++        </label>
++        {Object.entries(filtro.parametros).map(([id, campo]) => {
++          const alterar = (valor: ParametrosFiltro[string]) => definirAjuste((atual) => ({
++            ...atual,
++            parametros: { ...atual.parametros, [id]: valor },
++          }));
++          const atual = ajuste.parametros[id];
++          if (campo.tipo === 'curva') {
++            return <CurvaFiltro key={id} nome={campo.nome} pontos={Array.isArray(atual) ? atual : campo.padrao} alterar={alterar} />;
++          }
++          if (campo.tipo !== 'numero') return null;
++          const valor = typeof atual === 'number' ? atual : campo.padrao;
++          return (
++            <label className="filtro-parametro" key={id}>
++              <span>{campo.nome} <output aria-hidden="true">{valor}</output></span>
++              <input
++                aria-label={campo.nome}
++                type="range"
++                min={campo.minimo}
++                max={campo.maximo}
++                step={campo.passo}
++                value={valor}
++                onChange={(evento) => alterar(evento.target.valueAsNumber)}
++              />
++            </label>
++          );
++        })}
++        <div className="filtro-acoes">
++          <button type="button" onClick={fechar}>Cancelar</button>
++          <button type="button" className="primary-button" onClick={confirmar}>Aplicar ajuste</button>
++        </div>
++      </div>
++    </dialog>
++  );
++}
+diff --git a/src/app/components/CamadasPainel.tsx b/src/app/components/CamadasPainel.tsx
+index 5d074d1..7cf368d 100644
+--- a/src/app/components/CamadasPainel.tsx
++++ b/src/app/components/CamadasPainel.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useRef, useState, type RefObject } from 'react';
+ import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
+ import { useEditor } from '../store';
++import { AjusteCamadaDialog, type AlvoDialogoAjuste } from './AjusteCamadaDialog';
+ import {
+   MODOS_MESCLAGEM,
+   type Grupo,
+@@ -50,6 +51,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+   const [renomeando, setRenomeando] = useState<string | null>(null);
+   const [arrastada, setArrastada] = useState<string | null>(null);
+   const [extras, setExtras] = useState<string[]>([]);
++  const [dialogoAjuste, definirDialogoAjuste] = useState<AlvoDialogoAjuste | null>(null);
+   const camadas = [...estrutura.camadas].reverse();
+   // Grupos aparecem como cabeçalho acima da camada mais alta deles; recolhidos escondem as camadas.
+   const gruposPorId = new Map(estrutura.grupos.map((grupo) => [grupo.id, grupo]));
+@@ -67,7 +69,8 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+     if (!grupo?.recolhido) itens.push({ tipo: 'camada', camada });
+     return itens;
+   });
+-  const ativa = estrutura.camadas.find((camada) => camada.id === estrutura.ativa);
++  const posicaoAtiva = estrutura.camadas.findIndex((camada) => camada.id === estrutura.ativa);
++  const ativa = estrutura.camadas[posicaoAtiva];
+   // Ctrl/Shift+clique: outras camadas escolhidas junto com a ativa (para distribuir).
+   const escolhidas = [
+     ...new Set(
+@@ -135,6 +138,8 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+               onClick={(evento) => escolher(camada.id, evento)}
+               onKeyDown={(evento) => {
+                 if (evento.key === 'F2') setRenomeando(camada.id);
++                if (evento.key === 'Enter' && camada.ajuste && evento.currentTarget === evento.target)
++                  definirDialogoAjuste({ id: camada.id, ajuste: camada.ajuste });
+               }}
+             >
+               <button
+@@ -160,7 +165,9 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+               >
+                 {camada.visible ? '👁' : '–'}
+               </button>
+-              <Miniatura editor={editor} id={camada.id} revisao={revisao} />
++              {camada.ajuste
++                ? <span className="camada-miniatura" aria-hidden="true" title="Camada de ajuste">±</span>
++                : <Miniatura editor={editor} id={camada.id} revisao={revisao} />}
+               {camada.temMascara && (
+                 <button
+                   type="button"
+@@ -197,7 +204,13 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+                   }}
+                 />
+               ) : (
+-                <span className="camada-nome" onDoubleClick={() => setRenomeando(camada.id)}>
++                <span
++                  className="camada-nome"
++                  onDoubleClick={() => {
++                    if (camada.ajuste) definirDialogoAjuste({ id: camada.id, ajuste: camada.ajuste });
++                    else setRenomeando(camada.id);
++                  }}
++                >
+                   {camada.recorte && <span title="Máscara de recorte">↳ </span>}
+                   {camada.name}
+                   {camada.opacity < 1 && <small> {Math.round(camada.opacity * 100)}%</small>}
+@@ -247,6 +260,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+             <select
+               aria-label="Modo de mesclagem"
+               value={ativa.modo}
++              disabled={Boolean(ativa.ajuste)}
+               onChange={(evento) =>
+                 alterar(ativa.id, { modo: evento.target.value as ModoMesclagem })
+               }
+@@ -263,6 +277,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+               <input
+                 type="checkbox"
+                 checked={ativa.bloqueioTransparencia}
++                disabled={Boolean(ativa.ajuste)}
+                 onChange={(evento) =>
+                   alterar(ativa.id, { bloqueioTransparencia: evento.target.checked })
+                 }
+@@ -292,7 +307,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+         </div>
+       )}
+ 
+-      {ativa && (
++      {ativa && !ativa.ajuste && (
+         <label className="camada-alinhar">
+           Alinhar ao papel
+           <select
+@@ -334,7 +349,19 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+           </button>
+         </div>
+       )}
+-      {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
++      {ativa && !ativa.ajuste && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
++      {ativa?.ajuste && (
++        <div className="camada-acoes">
++          <button type="button" onClick={() => definirDialogoAjuste({ id: ativa.id, ajuste: ativa.ajuste })}>
++            Editar ajuste
++          </button>
++          {ativa.temMascara && (
++            <button type="button" onClick={() => api()?.executarCamada({ tipo: 'ExcluirMascara', id: ativa.id })}>
++              Excluir máscara
++            </button>
++          )}
++        </div>
++      )}
+ 
+       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">
+         <button
+@@ -344,6 +371,9 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+         >
+           ＋ Nova
+         </button>
++        <button type="button" onClick={() => definirDialogoAjuste({ acimaDe: ativa?.id })}>
++          Nova camada de ajuste
++        </button>
+         <button
+           type="button"
+           title="Põe a camada ativa num grupo novo (Ctrl+G). Arraste outras camadas para dentro."
+@@ -355,7 +385,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+         <button
+           type="button"
+           title="Transformação livre: mover, escalar e girar (Ctrl+T)"
+-          disabled={!ativa}
++          disabled={!ativa || Boolean(ativa.ajuste && !estrutura.editandoMascara)}
+           onClick={() => useEditor.getState().setTool('transform')}
+         >
+           Transformar
+@@ -386,7 +416,7 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+         <button
+           type="button"
+           title="Mesclar com a camada de baixo (Ctrl+Shift+M)"
+-          disabled={!ativa || estrutura.camadas[0]?.id === ativa.id}
++          disabled={posicaoAtiva < 1 || Boolean(ativa?.ajuste || estrutura.camadas[posicaoAtiva - 1]?.ajuste)}
+           onClick={() => ativa && api()?.executarCamada({ tipo: 'MesclarAbaixo', id: ativa.id })}
+         >
+           Mesclar
+@@ -405,6 +435,9 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+           Excluir
+         </button>
+       </div>
++      {dialogoAjuste && (
++        <AjusteCamadaDialog alvo={dialogoAjuste} editor={editor} fechar={() => definirDialogoAjuste(null)} />
++      )}
+     </section>
+   );
+ }
+diff --git a/src/app/components/EditorDialogs.tsx b/src/app/components/EditorDialogs.tsx
+index 0ee1f7e..5e9ff46 100644
+--- a/src/app/components/EditorDialogs.tsx
++++ b/src/app/components/EditorDialogs.tsx
+@@ -203,7 +203,7 @@ export function EditorDialogs({
+           <RedimensionarInclinar info={info} fechar={onClose} aplicar={onTransformar} />
+         )}
+         {dialog === 'save-as' && (
+-          <SalvarComo nome={info.name} fechar={onClose} salvar={onSalvarComo} />
++          <SalvarComo nome={info.name} camadas={info.estrutura.camadas} fechar={onClose} salvar={onSalvarComo} />
+         )}
+         {dialog === 'print' && <ImprimirDesenho fechar={onClose} imprimir={onImprimir} />}
+         {dialog === 'colors' && (
+diff --git a/src/app/components/ExportDialogs.tsx b/src/app/components/ExportDialogs.tsx
+index 8472b63..96b880f 100644
+--- a/src/app/components/ExportDialogs.tsx
++++ b/src/app/components/ExportDialogs.tsx
+@@ -1,4 +1,6 @@
+ import { useId, useState, type FormEvent, type ReactNode } from 'react';
++import { exportacaoComAjusteAchatado } from '../../document/ajustes';
++import type { PropriedadesCamada } from '../../document/camadas';
+ import type { EscalaExportacao, OpcoesExportacao } from '../../io/imagens';
+ import type { OpcoesImpressao } from '../../io/imprimir';
+ import './export-dialogs.css';
+@@ -84,10 +86,12 @@ function FormularioSaida({
+ 
+ export function SalvarComo({
+   nome,
++  camadas = [],
+   fechar,
+   salvar,
+ }: {
+   nome: string;
++  camadas?: readonly PropriedadesCamada[];
+   fechar(): void;
+   salvar(opcoes: OpcoesExportacao): Promise<void>;
+ }) {
+@@ -98,6 +102,9 @@ export function SalvarComo({
+   const idFormato = useId();
+   const ajustarQualidade = formato === 'jpeg' || formato === 'webp';
+   const ampliar = !['rabisco', 'psd', 'ora', 'camadas-png'].includes(formato);
++  const aviso = exportacaoComAjusteAchatado(formato, camadas)
++    ? 'Os ajustes serão aplicados a uma imagem achatada. Salve em .rabisco para manter as camadas editáveis.'
++    : AVISOS[formato];
+ 
+   return (
+     <FormularioSaida
+@@ -167,9 +174,9 @@ export function SalvarComo({
+           </span>
+         </label>
+       )}
+-      {AVISOS[formato] && (
++      {aviso && (
+         <p className="export-warning" role="status">
+-          {AVISOS[formato]}
++          {aviso}
+         </p>
+       )}
+     </FormularioSaida>
+diff --git a/src/canvas/controle/persistencia.ts b/src/canvas/controle/persistencia.ts
+index 842a7b3..864c4c9 100644
+--- a/src/canvas/controle/persistencia.ts
++++ b/src/canvas/controle/persistencia.ts
+@@ -36,8 +36,8 @@ export class Persistencia {
+           largura: doc.width,
+           altura: doc.height,
+           dpi: doc.dpi,
+-          camadas: doc.layers.flatMap(({ id, name, mascara }) => [
+-            { id, nome: name },
++          camadas: doc.layers.flatMap(({ id, name, mascara, ajuste }) => [
++            ...(ajuste ? [] : [{ id, nome: name }]),
+             ...(mascara
+               ? [{ id: chaveDoAlvo({ camada: id, mascara: true }), nome: `${name} (máscara)` }]
+               : []),
+diff --git a/src/canvas/controle/superficie.ts b/src/canvas/controle/superficie.ts
+index ed5d41c..d509d8f 100644
+--- a/src/canvas/controle/superficie.ts
++++ b/src/canvas/controle/superficie.ts
+@@ -9,6 +9,7 @@ import { areaDoSegmento, desenharSegmento, limitarArea, unirAreas } from '../../
+ import {
+   areaDaPreviaFiltro,
+   comporDocumento,
++  type PreviaAjuste,
+   type PreviaComposicao,
+ } from '../../document/compositor';
+ import type { RabiscoDocument } from '../../document/model';
+@@ -27,6 +28,7 @@ export class SuperficieTela {
+   private readonly overlay: CanvasRenderingContext2D;
+   private areaPrevia: Rect | null = null;
+   private previaFiltro: PreviaComposicao | null = null;
++  private previaAjuste = false;
+   private areaOverlay: Rect | null = null;
+   private previaPincel: {
+     /** Um pintor por cópia simétrica (a original primeiro). */
+@@ -105,6 +107,15 @@ export class SuperficieTela {
+       comporDocumento(this.doc, this.tela, atualizar, previa ?? undefined);
+   }
+ 
++  mostrarPreviaAjuste(previa?: PreviaAjuste, redesenhar = true) {
++    if (!previa && !this.previaAjuste) return;
++    this.previaAjuste = Boolean(previa);
++    this.areaPrevia = previa
++      ? { x: 0, y: 0, width: this.doc.width, height: this.doc.height }
++      : null;
++    if (redesenhar) comporDocumento(this.doc, this.tela, undefined, undefined, previa);
++  }
++
+   /** Uma imagem do documento sem prévias, para salvar ou imprimir. */
+   telaParaSaida(): HTMLCanvasElement {
+     if (!this.areaPrevia) return this.tela;
+@@ -215,6 +226,7 @@ export class SuperficieTela {
+     this.compor(this.areaPrevia);
+     this.areaPrevia = null;
+     this.previaFiltro = null;
++    this.previaAjuste = false;
+   }
+ 
+   redesenharOverlay(ferramenta: Tool, contexto: () => ToolCtx) {
+diff --git a/src/canvas/editorController.ts b/src/canvas/editorController.ts
+index 9caa512..37ff20a 100644
+--- a/src/canvas/editorController.ts
++++ b/src/canvas/editorController.ts
+@@ -12,8 +12,9 @@ import {
+ import { serializarImagem, type ComandoCamada } from '../commands/comandos';
+ import { redimensionarEInclinar } from '../document/transformacoes';
+ import { Executador, type PreparoFiltro } from '../commands/executador';
++import { exportacaoComAjusteAchatado } from '../document/ajustes';
+ import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
+-import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/compositor';
++import { areaDaPreviaFiltro, type PreviaAjuste, type PreviaComposicao } from '../document/compositor';
+ import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
+ import { comoImageData, RabiscoDocument } from '../document/model';
+ import { luminancia } from '../filtros/cores';
+@@ -44,7 +45,11 @@ const MENSAGENS_RECUSA = {
+   bloqueada: 'Esta camada está bloqueada. Desbloqueie no painel Camadas para pintar nela.',
+   oculta: 'Esta camada está oculta. Mostre-a no painel Camadas (o olho) para pintar nela.',
+   'ultima-camada': 'O desenho precisa de pelo menos uma camada.',
++  'ultima-camada-raster': 'O desenho precisa de pelo menos uma camada de desenho.',
+   'sem-camada-abaixo': 'Não há camada abaixo para mesclar.',
++  'ajuste-sem-pixels': 'Para desenhar, escolha uma camada de desenho ou a máscara do ajuste.',
++  'ajuste-mesclar': 'Use Mesclar visíveis para aplicar os ajustes à imagem composta.',
++  'ajuste-mascara': 'A máscara do ajuste é editável. Use Mesclar visíveis para incorporá-la à imagem.',
+ } as const;
+ 
+ interface EventosEditor {
+@@ -447,9 +452,12 @@ export class EditorController implements EditorApi, NucleoEditor {
+     if (!this.pronto) return;
+     if (FORMATOS_COM_CAMADAS.has(opcoes.formato)) {
+       this.ferramentas.confirmarPendente();
++      const achatado = exportacaoComAjusteAchatado(opcoes.formato, this.doc.layers);
+       await arquivos.salvarCamadas(this.doc, opcoes.formato as FormatoCamadas, opcoes.nome);
+       this.avisar(
+-        opcoes.formato === 'camadas-png'
++        achatado
++          ? `${opcoes.formato === 'camadas-png' ? 'ZIP' : opcoes.formato.toUpperCase()} salvo com os ajustes aplicados em uma imagem achatada.`
++          : opcoes.formato === 'camadas-png'
+           ? 'Camadas exportadas: um PNG por camada, num arquivo .zip.'
+           : `${opcoes.formato.toUpperCase()} salvo com as camadas.`,
+       );
+@@ -658,7 +666,7 @@ export class EditorController implements EditorApi, NucleoEditor {
+     this.comandos.historico.clear();
+     this.superficie.compor();
+     for (const camada of doc.layers) {
+-      this.persistencia.marcar(chaveDoAlvo({ camada: camada.id }), null);
++      if (!camada.ajuste) this.persistencia.marcar(chaveDoAlvo({ camada: camada.id }), null);
+       if (camada.mascara)
+         this.persistencia.marcar(chaveDoAlvo({ camada: camada.id, mascara: true }), null);
+     }
+@@ -677,6 +685,11 @@ export class EditorController implements EditorApi, NucleoEditor {
+ 
+   // ---- Camadas ---------------------------------------------------------------------------
+ 
++  mostrarPreviaAjuste(previa?: PreviaAjuste) {
++    if (previa && !this.disponivel()) return;
++    this.superficie.mostrarPreviaAjuste(previa);
++  }
++
+   /** Comandos do painel de camadas. Confirma antes o que estiver pendente (forma, texto, colagem). */
+   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>) {
+     if (!this.disponivel()) return false;
+diff --git a/src/canvas/editorTypes.ts b/src/canvas/editorTypes.ts
+index cb4f696..3c15817 100644
+--- a/src/canvas/editorTypes.ts
++++ b/src/canvas/editorTypes.ts
+@@ -1,3 +1,4 @@
++import type { PreviaAjuste } from '../document/compositor';
+ import type { PixelBuffer, Point, Rect } from '../layers/types';
+ import type { OpcoesExportacao } from '../io/imagens';
+ import type { OpcoesImpressao } from '../io/imprimir';
+@@ -71,6 +72,7 @@ export interface EditorApi {
+   exibirPreviaFiltro(mostrar: boolean): void;
+   aplicarFiltro(): boolean;
+   cancelarFiltro(limparPrevia?: boolean): void;
++  mostrarPreviaAjuste(previa?: PreviaAjuste): void;
+   repetirFiltro(aoDemorar: () => void): Promise<boolean>;
+   temUltimoFiltro(): boolean;
+   amostrarNivelFiltro(cliente: Point): number | null;
+diff --git a/src/commands/comandos.ts b/src/commands/comandos.ts
+index 224379f..cd8eb3a 100644
+--- a/src/commands/comandos.ts
++++ b/src/commands/comandos.ts
+@@ -8,6 +8,7 @@ import type { ConfigSimetria } from '../brushes/simetria';
+ import type { PixelBuffer, Point, Rect } from '../layers/types';
+ import type { ConfiguracaoForma } from '../shapes/tipos';
+ import type { EfeitosCamada, Grupo, PropriedadesCamada } from '../document/camadas';
++import type { AjusteCamada } from '../document/ajustes';
+ import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
+ 
+ export { validarDimensoes } from '../document/dimensoes';
+@@ -133,12 +134,14 @@ export type Comando =
+   /** Vários comandos como um único item no histórico (ex.: nova camada + texto). */
+   | { tipo: 'Lote'; rotulo: string; comandos: Comando[] };
+ 
+-type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara'>> & {
++type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara' | 'ajuste'>> & {
+   efeitos?: EfeitosCamada;
+ };
+ 
+ /** Comandos de estrutura: os identificadores vêm prontos para o comando poder ser repetido. */
+ export type ComandoCamada =
++  | { tipo: 'NovaCamadaAjuste'; id: string; nome: string; ajuste: AjusteCamada; acimaDe?: string }
++  | { tipo: 'EditarCamadaAjuste'; id: string; ajuste: AjusteCamada }
+   | {
+       tipo: 'NovaCamada';
+       id: string;
+diff --git a/src/commands/executador.ts b/src/commands/executador.ts
+index 9958e91..ef810e3 100644
+--- a/src/commands/executador.ts
++++ b/src/commands/executador.ts
+@@ -11,6 +11,7 @@ import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
+ import { desenharDistorcido } from '../document/distorcer';
+ import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
+ import type { RabiscoDocument } from '../document/model';
++import { ajusteSeguro } from '../document/ajustes';
+ import {
+   apagarRecorte,
+   caminhoDaSelecao,
+@@ -105,7 +106,7 @@ export interface PreparoFiltro {
+ }
+ 
+ /** Por que o último comando não fez nada (para a interface avisar). */
+-export type MotivoRecusa = 'bloqueada' | 'oculta' | 'ultima-camada' | 'sem-camada-abaixo' | null;
++export type MotivoRecusa = 'bloqueada' | 'oculta' | 'ultima-camada' | 'ultima-camada-raster' | 'sem-camada-abaixo' | 'ajuste-sem-pixels' | 'ajuste-mesclar' | 'ajuste-mascara' | null;
+ 
+ type ComandoTransformacao = Extract<
+   Comando,
+@@ -247,6 +248,7 @@ export class Executador {
+   private recusaDePintura(): MotivoRecusa {
+     const camada = this.doc.activeLayer;
+     if (camada.locked) return 'bloqueada';
++    if (camada.ajuste && !this.doc.alvoAtivo().mascara) return 'ajuste-sem-pixels';
+     if (!camada.visible) return 'oculta';
+     return null;
+   }
+@@ -466,6 +468,24 @@ export class Executador {
+       this.alterarDocumento(comando, rotulo, alvos, () => doc.aplicarEstrutura(nova));
+ 
+     switch (comando.tipo) {
++      case 'NovaCamadaAjuste': {
++        const ajuste = ajusteSeguro(comando.ajuste);
++        if (!ajuste || !comando.id || indice(comando.id) >= 0) return null;
++        const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
++        const propriedades = { ...propriedadesPadrao(comando.id, comando.nome), ajuste };
++        const grupo = estrutura.camadas[referencia]?.grupo;
++        estrutura.camadas.splice(referencia + 1, 0, grupo ? { ...propriedades, grupo } : propriedades);
++        estrutura.ativa = comando.id;
++        estrutura.editandoMascara = false;
++        return mudarEstrutura('Nova camada de ajuste', estrutura);
++      }
++      case 'EditarCamadaAjuste': {
++        const camada = estrutura.camadas[indice(comando.id)];
++        const ajuste = ajusteSeguro(comando.ajuste);
++        if (!camada?.ajuste || !ajuste) return null;
++        camada.ajuste = ajuste;
++        return mudarEstrutura('Editar camada de ajuste', estrutura);
++      }
+       case 'NovaCamada': {
+         const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
+         const propriedades: PropriedadesCamada = {
+@@ -510,10 +530,11 @@ export class Executador {
+         });
+         delete estrutura.camadas[posicao + 1].fundo;
+         estrutura.ativa = comando.novoId;
+-        const alvos = [{ camada: comando.novoId }, { camada: comando.novoId, mascara: true }];
++        const alvos = this.alvosDa(comando.id).map((alvo) => ({ ...alvo, camada: comando.novoId }));
+         return this.alterarDocumento(comando, 'Duplicar camada', alvos, () => {
+           doc.aplicarEstrutura(estrutura);
+-          doc.contexto({ camada: comando.novoId }).drawImage(original.canvas, 0, 0);
++          if (!original.ajuste)
++            doc.contexto({ camada: comando.novoId }).drawImage(original.canvas, 0, 0);
+           if (original.mascara)
+             doc
+               .contexto({ camada: comando.novoId, mascara: true })
+@@ -527,6 +548,10 @@ export class Executador {
+           this.motivoRecusa = 'ultima-camada';
+           return null;
+         }
++        if (!estrutura.camadas[posicao].ajuste && !estrutura.camadas.some((camada, i) => i !== posicao && !camada.ajuste)) {
++          this.motivoRecusa = 'ultima-camada-raster';
++          return null;
++        }
+         estrutura.camadas.splice(posicao, 1);
+         if (estrutura.ativa === comando.id)
+           estrutura.ativa = estrutura.camadas[Math.max(0, posicao - 1)].id;
+@@ -538,6 +563,7 @@ export class Executador {
+         if (posicao < 0) return null;
+         const camada = estrutura.camadas[posicao];
+         Object.assign(camada, structuredClone(comando.propriedades));
++        if (camada.ajuste) camada.modo = 'normal';
+         if (camada.opacity !== undefined) camada.opacity = Math.min(1, Math.max(0, camada.opacity));
+         for (const chave of Object.keys(camada) as (keyof PropriedadesCamada)[]) {
+           if (camada[chave] === undefined) delete camada[chave];
+@@ -665,6 +691,10 @@ export class Executador {
+         }
+         const cima = doc.camada(comando.id)!;
+         const baixo = doc.layers[posicao - 1];
++        if (cima.ajuste || baixo.ajuste) {
++          this.motivoRecusa = 'ajuste-mesclar';
++          return null;
++        }
+         estrutura.camadas.splice(posicao, 1);
+         const base = estrutura.camadas[posicao - 1];
+         delete base.temMascara;
+@@ -721,7 +751,7 @@ export class Executador {
+         };
+         this.limparGruposVazios(nova);
+         const afetadas = achatar
+-          ? this.todosOsAlvos()
++          ? [...this.todosOsAlvos(), ...(estrutura.camadas[0].ajuste ? [{ camada: novoId }] : [])]
+           : [...visiveis.flatMap((camada) => this.alvosDa(camada.id)), { camada: novoId }];
+         return this.alterarDocumento(
+           comando,
+@@ -805,6 +835,10 @@ export class Executador {
+       }
+       case 'AplicarMascara': {
+         const camada = doc.camada(comando.id);
++        if (camada?.ajuste) {
++          this.motivoRecusa = 'ajuste-mascara';
++          return null;
++        }
+         const propriedades = estrutura.camadas[indice(comando.id)];
+         if (!camada?.mascara || !propriedades) return null;
+         delete propriedades.temMascara;
+@@ -1108,6 +1142,10 @@ export class Executador {
+       this.motivoRecusa = 'bloqueada';
+       return null;
+     }
++    if (this.doc.activeLayer.ajuste && !this.doc.alvoAtivo().mascara) {
++      this.motivoRecusa = 'ajuste-sem-pixels';
++      return null;
++    }
+     const papel = this.doc.copiarPixels();
+     const origem = limitarArea(comando.area, papel);
+     if (!origem) return null;
+@@ -1134,7 +1172,9 @@ export class Executador {
+   private alvosDa(id: string): Alvo[] {
+     const camada = this.doc.camada(id);
+     if (!camada) return [];
+-    return camada.mascara ? [{ camada: id }, { camada: id, mascara: true }] : [{ camada: id }];
++    const alvos: Alvo[] = camada.ajuste ? [] : [{ camada: id }];
++    if (camada.mascara) alvos.push({ camada: id, mascara: true });
++    return alvos;
+   }
+ 
+   private todosOsAlvos(): Alvo[] {
+diff --git a/src/document/ajustes.ts b/src/document/ajustes.ts
+new file mode 100644
+index 0000000..dd9fed2
+--- /dev/null
++++ b/src/document/ajustes.ts
+@@ -0,0 +1,77 @@
++import { luminancia, normalizarPontosCurva } from '../filtros/cores';
++import { obterFiltro, type ParametrosFiltro } from '../filtros/registro';
++import type { PixelBuffer } from '../layers/types';
++
++export const FILTROS_AJUSTE = ['brilho-contraste', 'matiz-saturacao', 'curvas', 'preto-e-branco'] as const;
++export type IdAjuste = (typeof FILTROS_AJUSTE)[number];
++
++export interface AjusteCamada {
++  filtro: IdAjuste;
++  parametros: ParametrosFiltro;
++}
++
++function objeto(valor: unknown): Record<string, unknown> {
++  return typeof valor === 'object' && valor !== null ? (valor as Record<string, unknown>) : {};
++}
++
++function filtroDeAjuste(valor: unknown): valor is IdAjuste {
++  return FILTROS_AJUSTE.some((filtro) => filtro === valor);
++}
++
++/** Usa só os filtros locais esperados e os parâmetros declarados no registro. */
++export function ajusteSeguro(valor: unknown): AjusteCamada | undefined {
++  const { filtro, parametros } = objeto(valor);
++  if (!filtroDeAjuste(filtro)) return undefined;
++  const dados = objeto(parametros);
++  return {
++    filtro,
++    parametros: Object.fromEntries(
++      Object.entries(obterFiltro(filtro).parametros).map(([id, campo]) => {
++        const atual = dados[id];
++        if (campo.tipo === 'curva') return [id, normalizarPontosCurva(atual ?? campo.padrao)];
++        if (campo.tipo === 'numero' && typeof atual === 'number' && Number.isFinite(atual))
++          return [id, Math.max(campo.minimo, Math.min(campo.maximo, atual))];
++        return [id, campo.padrao];
++      }),
++    ),
++  };
++}
++
++export function ajustePadrao(filtro: IdAjuste): AjusteCamada {
++  return ajusteSeguro({ filtro })!;
++}
++
++/** A máscara e a opacidade regulam quanto o RGB muda. O alfa de baixo é preservado. */
++export function comporAjuste(
++  abaixo: PixelBuffer,
++  ajuste: AjusteCamada,
++  opacidade: number,
++  mascara?: PixelBuffer,
++): PixelBuffer {
++  if (opacidade <= 0) return abaixo;
++  const filtrado = obterFiltro(ajuste.filtro).aplicar(abaixo, ajuste.parametros, 0);
++  if (filtrado === abaixo || (opacidade === 1 && !mascara)) return filtrado;
++
++  const original = abaixo.data;
++  const resultado = filtrado.data;
++  const cinza = mascara?.data;
++  for (let i = 0; i < original.length; i += 4) {
++    if (!original[i + 3]) continue;
++    const cobertura = cinza ? luminancia(cinza[i], cinza[i + 1], cinza[i + 2]) / 255 : 1;
++    const peso = cobertura * opacidade;
++    resultado[i] = original[i] + (resultado[i] - original[i]) * peso;
++    resultado[i + 1] = original[i + 1] + (resultado[i + 1] - original[i + 1]) * peso;
++    resultado[i + 2] = original[i + 2] + (resultado[i + 2] - original[i + 2]) * peso;
++  }
++  return filtrado;
++}
++
++export function exportacaoComAjusteAchatado(
++  formato: string,
++  camadas: readonly { ajuste?: AjusteCamada }[],
++): boolean {
++  return (
++    (formato === 'psd' || formato === 'ora' || formato === 'camadas-png') &&
++    camadas.some(({ ajuste }) => Boolean(ajuste))
++  );
++}
+diff --git a/src/document/camadas.ts b/src/document/camadas.ts
+index e815db9..2b1f0a7 100644
+--- a/src/document/camadas.ts
++++ b/src/document/camadas.ts
+@@ -1,3 +1,5 @@
++import type { AjusteCamada } from './ajustes';
++
+ /** Modos de mesclagem das camadas, com os nomes usados na interface em português. */
+ export const MODOS_MESCLAGEM = {
+   normal: { nome: 'Normal', operacao: 'source-over' },
+@@ -56,6 +58,8 @@ export interface PropriedadesCamada {
+   /** Máscara ligada (Shift+clique na miniatura desliga temporariamente). */
+   mascaraAtiva?: boolean;
+   efeitos?: EfeitosCamada;
++  /** Filtro local não destrutivo, aplicado ao composto abaixo da camada. */
++  ajuste?: AjusteCamada;
+ }
+ 
+ export interface Grupo {
+diff --git a/src/document/compositor.ts b/src/document/compositor.ts
+index 6ce68f9..10b9970 100644
+--- a/src/document/compositor.ts
++++ b/src/document/compositor.ts
+@@ -1,6 +1,7 @@
+ import type { Rect } from '../layers/types';
+-import { MODOS_MESCLAGEM, type Alvo, type EfeitosCamada, type Grupo } from './camadas';
+-import type { Layer, RabiscoDocument } from './model';
++import { comporAjuste, type AjusteCamada } from './ajustes';
++import { MODOS_MESCLAGEM, propriedadesPadrao, type Alvo, type EfeitosCamada, type Grupo } from './camadas';
++import { comoImageData, type Layer, type RabiscoDocument } from './model';
+ 
+ type Contexto = CanvasRenderingContext2D;
+ type Camada = Layer<HTMLCanvasElement>;
+@@ -12,6 +13,12 @@ export interface PreviaComposicao {
+   canvas: HTMLCanvasElement;
+ }
+ 
++export interface PreviaAjuste {
++  ajuste: AjusteCamada;
++  id?: string;
++  acimaDe?: string;
++}
++
+ /** Um item da pilha: camada solta, ou grupo com as camadas dele (sempre contíguas). */
+ type No = { tipo: 'camada'; camada: Camada } | { tipo: 'grupo'; grupo: Grupo; camadas: Camada[] };
+ 
+@@ -45,10 +52,28 @@ function superficie(largura: number, altura: number): Contexto {
+   return canvas.getContext('2d', { willReadFrequently: true })!;
+ }
+ 
+-function montarNos(doc: RabiscoDocument): No[] {
++function camadasComPrevia(doc: RabiscoDocument, previa?: PreviaAjuste): Camada[] {
++  if (!previa) return doc.layers;
++  if (previa.id)
++    return doc.layers.map((camada) => camada.id === previa.id && camada.ajuste
++      ? { ...camada, ajuste: previa.ajuste }
++      : camada);
++  const camadas = [...doc.layers];
++  const posicao = camadas.findIndex((camada) => camada.id === (previa.acimaDe ?? doc.activeLayerId));
++  camadas.splice(posicao + 1, 0, {
++    ...propriedadesPadrao('\u0000ajuste', ''),
++    // Uma camada de ajuste não lê o canvas. A prévia só reaproveita a referência.
++    canvas: doc.activeLayer.canvas,
++    ajuste: previa.ajuste,
++    grupo: camadas[posicao]?.grupo,
++  });
++  return camadas;
++}
++
++function montarNos(doc: RabiscoDocument, previa?: PreviaAjuste): No[] {
+   const nos: No[] = [];
+   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
+-  for (const camada of doc.layers) {
++  for (const camada of camadasComPrevia(doc, previa)) {
+     const grupo = camada.grupo ? grupos.get(camada.grupo) : undefined;
+     const ultimo = nos.at(-1);
+     if (grupo && ultimo?.tipo === 'grupo' && ultimo.grupo.id === grupo.id)
+@@ -97,22 +122,42 @@ function desenharComPrevia(
+   contexto.drawImage(previa.canvas, x - janela.x, y - janela.y);
+ }
+ 
++function lerMascara(camada: Camada, janela: Rect, previa?: PreviaComposicao): ImageData | undefined {
++  if (!camada.mascara || camada.mascaraAtiva === false) return undefined;
++  if (previa?.alvo.camada === camada.id && previa.alvo.mascara) {
++    const superficieMascara = superficie(janela.width, janela.height);
++    desenharComPrevia(superficieMascara, camada.mascara, janela, previa);
++    return superficieMascara.getImageData(0, 0, janela.width, janela.height);
++  }
++  return camada.mascara
++    .getContext('2d', { willReadFrequently: true })!
++    .getImageData(janela.x, janela.y, janela.width, janela.height);
++}
++
++function aplicarCamadaAjuste(
++  destino: Contexto,
++  camada: Camada,
++  janela: Rect,
++  previa?: PreviaComposicao,
++  origem = { x: 0, y: 0 },
++) {
++  if (!camada.ajuste) return;
++  // Imagem e máscara usam a mesma janela, embora o destino no grupo seja local (0, 0).
++  // getImageData/putImageData ignoram a transformação e o clip atuais do Canvas 2D.
++  const abaixo = destino.getImageData(origem.x, origem.y, janela.width, janela.height);
++  const filtrado = comporAjuste(abaixo, camada.ajuste, camada.opacity, lerMascara(camada, janela, previa));
++  if (filtrado !== abaixo)
++    destino.putImageData(comoImageData(filtrado), origem.x, origem.y);
++}
++
+ /** Pixels da camada na janela, já recortados pela máscara (luminância vira transparência). */
+ function camadaComMascara(camada: Camada, janela: Rect, previa?: PreviaComposicao): Contexto {
+   const ctx = superficie(janela.width, janela.height);
+   const alvo = previa?.alvo.camada === camada.id ? previa : undefined;
+   desenharComPrevia(ctx, camada.canvas, janela, alvo?.alvo.mascara ? undefined : alvo);
+-  if (camada.mascara && camada.mascaraAtiva !== false) {
++  const mascara = lerMascara(camada, janela, previa);
++  if (mascara) {
+     const alfa = superficie(janela.width, janela.height);
+-    let mascara: ImageData;
+-    if (alvo?.alvo.mascara) {
+-      desenharComPrevia(alfa, camada.mascara, janela, alvo);
+-      mascara = alfa.getImageData(0, 0, janela.width, janela.height);
+-    } else {
+-      mascara = camada.mascara
+-        .getContext('2d', { willReadFrequently: true })!
+-        .getImageData(janela.x, janela.y, janela.width, janela.height);
+-    }
+     const { data } = mascara;
+     for (let i = 0; i < data.length; i += 4) {
+       // Luminância (Rec. 601) da máscara vira o alfa: branco revela, preto esconde.
+@@ -233,7 +278,11 @@ function desenharCamada(
+   }
+   let pixels = camadaComMascara(camada, janela, previa);
+   for (const acima of recortadas) {
+-    if (!acima.visible || acima.opacity <= 0) continue;
++    if (!acima.visible || acima.opacity <= 0 || acima.foraDaTela) continue;
++    if (acima.ajuste) {
++      aplicarCamadaAjuste(pixels, acima, janela, previa);
++      continue;
++    }
+     // A camada de recorte só aparece onde a base tem pixels.
+     pixels.globalAlpha = acima.opacity;
+     pixels.globalCompositeOperation = 'source-atop';
+@@ -252,9 +301,17 @@ function desenharLista(
+   camadas: Camada[],
+   janela: Rect,
+   previa?: PreviaComposicao,
++  trechoDaTela?: Rect,
+ ) {
+   for (let i = 0; i < camadas.length; i++) {
+     const camada = camadas[i];
++    if (camada.ajuste) {
++      if (camada.visible && camada.opacity > 0 && !camada.foraDaTela) {
++        // Ao compor direto na tela, só a área em reconstrução contém os pixels de baixo.
++        aplicarCamadaAjuste(destino, camada, trechoDaTela ?? janela, previa, trechoDaTela);
++      }
++      continue;
++    }
+     const recortadas: Camada[] = [];
+     while (camadas[i + 1]?.recorte) recortadas.push(camadas[++i]);
+     if (!camada.visible || camada.opacity <= 0 || camada.foraDaTela) continue;
+@@ -271,6 +328,7 @@ export function comporDocumento(
+   tela: HTMLCanvasElement,
+   area?: Rect,
+   previa?: PreviaComposicao,
++  previaAjuste?: PreviaAjuste,
+ ): void {
+   const tamanhoMudou = tela.width !== doc.width || tela.height !== doc.height;
+   if (tamanhoMudou) {
+@@ -304,13 +362,14 @@ export function comporDocumento(
+   contexto.clip();
+   contexto.clearRect(esquerda, topo, largura, altura);
+   contexto.translate(janela.x, janela.y);
++  const trechoDaTela = { x: esquerda, y: topo, width: largura, height: altura };
+   // Camadas soltas consecutivas vão juntas: uma camada de recorte depende da que está abaixo.
+   let soltas: Camada[] = [];
+   const descarregar = () => {
+-    if (soltas.length) desenharLista(contexto, soltas, janela, previa);
++    if (soltas.length) desenharLista(contexto, soltas, janela, previa, trechoDaTela);
+     soltas = [];
+   };
+-  for (const no of montarNos(doc)) {
++  for (const no of montarNos(doc, previaAjuste)) {
+     if (no.tipo === 'camada') {
+       soltas.push(no.camada);
+       continue;
+@@ -335,6 +394,11 @@ export function comporDocumento(
+  * composição. Usado para mesclar camadas.
+  */
+ export function desenharCamadaSobre(destino: Contexto, camada: Camada, recortadas: Camada[] = []) {
++  if (camada.ajuste) {
++    const janela = { x: 0, y: 0, width: destino.canvas.width, height: destino.canvas.height };
++    aplicarCamadaAjuste(destino, camada, janela);
++    return;
++  }
+   const janela = { x: 0, y: 0, width: camada.canvas.width, height: camada.canvas.height };
+   desenharCamada(destino, camada, recortadas, janela);
+ }
+diff --git a/src/document/model.ts b/src/document/model.ts
+index 298994a..917c763 100644
+--- a/src/document/model.ts
++++ b/src/document/model.ts
+@@ -113,7 +113,7 @@ export class RabiscoDocument {
+ 
+   existe(alvo: Alvo): boolean {
+     const camada = this.camada(alvo.camada);
+-    return Boolean(camada && (!alvo.mascara || camada.mascara));
++    return Boolean(camada && (alvo.mascara ? camada.mascara : !camada.ajuste));
+   }
+ 
+   canvasDo(alvo: Alvo = this.alvoAtivo()): HTMLCanvasElement {
+@@ -174,8 +174,10 @@ export class RabiscoDocument {
+     this.largura = largura;
+     this.altura = altura;
+     for (const camada of this.layers) {
+-      camada.canvas.width = largura;
+-      camada.canvas.height = altura;
++      if (!camada.ajuste) {
++        camada.canvas.width = largura;
++        camada.canvas.height = altura;
++      }
+       if (camada.mascara) {
+         camada.mascara.width = largura;
+         camada.mascara.height = altura;
+@@ -202,8 +204,12 @@ export class RabiscoDocument {
+       const existente = atuais.get(propriedades.id);
+       const camada: Layer<HTMLCanvasElement> = existente ?? {
+         ...propriedades,
+-        canvas: novoCanvas(this.width, this.height),
++        canvas: novoCanvas(propriedades.ajuste ? 1 : this.width, propriedades.ajuste ? 1 : this.height),
+       };
++      if (existente && Boolean(existente.ajuste) !== Boolean(propriedades.ajuste)) {
++        camada.canvas.width = propriedades.ajuste ? 1 : this.width;
++        camada.canvas.height = propriedades.ajuste ? 1 : this.height;
++      }
+       Object.assign(camada, structuredClone(propriedades));
+       for (const chave of Object.keys(camada) as (keyof Layer)[]) {
+         if (chave !== 'canvas' && chave !== 'mascara' && !(chave in propriedades))
+diff --git a/src/filtros/cores.ts b/src/filtros/cores.ts
+index 302b74c..8434ee7 100644
+--- a/src/filtros/cores.ts
++++ b/src/filtros/cores.ts
+@@ -117,10 +117,10 @@ export function niveis(pixels: PixelBuffer, parametros: Parametros): PixelBuffer
+   );
+ }
+ 
+-function pontosValidos(valor: unknown): PontoCurva[] {
++export function normalizarPontosCurva(valor: unknown): PontoCurva[] {
+   const pontos = new Map(PONTOS_CURVA_PADRAO.map(({ x, y }) => [x, y]));
+   if (Array.isArray(valor)) {
+-    for (const ponto of valor) {
++    for (const ponto of valor.slice(0, 256)) {
+       const x = numero(ponto?.x, NaN, 0, 255);
+       const y = numero(ponto?.y, NaN, 0, 255);
+       if (Number.isFinite(x) && Number.isFinite(y)) pontos.set(Math.round(x), Math.round(y));
+@@ -131,7 +131,7 @@ function pontosValidos(valor: unknown): PontoCurva[] {
+ 
+ /** Interpolação cúbica com tangentes que preservam a monotonia entre pontos. */
+ export function tabelaCurvas(valor: unknown): Uint8ClampedArray {
+-  const pontos = pontosValidos(valor);
++  const pontos = normalizarPontosCurva(valor);
+   const larguras = pontos.slice(1).map((ponto, i) => ponto.x - pontos[i].x);
+   const inclinacoes = larguras.map((largura, i) => (pontos[i + 1].y - pontos[i].y) / largura);
+   const tangentes = pontos.map((_, i) => {
+diff --git a/src/io/camadas.ts b/src/io/camadas.ts
+index c20c168..27cc1a2 100644
+--- a/src/io/camadas.ts
++++ b/src/io/camadas.ts
+@@ -2,6 +2,7 @@
+ import type { BlendMode, Layer as CamadaPsd, Psd } from 'ag-psd';
+ import { guiasSeguras, SEM_GUIAS, type GuiasDocumento } from '../document/guias';
+ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
++import { ajusteSeguro, exportacaoComAjusteAchatado } from '../document/ajustes';
+ import {
+   chaveDoAlvo,
+   modoValido,
+@@ -51,8 +52,8 @@ export interface DocumentoComCamadas {
+ const LIMITE_ARQUIVO = 512 * 1024 * 1024;
+ const LIMITE_CAMADAS = 200;
+ const ID_SEGURO = /^[A-Za-z0-9_-]{1,64}$/;
+-/** v1: camadas (0.3). v2: guias e régua de desenho (0.4); lê os dois. */
+-export const VERSAO_RABISCO = 2;
++/** v1: camadas. v2: guias e régua. v3: camadas de ajuste. */
++export const VERSAO_RABISCO = 3;
+ 
+ // ---- Utilidades -----------------------------------------------------------------------------
+ 
+@@ -116,6 +117,10 @@ function composto(doc: RabiscoDocument) {
+   return canvas;
+ }
+ 
++function camadaAchatada(canvas: HTMLCanvasElement): Layer<HTMLCanvasElement> {
++  return { ...propriedadesPadrao('imagem-achatada', 'Imagem achatada'), canvas };
++}
++
+ /** Descompacta com limites: tamanho total, quantidade de entradas e nomes de caminho seguros. */
+ function descompactar(bytes: Uint8Array): Record<string, Uint8Array> {
+   let total = 0;
+@@ -161,6 +166,7 @@ function propriedadesSeguras(
+   bruto: unknown,
+   indice: number,
+   grupos: Set<string>,
++  aceitaAjustes: boolean,
+ ): PropriedadesCamada {
+   const dados = (typeof bruto === 'object' && bruto ? bruto : {}) as Record<string, unknown>;
+   const id =
+@@ -188,7 +194,12 @@ function propriedadesSeguras(
+   ) as Record<string, Record<string, unknown> | undefined>;
+   const contorno = efeitos.contorno;
+   const sombra = efeitos.sombra;
+-  if (contorno || sombra) {
++  const ajuste = aceitaAjustes ? ajusteSeguro(dados.ajuste) : undefined;
++  if (ajuste) {
++    propriedades.ajuste = ajuste;
++    propriedades.modo = 'normal';
++    delete propriedades.fundo;
++  } else if (contorno || sombra) {
+     propriedades.efeitos = {};
+     if (contorno)
+       propriedades.efeitos.contorno = {
+@@ -266,14 +277,15 @@ export async function exportarCamadas(
+   formato: FormatoCamadas,
+   guias: GuiasDocumento = SEM_GUIAS,
+ ): Promise<Blob> {
++  const achatar = exportacaoComAjusteAchatado(formato, doc.layers);
+   const dados =
+     formato === 'rabisco'
+       ? await exportarRabisco(doc, guias)
+       : formato === 'ora'
+-        ? await exportarOra(doc)
++        ? await exportarOra(doc, achatar)
+         : formato === 'psd'
+-          ? await exportarPsd(doc)
+-          : await exportarCamadasPng(doc);
++          ? await exportarPsd(doc, achatar)
++          : await exportarCamadasPng(doc, achatar);
+   return new Blob([dados as BlobPart], { type: MIMES_CAMADAS[formato] });
+ }
+ 
+@@ -286,7 +298,7 @@ async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Pro
+         {
+           formato: 'rabisco',
+           versao: VERSAO_RABISCO,
+-          criadoCom: 'Rabisco 0.4',
++          criadoCom: 'Rabisco 0.5',
+           nome: doc.name,
+           largura: doc.width,
+           altura: doc.height,
+@@ -300,7 +312,8 @@ async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Pro
+     ),
+   };
+   for (const camada of doc.layers) {
+-    arquivos[`camadas/${camada.id}.png`] = [await bytesPng(camada.canvas), { level: 0 }];
++    if (!camada.ajuste)
++      arquivos[`camadas/${camada.id}.png`] = [await bytesPng(camada.canvas), { level: 0 }];
+     if (camada.mascara)
+       arquivos[`mascaras/${camada.id}.png`] = [await bytesPng(camada.mascara), { level: 0 }];
+   }
+@@ -333,14 +346,17 @@ function escaparXml(valor: string) {
+   return valor.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
+ }
+ 
+-async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
++async function exportarOra(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
+   // O "mimetype" precisa ser o primeiro arquivo e sem compressão (especificação OpenRaster).
+   const arquivos: Zippable = { mimetype: [strToU8('image/openraster'), { level: 0 }] };
+   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
+   const linhas: string[] = [];
+   let grupoAberto: string | null = null;
++  const achatada = achatar ? composto(doc) : undefined;
++  const camadas = achatada ? [camadaAchatada(achatada)] : [...doc.layers].reverse();
++  let bytesAchatados: Uint8Array | undefined;
+   // ORA lista de cima para baixo. Máscaras e efeitos entram aplicados aos pixels.
+-  for (const camada of [...doc.layers].reverse()) {
++  for (const camada of camadas) {
+     if (camada.grupo !== grupoAberto) {
+       if (grupoAberto) linhas.push('  </stack>');
+       grupoAberto = camada.grupo && grupos.has(camada.grupo) ? camada.grupo : null;
+@@ -352,10 +368,9 @@ async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
+       }
+     }
+     const arquivo = `data/${camada.id}.png`;
+-    arquivos[arquivo] = [
+-      await bytesPng(camadaAplicada(camada, doc.width, doc.height)),
+-      { level: 0 },
+-    ];
++    const bytes = await bytesPng(achatada ?? camadaAplicada(camada, doc.width, doc.height));
++    arquivos[arquivo] = [bytes, { level: 0 }];
++    if (achatar) bytesAchatados = bytes;
+     linhas.push(
+       `${grupoAberto ? '    ' : '  '}<layer name="${escaparXml(camada.name)}" src="${arquivo}" x="0" y="0" opacity="${camada.opacity}" visibility="${camada.visible ? 'visible' : 'hidden'}" composite-op="${ORA_MODOS[camada.modo]}"/>`,
+     );
+@@ -364,8 +379,8 @@ async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
+   arquivos['stack.xml'] = strToU8(
+     `<?xml version="1.0" encoding="UTF-8"?>\n<image version="0.0.5" w="${doc.width}" h="${doc.height}" xres="${doc.dpi}" yres="${doc.dpi}">\n <stack>\n${linhas.join('\n')}\n </stack>\n</image>\n`,
+   );
+-  const previa = composto(doc);
+-  arquivos['mergedimage.png'] = [await bytesPng(previa), { level: 0 }];
++  const previa = achatada ?? composto(doc);
++  arquivos['mergedimage.png'] = [bytesAchatados ?? await bytesPng(previa), { level: 0 }];
+   arquivos['Thumbnails/thumbnail.png'] = [await bytesPng(miniatura(previa)), { level: 0 }];
+   return zipSync(arquivos);
+ }
+@@ -389,13 +404,14 @@ const PSD_MODOS: Record<ModoMesclagem, BlendMode> = {
+   luminosidade: 'luminosity',
+ };
+ 
+-async function exportarPsd(doc: RabiscoDocument): Promise<Uint8Array> {
++async function exportarPsd(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
+   const { writePsd } = await import('ag-psd');
+   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
+   const raiz: CamadaPsd[] = [];
+   let grupoAtual = null as { id: string; camada: CamadaPsd } | null;
++  const previa = composto(doc);
+   // No ag-psd a primeira camada da lista é a de baixo, como no Rabisco.
+-  for (const camada of doc.layers) {
++  for (const camada of achatar ? [camadaAchatada(previa)] : doc.layers) {
+     const comEfeitos = Boolean(camada.efeitos?.contorno || camada.efeitos?.sombra);
+     const psd: CamadaPsd = {
+       name: camada.name,
+@@ -443,21 +459,22 @@ async function exportarPsd(doc: RabiscoDocument): Promise<Uint8Array> {
+   const documento: Psd = {
+     width: doc.width,
+     height: doc.height,
+-    canvas: composto(doc),
++    canvas: previa,
+     children: raiz,
+   };
+   return new Uint8Array(writePsd(documento, { generateThumbnail: true }));
+ }
+ 
+-async function exportarCamadasPng(doc: RabiscoDocument): Promise<Uint8Array> {
++async function exportarCamadasPng(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
+   const arquivos: Zippable = {};
+   const usados = new Set<string>();
+-  for (const [i, camada] of [...doc.layers].reverse().entries()) {
++  const camadas = achatar ? [camadaAchatada(composto(doc))] : [...doc.layers].reverse();
++  for (const [i, camada] of camadas.entries()) {
+     let nome = `${String(i + 1).padStart(2, '0')} - ${camada.name.replace(/[\\/:*?"<>|]/g, '_')}`;
+     while (usados.has(nome)) nome += '_';
+     usados.add(nome);
+     arquivos[`${nome}.png`] = [
+-      await bytesPng(camadaAplicada(camada, doc.width, doc.height)),
++      await bytesPng(achatar ? camada.canvas : camadaAplicada(camada, doc.width, doc.height)),
+       { level: 0 },
+     ];
+   }
+@@ -491,7 +508,7 @@ async function importarRabisco(
+   } catch {
+     throw new Error('O manifest.json do arquivo .rabisco está danificado.');
+   }
+-  const { largura, altura, dpi, nome, guias } = lerCabecalhoRabisco(manifest, nomeArquivo);
++  const { versao, largura, altura, dpi, nome, guias } = lerCabecalhoRabisco(manifest, nomeArquivo);
+   const brutoEstrutura = (
+     typeof manifest.estrutura === 'object' && manifest.estrutura ? manifest.estrutura : {}
+   ) as Record<string, unknown>;
+@@ -505,18 +522,22 @@ async function importarRabisco(
+       ? (bruto as { id: string }).id
+       : '',
+   );
+-  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos));
++  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos, versao >= 3));
+   const estrutura = estruturaSegura(camadas, grupos, brutoEstrutura.ativa);
++  if (camadas.every((camada) => camada.ajuste))
++    throw new Error('O arquivo precisa ter pelo menos uma camada de desenho.');
+ 
+   const pixels = new Map<string, HTMLCanvasElement>();
+   for (const [i, camada] of estrutura.camadas.entries()) {
+     const original = originais[i];
+-    const dados = arquivos[`camadas/${original}.png`];
+-    if (!dados) throw new Error(`Falta a imagem da camada "${camada.name}" no arquivo.`);
+-    const canvas = await canvasDePng(dados, camada.name);
+-    if (canvas.width !== largura || canvas.height !== altura)
+-      throw new Error(`A camada "${camada.name}" não tem o tamanho do papel.`);
+-    pixels.set(chaveDoAlvo({ camada: camada.id }), canvas);
++    if (!camada.ajuste) {
++      const dados = arquivos[`camadas/${original}.png`];
++      if (!dados) throw new Error(`Falta a imagem da camada "${camada.name}" no arquivo.`);
++      const canvas = await canvasDePng(dados, camada.name);
++      if (canvas.width !== largura || canvas.height !== altura)
++        throw new Error(`A camada "${camada.name}" não tem o tamanho do papel.`);
++      pixels.set(chaveDoAlvo({ camada: camada.id }), canvas);
++    }
+     if (camada.temMascara) {
+       const mascara = arquivos[`mascaras/${original}.png`];
+       if (!mascara) {
+diff --git a/tests/e2e/camadas-ajuste.spec.ts b/tests/e2e/camadas-ajuste.spec.ts
+new file mode 100644
+index 0000000..376605a
+--- /dev/null
++++ b/tests/e2e/camadas-ajuste.spec.ts
+@@ -0,0 +1,50 @@
++import { expect, test, type Page } from '@playwright/test';
++import { readFile } from 'node:fs/promises';
++
++const PRETO = [0, 0, 0, 255];
++const BRANCO = [255, 255, 255, 255];
++
++function pixel(page: Page) {
++  return page.locator('.drawing-canvas').evaluate((tela: HTMLCanvasElement) => {
++    const { data } = tela.getContext('2d')!.getImageData(40, 40, 1, 1);
++    return Array.from(data);
++  });
++}
++
++test('cria, edita, oculta e reabre uma camada de ajuste', async ({ page }) => {
++  await page.goto('/');
++  await expect(page.getByRole('listbox', { name: 'Lista de camadas' }).getByRole('option')).toHaveCount(1);
++  await page.getByRole('button', { name: 'Nova camada de ajuste', exact: true }).click();
++  const nova = page.getByRole('dialog', { name: 'Nova camada de ajuste' });
++  await nova.getByRole('slider', { name: 'Brilho', exact: true }).press('Home');
++  await expect.poll(() => pixel(page)).toEqual(PRETO);
++  await nova.getByRole('button', { name: 'Aplicar ajuste' }).click();
++  await expect(nova).not.toBeVisible();
++  await expect.poll(() => pixel(page)).toEqual(PRETO);
++
++  await page.getByRole('button', { name: 'Ocultar Brilho e contraste' }).click();
++  await expect.poll(() => pixel(page)).toEqual(BRANCO);
++  await page.getByRole('button', { name: 'Mostrar Brilho e contraste' }).click();
++  await expect.poll(() => pixel(page)).toEqual(PRETO);
++
++  await page.locator('.camada-nome').filter({ hasText: 'Brilho e contraste' }).dblclick();
++  const edicao = page.getByRole('dialog', { name: 'Editar camada de ajuste' });
++  await edicao.getByRole('slider', { name: 'Brilho', exact: true }).press('ArrowRight');
++  await edicao.getByRole('button', { name: 'Aplicar ajuste' }).click();
++  const ajustado = [3, 3, 3, 255];
++  await expect.poll(() => pixel(page)).toEqual(ajustado);
++
++  const aguardando = page.waitForEvent('download');
++  await page.keyboard.press('Control+s');
++  const download = await aguardando;
++  const dados = await readFile(await download.path());
++  await page.getByLabel('Abrir arquivo de imagem', { exact: true }).setInputFiles({
++    name: 'ajuste.rabisco',
++    mimeType: 'application/x-rabisco',
++    buffer: dados,
++  });
++  await expect(page.getByRole('status').filter({ hasText: 'aberto com 2 camadas' })).toBeVisible();
++  await expect.poll(() => pixel(page)).toEqual(ajustado);
++  await page.locator('.camada-nome').filter({ hasText: 'Brilho e contraste' }).dblclick();
++  await expect(edicao.getByRole('slider', { name: 'Brilho', exact: true })).toHaveValue('-99');
++});
+diff --git a/tests/unit/ajustes.test.ts b/tests/unit/ajustes.test.ts
+new file mode 100644
+index 0000000..2802f2b
+--- /dev/null
++++ b/tests/unit/ajustes.test.ts
+@@ -0,0 +1,157 @@
++import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import type { ComandoCamada } from '../../src/commands/comandos';
++import { Executador } from '../../src/commands/executador';
++import { ajusteSeguro, comporAjuste, exportacaoComAjusteAchatado } from '../../src/document/ajustes';
++import { propriedadesPadrao } from '../../src/document/camadas';
++import { comporDocumento } from '../../src/document/compositor';
++import { RabiscoDocument } from '../../src/document/model';
++import { exportarCamadas, importarCamadas } from '../../src/io/camadas';
++
++const BRILHO = { filtro: 'brilho-contraste', parametros: { brilho: -50, contraste: 0 } } as const;
++const NOVA: ComandoCamada = {
++  tipo: 'NovaCamadaAjuste', id: 'ajuste-1', nome: 'Brilho e contraste', ajuste: BRILHO,
++};
++
++function faixa(...pixels: number[][]) {
++  return { width: pixels.length, height: 1, data: new Uint8ClampedArray(pixels.flat()) };
++}
++
++function instalarCanvas() {
++  const telas: ReturnType<typeof criar>[] = [];
++  function criar() {
++    const contexto = {
++      save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), clip: vi.fn(), rect: vi.fn(),
++      clearRect: vi.fn(), translate: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn(),
++      putImageData: vi.fn(),
++      getImageData: vi.fn((_x: number, _y: number, width: number, height: number) => ({
++        width, height, data: new Uint8ClampedArray(width * height * 4).fill(255),
++      })),
++    };
++    const tela = {
++      width: 2,
++      height: 1,
++      getContext: vi.fn(() => contexto),
++      toBlob: (receber: (blob: Blob) => void) => receber(new Blob(['png'], { type: 'image/png' })),
++    };
++    return { contexto, tela: tela as unknown as HTMLCanvasElement };
++  }
++  vi.stubGlobal('document', { createElement: () => {
++    const nova = criar();
++    telas.push(nova);
++    return nova.tela;
++  } });
++  vi.stubGlobal('ImageData', class {
++    constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
++  });
++  vi.stubGlobal('createImageBitmap', async () => ({ width: 2, height: 1, close() {} }));
++  return { telas, criar };
++}
++
++afterEach(() => vi.unstubAllGlobals());
++
++describe('camadas de ajuste', () => {
++  it('preenche padrões, limita números e recusa filtros que dependem de vizinhança', () => {
++    expect(ajusteSeguro({ filtro: 'desfoque-gaussiano', parametros: { raio: 2 } })).toBeUndefined();
++    expect(ajusteSeguro({ filtro: 'brilho-contraste', parametros: { brilho: 500, contraste: null, excesso: 'ignorado' } }))
++      .toEqual({ filtro: 'brilho-contraste', parametros: { brilho: 100, contraste: 0 } });
++    expect(ajusteSeguro({ filtro: 'curvas', parametros: { pontos: [{ x: 128, y: 168 }] } }))
++      .toEqual({ filtro: 'curvas', parametros: { pontos: [{ x: 0, y: 0 }, { x: 128, y: 168 }, { x: 255, y: 255 }] } });
++  });
++
++  it('pondera a alteração pela máscara e opacidade sem perder o alfa de baixo', () => {
++    const base = faixa([255, 0, 0, 128], [255, 0, 0, 255], [31, 63, 127, 0]);
++    const mascara = faixa([255, 255, 255, 255], [0, 0, 0, 255], [255, 255, 255, 255]);
++    const ajuste = ajusteSeguro({ filtro: 'preto-e-branco' })!;
++    expect(comporAjuste(base, ajuste, 0, mascara)).toBe(base);
++    expect(comporAjuste(base, ajuste, 0.5, mascara)).toEqual(
++      faixa([166, 38, 38, 128], [255, 0, 0, 255], [31, 63, 127, 0]),
++    );
++    expect(base).toEqual(faixa([255, 0, 0, 128], [255, 0, 0, 255], [31, 63, 127, 0]));
++  });
++
++  it('cria e edita por comandos JSON reversíveis sem ler ou modificar o raster de baixo', () => {
++    instalarCanvas();
++    const doc = new RabiscoDocument('Papel de teste', 2, 1);
++    const editor = new Executador(doc);
++    const ler = vi.spyOn(doc, 'lerPixels');
++    expect(editor.executar(JSON.parse(JSON.stringify(NOVA)))).toBe(true);
++    expect(doc.layers).toHaveLength(2);
++    expect(doc.activeLayer.canvas.width).toBe(1);
++    expect(doc.activeLayer.ajuste).toEqual(BRILHO);
++    expect(doc.existe({ camada: 'ajuste-1' })).toBe(false);
++    expect(editor.executar({
++      tipo: 'EditarCamadaAjuste', id: 'ajuste-1', ajuste: { filtro: 'preto-e-branco', parametros: {} },
++    })).toBe(true);
++    expect(doc.activeLayer.ajuste?.filtro).toBe('preto-e-branco');
++    expect(editor.desfazer()).toBe(true);
++    expect(doc.activeLayer.ajuste).toEqual(BRILHO);
++    expect(editor.desfazer()).toBe(true);
++    expect(doc.layers).toHaveLength(1);
++    expect(editor.refazer()).toBe(true);
++    expect(doc.activeLayer.ajuste).toEqual(BRILHO);
++    expect(ler).not.toHaveBeenCalled();
++  });
++
++  it('recompõe apenas o retângulo sujo em coordenadas absolutas na tela', () => {
++    const { criar } = instalarCanvas();
++    const doc = new RabiscoDocument('Papel de teste', 20, 20);
++    new Executador(doc).executar(NOVA);
++    const { tela, contexto } = criar();
++    tela.width = doc.width;
++    tela.height = doc.height;
++    comporDocumento(doc, tela, { x: 5, y: 7, width: 2, height: 3 });
++    expect(contexto.getImageData).toHaveBeenCalledExactlyOnceWith(5, 7, 2, 3);
++    expect(contexto.putImageData).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ width: 2, height: 3 }), 5, 7);
++  });
++
++  it('compõe ajustes de grupo no canvas interno em coordenadas locais', () => {
++    const { telas, criar } = instalarCanvas();
++    const doc = new RabiscoDocument('Papel de teste', 20, 20);
++    const executor = new Executador(doc);
++    executor.executar(NOVA);
++    executor.executar({ tipo: 'AgruparCamadas', ids: doc.layers.map(({ id }) => id), grupoId: 'grupo-1', nome: 'Grupo testado' });
++    const { tela, contexto } = criar();
++    tela.width = doc.width;
++    tela.height = doc.height;
++    comporDocumento(doc, tela, { x: 5, y: 7, width: 2, height: 3 });
++    expect(contexto.getImageData).not.toHaveBeenCalled();
++    expect(telas.at(-1)?.contexto.getImageData).toHaveBeenCalledExactlyOnceWith(0, 0, 2, 3);
++  });
++
++  it('salva o ajuste no manifest v3 e reabre sem exigir um PNG para ele', async () => {
++    instalarCanvas();
++    const doc = new RabiscoDocument('Papel de teste', 2, 1);
++    new Executador(doc).executar(NOVA);
++    const blob = await exportarCamadas(doc, 'rabisco');
++    const arquivos = unzipSync(new Uint8Array(await blob.arrayBuffer()));
++    expect(JSON.parse(strFromU8(arquivos['manifest.json']))).toMatchObject({ versao: 3 });
++    expect(arquivos['camadas/ajuste-1.png']).toBeUndefined();
++    const reaberto = await importarCamadas(new File([blob], 'teste.rabisco'));
++    expect(reaberto.estrutura.camadas[1].ajuste).toEqual(BRILHO);
++    expect(reaberto.pixels.size).toBe(1);
++  });
++
++  it('lê um arquivo v2 com todas as suas camadas de desenho', async () => {
++    instalarCanvas();
++    const camada = propriedadesPadrao('papel', 'Papel');
++    const manifest = { formato: 'rabisco', versao: 2, largura: 2, altura: 1, estrutura: { camadas: [camada], ativa: 'papel' } };
++    const dados = zipSync({ 'manifest.json': strToU8(JSON.stringify(manifest)), 'camadas/papel.png': strToU8('png') });
++    const reaberto = await importarCamadas(new File([dados as BlobPart], 'v2.rabisco'));
++    expect(reaberto.estrutura.camadas).toEqual([camada]);
++    expect(reaberto.pixels.has('papel')).toBe(true);
++  });
++
++  it('emite uma camada achatada no ORA com ajuste e sinaliza PSD para o mesmo tratamento', async () => {
++    instalarCanvas();
++    const doc = new RabiscoDocument('Papel de teste', 2, 1);
++    expect(exportacaoComAjusteAchatado('ora', doc.layers)).toBe(false);
++    new Executador(doc).executar(NOVA);
++    expect(exportacaoComAjusteAchatado('psd', doc.layers)).toBe(true);
++    expect(exportacaoComAjusteAchatado('rabisco', doc.layers)).toBe(false);
++    const blob = await exportarCamadas(doc, 'ora');
++    const arquivos = unzipSync(new Uint8Array(await blob.arrayBuffer()));
++    expect(strFromU8(arquivos['stack.xml'])).toContain('<layer name="Imagem achatada"');
++    expect(Object.keys(arquivos).filter((path) => path.startsWith('data/'))).toEqual(['data/imagem-achatada.png']);
++  });
++});
+diff --git a/tests/unit/guias.test.ts b/tests/unit/guias.test.ts
+index 46f0fff..33f45ce 100644
+--- a/tests/unit/guias.test.ts
++++ b/tests/unit/guias.test.ts
+@@ -88,11 +88,11 @@ describe('cabeçalho do .rabisco', () => {
+     const guias = { horizontais: [100], verticais: [400], regua };
+     const cabecalho = lerCabecalhoRabisco({ ...base, versao: 2, guias }, 'a.rabisco');
+     expect(cabecalho.guias).toEqual(guias);
+-    expect(VERSAO_RABISCO).toBe(2);
++    expect(VERSAO_RABISCO).toBe(3);
+   });
+ 
+   it('recusa versão mais nova, formato errado e tamanho inválido', () => {
+-    expect(() => lerCabecalhoRabisco({ ...base, versao: 3 }, 'a')).toThrow('mais nova');
++    expect(() => lerCabecalhoRabisco({ ...base, versao: 4 }, 'a')).toThrow('mais nova');
+     expect(() => lerCabecalhoRabisco({ ...base, versao: 2, formato: 'ora' }, 'a')).toThrow(
+       'não é um .rabisco',
+     );

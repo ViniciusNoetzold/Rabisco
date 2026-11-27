@@ -1,0 +1,632 @@
+diff --git a/src/canvas/CanvasSurface.tsx b/src/canvas/CanvasSurface.tsx
+index 9ed1155..3709d46 100644
+--- a/src/canvas/CanvasSurface.tsx
++++ b/src/canvas/CanvasSurface.tsx
+@@ -5,6 +5,7 @@ import { clienteNoPapel } from './vistaAtual';
+ import type { PointerEvent as EventoPonteiro } from 'react';
+ import { useEditor } from '../app/store';
+ import type { Rect } from '../layers/types';
++import { FERRAMENTAS_DE_SELECAO } from '../tools/select';
+ import { EditorController } from './editorController';
+ import type { CanvasCallbacks, EditorApi } from './editorTypes';
+ import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
+@@ -150,8 +151,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+         !editor.current?.iniciarGesto(
+           evento.pointerId,
+           traduzirEvento(evento),
+-          // Alt+clique é o conta-gotas, menos na varinha (lá, Alt subtrai da seleção).
+-          evento.altKey && useEditor.getState().tool !== 'wand',
++          // Alt subtrai com ferramentas de seleção e ativa o conta-gotas nas outras.
++          evento.altKey && !FERRAMENTAS_DE_SELECAO.has(useEditor.getState().tool),
+         )
+       )
+         return;
+diff --git a/src/document/mascaraPixels.ts b/src/document/mascaraPixels.ts
+index 4716584..d0fbf3e 100644
+--- a/src/document/mascaraPixels.ts
++++ b/src/document/mascaraPixels.ts
+@@ -115,7 +115,10 @@ export function juntarContornos(contornos: readonly Point[][]): Point[] {
+   const lacos = contornos.filter((laco) => laco.length >= 3);
+   if (lacos.length <= 1) return lacos[0]?.slice() ?? [];
+   const resultado: Point[] = [];
+-  for (const laco of lacos) resultado.push(...laco, laco[0]);
++  for (const laco of lacos) {
++    for (const ponto of laco) resultado.push(ponto);
++    resultado.push(laco[0]);
++  }
+   for (let i = lacos.length - 2; i >= 0; i--) resultado.push(lacos[i][0]);
+   return resultado;
+ }
+diff --git a/src/document/selecao.ts b/src/document/selecao.ts
+index 4f0cf52..92668f2 100644
+--- a/src/document/selecao.ts
++++ b/src/document/selecao.ts
+@@ -1,6 +1,14 @@
+ import type { PixelBuffer, Point, Rect } from '../layers/types';
++import { unirAreas } from '../commands/desenho';
+ import { recortarPixels } from '../commands/history';
+ import { parseHexColor } from '../tools/pixels';
++import {
++  combinarMascaras,
++  contornosDaMascara,
++  juntarContornos,
++  limitesDaMascara,
++  type MascaraPixels,
++} from './mascaraPixels';
+ import { comoImageData } from './model';
+ 
+ /** O contorno usa coordenadas do papel. A inversão seleciona o exterior. */
+@@ -9,6 +17,11 @@ export interface MascaraSelecao {
+   inversa?: boolean;
+ }
+ 
++export interface SelecaoGeometrica {
++  area: Rect;
++  mascara?: MascaraSelecao;
++}
++
+ export interface RecorteFlutuante {
+   imagem: HTMLCanvasElement;
+   corte: HTMLCanvasElement | null;
+@@ -42,6 +55,69 @@ export function caminhoDaSelecao(area: Rect, mascara?: MascaraSelecao): Path2D {
+   return caminho;
+ }
+ 
++/** A mesma máscara binária da varinha, restrita à janela necessária para a operação. */
++export function rasterizarSelecao(
++  { area, mascara }: SelecaoGeometrica,
++  janela: Rect,
++): MascaraPixels | null {
++  const { width, height } = janela;
++  const pixels = new Uint8Array(width * height);
++  if (!mascara) {
++    const esquerda = Math.max(0, area.x - janela.x);
++    const direita = Math.min(width, area.x + area.width - janela.x);
++    const topo = Math.max(0, area.y - janela.y);
++    const fundo = Math.min(height, area.y + area.height - janela.y);
++    if (direita <= esquerda) return pixels;
++    for (let y = topo; y < fundo; y++) pixels.fill(1, y * width + esquerda, y * width + direita);
++    return pixels;
++  }
++
++  const grafico = superficie(width, height);
++  if (!grafico) return null;
++  try {
++    grafico.translate(-janela.x, -janela.y);
++    grafico.fill(caminhoDaSelecao(area, mascara), 'evenodd');
++    const { data } = grafico.getImageData(0, 0, width, height);
++    for (let i = 0; i < pixels.length; i++) pixels[i] = data[i * 4 + 3] >= 128 ? 1 : 0;
++    return pixels;
++  } finally {
++    grafico.canvas.width = grafico.canvas.height = 1;
++  }
++}
++
++/** Devolve os contornos em coordenadas do papel, inclusive para regiões com buracos. */
++export function selecaoDaMascara(
++  pixels: MascaraPixels,
++  janela: Rect,
++): SelecaoGeometrica | null | 'limite' {
++  const { x, y, width, height } = janela;
++  const local = limitesDaMascara(pixels, width, height);
++  if (!local) return null;
++  const contornos = contornosDaMascara(pixels, width, height, local);
++  if (!contornos) return 'limite';
++  const contorno = juntarContornos(contornos);
++  return {
++    area: { ...local, x: local.x + x, y: local.y + y },
++    mascara: {
++      contorno: x || y ? contorno.map((ponto) => ({ x: ponto.x + x, y: ponto.y + y })) : contorno,
++    },
++  };
++}
++
++export function combinarSelecoes(
++  atual: SelecaoGeometrica,
++  nova: SelecaoGeometrica,
++  modo: 'somar' | 'subtrair',
++) {
++  const janela = modo === 'subtrair' ? atual.area : unirAreas(atual.area, nova.area);
++  const base = rasterizarSelecao(atual, janela);
++  const parte = rasterizarSelecao(nova, janela);
++  if (!base || !parte) return 'limite';
++  const pixels = combinarMascaras(base, parte, modo);
++  if (base.every((valor, i) => valor === pixels[i])) return atual;
++  return selecaoDaMascara(pixels, janela);
++}
++
+ export function pontoNaSelecao(area: Rect, ponto: Point, mascara?: MascaraSelecao): boolean {
+   if (
+     ponto.x < area.x ||
+diff --git a/src/tools/select.ts b/src/tools/select.ts
+index 0e0bf3b..d4c72f1 100644
+--- a/src/tools/select.ts
++++ b/src/tools/select.ts
+@@ -1,10 +1,13 @@
++import { unirAreas } from '../commands/desenho';
+ import { contornoDaElipse, trechosVisiveis } from '../document/mascaraPixels';
+ import {
+   caminhoDaSelecao,
++  combinarSelecoes,
+   pontoNaSelecao,
+   projetarMascara,
+   type MascaraSelecao,
+   type RecorteFlutuante,
++  type SelecaoGeometrica,
+ } from '../document/selecao';
+ import type { Point, Rect, ToolId } from '../layers/types';
+ import {
+@@ -28,7 +31,16 @@ interface MoverSelecao {
+   recorte: RecorteFlutuante | null;
+ }
+ 
+-type GestoSelecao = { tipo: 'marcar'; pontos: Point[] } | MoverSelecao;
++interface MarcarSelecao {
++  tipo: 'marcar';
++  pontos: Point[];
++  marcacao: SelecaoGeometrica | null;
++  combinacao?: { base: SelecaoGeometrica; modo: 'somar' | 'subtrair' };
++  /** O Shift da soma precisa ser solto antes que possa restringir a forma. */
++  reterShift: boolean;
++}
++
++type GestoSelecao = MarcarSelecao | MoverSelecao;
+ const setas: Record<string, Point> = {
+   ArrowLeft: { x: -1, y: 0 },
+   ArrowRight: { x: 1, y: 0 },
+@@ -77,11 +89,12 @@ export function desenharSelecao(
+   ctx: ToolCtx,
+   grafico: CanvasRenderingContext2D,
+   comAlcas: boolean,
++  selecao?: SelecaoGeometrica,
+ ) {
+-  const area = ctx.selecao;
++  const area = selecao?.area ?? ctx.selecao;
+   if (!area) return;
+   const zoom = ctx.opcoes.zoom;
+-  const caminho = caminhoDoTracejado(area, ctx.mascaraSelecao);
++  const caminho = caminhoDoTracejado(area, selecao ? selecao.mascara : ctx.mascaraSelecao);
+   grafico.save();
+   grafico.strokeStyle = '#fff';
+   grafico.lineWidth = 2 / zoom;
+@@ -131,14 +144,26 @@ function definirSelecao(modo: ModoSelecao) {
+       ctx.selecionar(destino, projetarMascara(mascara, origem, destino));
+     }
+ 
++    function marcar(
++      ctx: ToolCtx,
++      ajuste: MarcarSelecao,
++      area: Rect | null,
++      mascara?: MascaraSelecao,
++    ) {
++      ajuste.marcacao = area && area.width > 0 && area.height > 0 ? { area, mascara } : null;
++      if (!ajuste.combinacao)
++        ctx.selecionar(ajuste.marcacao?.area ?? null, ajuste.marcacao?.mascara);
++    }
++
+     function atualizar(ctx: ToolCtx, { ponto, shift }: EventoFerramenta) {
+       if (!gesto) return;
+       if (gesto.tipo === 'marcar') {
+         const { pontos } = gesto;
++        if (!shift) gesto.reterShift = false;
+         if (modo === 'elipse') {
+           // Shift: círculo.
+           let fim = ponto;
+-          if (shift) {
++          if (shift && !gesto.reterShift) {
+             const lado = Math.max(Math.abs(ponto.x - pontos[0].x), Math.abs(ponto.y - pontos[0].y));
+             fim = {
+               x: pontos[0].x + Math.sign(ponto.x - pontos[0].x || 1) * lado,
+@@ -147,12 +172,12 @@ function definirSelecao(modo: ModoSelecao) {
+           }
+           const area = normalizeRect(pontos[0], fim, limites(ctx));
+           if (area.width >= 2 && area.height >= 2)
+-            ctx.selecionar(area, { contorno: contornoDaElipse(area) });
+-          else ctx.selecionar(null);
++            marcar(ctx, gesto, area, { contorno: contornoDaElipse(area) });
++          else marcar(ctx, gesto, null);
+           return;
+         }
+         if (!laco) {
+-          ctx.selecionar(normalizeRect(pontos[0], ponto, limites(ctx)));
++          marcar(ctx, gesto, normalizeRect(pontos[0], ponto, limites(ctx)));
+           return;
+         }
+         if (distanciaEntre(pontos.at(-1)!, ponto) < Math.max(1, 2 / ctx.opcoes.zoom)) return;
+@@ -165,7 +190,7 @@ function definirSelecao(modo: ModoSelecao) {
+           { x: Math.max(...xs), y: Math.max(...ys) },
+           limites(ctx),
+         );
+-        if (pontos.length >= 3) ctx.selecionar(area, { contorno: pontos.slice() });
++        if (pontos.length >= 3) marcar(ctx, gesto, area, { contorno: pontos.slice() });
+         return;
+       }
+       const { alca, origem, inicio, recorte, duplicar, mascara } = gesto;
+@@ -194,9 +219,15 @@ function definirSelecao(modo: ModoSelecao) {
+ 
+     return {
+       cursor: () => 'crosshair',
+-      onPointerDown(ctx, { ponto, ctrl }) {
++      onPointerDown(ctx, { ponto, ctrl, shift, alt }) {
+         const origem = ctx.selecao;
+         const mascara = ctx.mascaraSelecao;
++        if (alt && !origem && !ctx.colagemFlutuante) return;
++        const modoCombinacao = alt ? 'subtrair' : shift && !ctrl ? 'somar' : null;
++        const combinacao: MarcarSelecao['combinacao'] =
++          origem && !ctx.colagemFlutuante && modoCombinacao
++            ? { base: { area: origem, mascara }, modo: modoCombinacao }
++            : undefined;
+         const raio = origem
+           ? Math.min(5 / ctx.opcoes.zoom, origem.width / 4, origem.height / 4)
+           : 0;
+@@ -205,7 +236,7 @@ function definirSelecao(modo: ModoSelecao) {
+           alcasDeTamanho({ id: 'rectangle', caixa: origem, rotacao: 0 }).find(
+             ({ posicao }) => distanciaEntre(posicao, ponto) <= raio,
+           );
+-        if (origem && (alca || pontoNaSelecao(origem, ponto, mascara))) {
++        if (!combinacao && origem && (alca || pontoNaSelecao(origem, ponto, mascara))) {
+           const corTransparente = ctx.opcoes.selecaoTransparente ? ctx.opcoes.cor2 : undefined;
+           gesto = {
+             tipo: 'mover',
+@@ -223,14 +254,27 @@ function definirSelecao(modo: ModoSelecao) {
+           return;
+         }
+         if (ctx.colagemFlutuante) ctx.confirmarColagem?.();
+-        gesto = { tipo: 'marcar', pontos: [ponto] };
+-        ctx.selecionar(null);
++        gesto = {
++          tipo: 'marcar',
++          pontos: [ponto],
++          marcacao: null,
++          combinacao,
++          reterShift: combinacao?.modo === 'somar',
++        };
++        if (!combinacao) ctx.selecionar(null);
+       },
+       onPointerMove: atualizar,
+       onPointerUp(ctx, evento) {
+         if (gesto?.tipo === 'marcar') atualizar(ctx, evento);
+         const concluido = gesto;
+         gesto = null;
++        if (concluido?.tipo === 'marcar' && concluido.combinacao && concluido.marcacao) {
++          const { base, modo } = concluido.combinacao;
++          const resultado = combinarSelecoes(base, concluido.marcacao, modo);
++          if (resultado === 'limite') ctx.avisar?.('A seleção combinada tem detalhes demais.');
++          else ctx.selecionar(resultado?.area ?? null, resultado?.mascara);
++          return;
++        }
+         if (concluido?.tipo !== 'mover') return;
+         ctx.limparPrevia();
+         publicar(ctx, concluido);
+@@ -240,7 +284,7 @@ function definirSelecao(modo: ModoSelecao) {
+         if (gesto?.tipo === 'mover') {
+           if (gesto.recorte) ctx.selecionar(gesto.origem, gesto.mascara);
+           else ctx.reposicionarColagem?.(gesto.origem);
+-        } else ctx.selecionar(null);
++        } else if (!gesto?.combinacao) ctx.selecionar(null);
+         gesto = null;
+       },
+       onKeyDown(ctx, evento) {
+@@ -266,8 +310,10 @@ function definirSelecao(modo: ModoSelecao) {
+         return true;
+       },
+       limitesOverlay(ctx) {
+-        if (!ctx.selecao) return null;
+-        const { x, y, width, height } = ctx.selecao;
++        const extra = gesto?.tipo === 'marcar' && gesto.combinacao && gesto.marcacao;
++        const area = extra ? unirAreas(ctx.selecao, extra.area) : ctx.selecao;
++        if (!area) return null;
++        const { x, y, width, height } = area;
+         const margem = 7 / ctx.opcoes.zoom;
+         return {
+           x: x - margem,
+@@ -278,6 +324,8 @@ function definirSelecao(modo: ModoSelecao) {
+       },
+       overlay(ctx, grafico) {
+         desenharSelecao(ctx, grafico, gesto?.tipo !== 'marcar');
++        if (gesto?.tipo === 'marcar' && gesto.combinacao && gesto.marcacao)
++          desenharSelecao(ctx, grafico, false, gesto.marcacao);
+       },
+     };
+   });
+diff --git a/src/tools/tool.ts b/src/tools/tool.ts
+index 352c51d..423ee96 100644
+--- a/src/tools/tool.ts
++++ b/src/tools/tool.ts
+@@ -24,7 +24,7 @@ export interface EventoFerramenta {
+   botao: number;
+   shift: boolean;
+   ctrl?: boolean;
+-  /** Alt (na varinha mágica: subtrair da seleção). */
++  /** Alt subtrai nas ferramentas de seleção. */
+   alt?: boolean;
+   instante?: number;
+   cliques?: number;
+diff --git a/src/tools/varinha.ts b/src/tools/varinha.ts
+index e7488ef..eea2f27 100644
+--- a/src/tools/varinha.ts
++++ b/src/tools/varinha.ts
+@@ -1,35 +1,8 @@
+-import {
+-  combinarMascaras,
+-  contornosDaMascara,
+-  juntarContornos,
+-  limitesDaMascara,
+-  type MascaraPixels,
+-} from '../document/mascaraPixels';
+-import { caminhoDaSelecao } from '../document/selecao';
++import { combinarMascaras } from '../document/mascaraPixels';
++import { rasterizarSelecao, selecaoDaMascara } from '../document/selecao';
+ import { mascaraPorCor, toleranciaEmCanais } from './pixels';
+ import { desenharSelecao } from './select';
+-import { definirFerramenta, type ToolCtx } from './tool';
+-
+-/** A seleção atual como máscara de pixels (para somar ou subtrair). */
+-function mascaraDaSelecao(ctx: ToolCtx): MascaraPixels | null {
+-  const area = ctx.selecao;
+-  if (!area) return null;
+-  const tela = document.createElement('canvas');
+-  tela.width = ctx.largura;
+-  tela.height = ctx.altura;
+-  const grafico = tela.getContext('2d', { willReadFrequently: true });
+-  if (!grafico) return null;
+-  try {
+-    grafico.fillStyle = '#000';
+-    grafico.fill(caminhoDaSelecao(area, ctx.mascaraSelecao), 'evenodd');
+-    const { data } = grafico.getImageData(0, 0, ctx.largura, ctx.altura);
+-    const mascara = new Uint8Array(ctx.largura * ctx.altura);
+-    for (let i = 0; i < mascara.length; i++) mascara[i] = data[i * 4 + 3] >= 128 ? 1 : 0;
+-    return mascara;
+-  } finally {
+-    tela.width = tela.height = 1;
+-  }
+-}
++import { definirFerramenta } from './tool';
+ 
+ /**
+  * Varinha mágica: clique seleciona a área da mesma cor (com a tolerância e "toda a imagem" do
+@@ -43,7 +16,8 @@ export const varinha = definirFerramenta(
+     onPointerMove() {},
+     onPointerUp(ctx, { ponto, shift, alt }) {
+       const { largura, altura } = ctx;
+-      const imagem = ctx.lerPixels({ x: 0, y: 0, width: largura, height: altura });
++      const papel = { x: 0, y: 0, width: largura, height: altura };
++      const imagem = ctx.lerPixels(papel);
+       const nova = mascaraPorCor(
+         imagem,
+         ponto.x,
+@@ -53,24 +27,18 @@ export const varinha = definirFerramenta(
+       );
+       if (!nova) return;
+       const modo = alt ? 'subtrair' : shift ? 'somar' : 'substituir';
+-      const mascara = combinarMascaras(
+-        modo === 'substituir' ? null : mascaraDaSelecao(ctx),
+-        nova,
+-        modo,
+-      );
+-      const area = limitesDaMascara(mascara, largura, altura);
+-      if (!area) {
+-        ctx.selecionar(null);
+-        return;
+-      }
+-      const contornos = contornosDaMascara(mascara, largura, altura, area);
+-      if (!contornos) {
++      const atual =
++        modo !== 'substituir' && ctx.selecao
++          ? rasterizarSelecao({ area: ctx.selecao, mascara: ctx.mascaraSelecao }, papel)
++          : null;
++      const resultado = selecaoDaMascara(combinarMascaras(atual, nova, modo), papel);
++      if (resultado === 'limite') {
+         ctx.avisar?.(
+           'Essa área tem detalhes demais para a varinha. Diminua a tolerância ou desligue "toda a imagem".',
+         );
+         return;
+       }
+-      ctx.selecionar(area, { contorno: juntarContornos(contornos) });
++      ctx.selecionar(resultado?.area ?? null, resultado?.mascara);
+     },
+     limitesOverlay(ctx) {
+       if (!ctx.selecao) return null;
+diff --git a/tests/e2e/selecao-combinada.spec.ts b/tests/e2e/selecao-combinada.spec.ts
+new file mode 100644
+index 0000000..1c2127b
+--- /dev/null
++++ b/tests/e2e/selecao-combinada.spec.ts
+@@ -0,0 +1,155 @@
++import { expect, test, type Page } from '@playwright/test';
++
++type Ponto = [number, number];
++
++async function posicao(page: Page, [x, y]: Ponto) {
++  return page.locator('.drawing-canvas').evaluate(
++    (tela: HTMLCanvasElement, ponto) => {
++      const caixa = tela.getBoundingClientRect();
++      return {
++        x: caixa.x + (ponto.x * caixa.width) / tela.width,
++        y: caixa.y + (ponto.y * caixa.height) / tela.height,
++      };
++    },
++    { x, y },
++  );
++}
++
++async function arrastar(page: Page, pontos: Ponto[], modificador?: 'Shift' | 'Alt') {
++  const [inicio, ...resto] = pontos;
++  const p = await posicao(page, inicio);
++  await page.mouse.move(p.x, p.y);
++  if (modificador) await page.keyboard.down(modificador);
++  await page.mouse.down();
++  for (const ponto of resto) {
++    const destino = await posicao(page, ponto);
++    await page.mouse.move(destino.x, destino.y, { steps: 6 });
++  }
++  await page.mouse.up();
++  if (modificador) await page.keyboard.up(modificador);
++}
++
++async function alfa(page: Page, ponto: Ponto) {
++  return page
++    .locator('.drawing-canvas')
++    .evaluate(
++      (tela: HTMLCanvasElement, [x, y]) => tela.getContext('2d')!.getImageData(x, y, 1, 1).data[3],
++      ponto,
++    );
++}
++
++test.beforeEach(async ({ page }) => {
++  await page.goto('/');
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  await page.locator('.drawing-canvas').focus();
++});
++
++test('retângulos somam regiões separadas e Alt abre um buraco sem mover o desenho', async ({
++  page,
++}) => {
++  await page.keyboard.press('s');
++  await arrastar(page, [
++    [120, 120],
++    [250, 250],
++  ]);
++  await arrastar(
++    page,
++    [
++      [360, 120],
++      [480, 240],
++    ],
++    'Shift',
++  );
++  await arrastar(
++    page,
++    [
++      [160, 160],
++      [210, 210],
++    ],
++    'Alt',
++  );
++  await page.keyboard.press('Delete');
++  await expect.poll(() => alfa(page, [140, 140])).toBe(0);
++  expect(await alfa(page, [420, 180])).toBe(0);
++  expect(await alfa(page, [180, 180])).toBe(255);
++  expect(await alfa(page, [300, 180])).toBe(255);
++});
++
++test('Shift durante o gesto faz círculo e Shift no início soma uma elipse livre', async ({
++  page,
++}) => {
++  await page.getByRole('button', { name: 'Opções de seleção' }).click();
++  await page.getByRole('button', { name: 'Seleção elíptica' }).click();
++  const inicio = await posicao(page, [100, 100]);
++  const fim = await posicao(page, [150, 250]);
++  await page.mouse.move(inicio.x, inicio.y);
++  await page.mouse.down();
++  await page.keyboard.down('Shift');
++  await page.mouse.move(fim.x, fim.y, { steps: 6 });
++  await page.mouse.up();
++  await page.keyboard.up('Shift');
++  const caixa = await page.locator('.selection-marquee').boundingBox();
++  expect(Math.abs(caixa!.width - caixa!.height)).toBeLessThan(2);
++
++  await arrastar(
++    page,
++    [
++      [380, 100],
++      [500, 150],
++    ],
++    'Shift',
++  );
++  await page.keyboard.press('Delete');
++  await expect.poll(() => alfa(page, [175, 175])).toBe(0);
++  expect(await alfa(page, [440, 125])).toBe(0);
++  expect(await alfa(page, [440, 185])).toBe(255);
++});
++
++test('laço combina contornos e Esc durante o traçado preserva a área anterior', async ({
++  page,
++}) => {
++  await page.keyboard.press('s');
++  await arrastar(page, [
++    [100, 100],
++    [260, 260],
++  ]);
++  await page.keyboard.press('l');
++  await arrastar(
++    page,
++    [
++      [150, 150],
++      [220, 150],
++      [150, 220],
++      [150, 150],
++    ],
++    'Alt',
++  );
++  await arrastar(
++    page,
++    [
++      [350, 100],
++      [450, 100],
++      [350, 200],
++      [350, 100],
++    ],
++    'Shift',
++  );
++
++  const inicio = await posicao(page, [510, 100]);
++  const meio = await posicao(page, [580, 100]);
++  const fim = await posicao(page, [510, 170]);
++  await page.mouse.move(inicio.x, inicio.y);
++  await page.keyboard.down('Shift');
++  await page.mouse.down();
++  await page.mouse.move(meio.x, meio.y, { steps: 4 });
++  await page.mouse.move(fim.x, fim.y, { steps: 4 });
++  await page.keyboard.press('Escape');
++  await page.mouse.up();
++  await page.keyboard.up('Shift');
++  await page.keyboard.press('Delete');
++  await expect.poll(() => alfa(page, [135, 135])).toBe(0);
++  expect(await alfa(page, [160, 160])).toBe(255);
++  expect(await alfa(page, [370, 120])).toBe(0);
++  expect(await alfa(page, [430, 170])).toBe(255);
++  expect(await alfa(page, [520, 110])).toBe(255);
++});
+diff --git a/tests/unit/selecao-combinada.test.ts b/tests/unit/selecao-combinada.test.ts
+new file mode 100644
+index 0000000..7c049b8
+--- /dev/null
++++ b/tests/unit/selecao-combinada.test.ts
+@@ -0,0 +1,36 @@
++import { describe, expect, it } from 'vitest';
++import { combinarSelecoes, pontoNaSelecao } from '../../src/document/selecao';
++
++describe('combinar seleções', () => {
++  it('une caixas separadas sem incluir o espaço entre elas, em coordenadas do papel', () => {
++    const resultado = combinarSelecoes(
++      { area: { x: 3, y: 5, width: 4, height: 4 } },
++      { area: { x: 12, y: 7, width: 3, height: 5 } },
++      'somar',
++    );
++    if (!resultado || resultado === 'limite') throw new Error('Seleção vazia');
++    expect(resultado.area).toEqual({ x: 3, y: 5, width: 12, height: 7 });
++    expect(pontoNaSelecao(resultado.area, { x: 4.5, y: 8.5 }, resultado.mascara)).toBe(true);
++    expect(pontoNaSelecao(resultado.area, { x: 13.5, y: 10.5 }, resultado.mascara)).toBe(true);
++    expect(pontoNaSelecao(resultado.area, { x: 8.5, y: 7.5 }, resultado.mascara)).toBe(false);
++  });
++
++  it('subtrai somente a parte dentro da seleção base, inclusive ao deixar um buraco', () => {
++    const origem = { area: { x: 12, y: 18, width: 8, height: 7 } };
++    const resultado = combinarSelecoes(
++      origem,
++      { area: { x: 14, y: 20, width: 4, height: 3 } },
++      'subtrair',
++    );
++    if (!resultado || resultado === 'limite') throw new Error('Seleção vazia');
++    expect(resultado.area).toEqual(origem.area);
++    expect(pontoNaSelecao(resultado.area, { x: 13, y: 19 }, resultado.mascara)).toBe(true);
++    expect(pontoNaSelecao(resultado.area, { x: 15, y: 21 }, resultado.mascara)).toBe(false);
++    expect(
++      combinarSelecoes(origem, { area: { x: 31, y: 19, width: 2, height: 2 } }, 'subtrair'),
++    ).toBe(origem);
++    expect(
++      combinarSelecoes(origem, { area: { x: 10, y: 17, width: 20, height: 12 } }, 'subtrair'),
++    ).toBeNull();
++  });
++});

@@ -1,0 +1,1813 @@
+diff --git a/src/app/App.tsx b/src/app/App.tsx
+index 4d32201..9a20439 100644
+--- a/src/app/App.tsx
++++ b/src/app/App.tsx
+@@ -24,6 +24,8 @@ import { useTelaInteira } from './useTelaInteira';
+ import { nivelSeguinte } from '../canvas/zoom';
+ import { novoId } from '../document/camadas';
+ import type { IdFiltro } from '../filtros/registro';
++import type { FonteAscii } from '../canvas/editorTypes';
++import type { ArteAscii } from '../estilos/ascii';
+ import { FiltroDialog } from './components/FiltroDialog';
+ 
+ const CustomShapeEditor = lazy(() =>
+@@ -41,6 +43,14 @@ const EditorDialogs = lazy(() =>
+     default: defaultExport,
+   })),
+ );
++const AsciiDialog = lazy(() =>
++  import('./components/AsciiDialog').then(({ AsciiDialog }) => ({ default: AsciiDialog })),
++);
++const AsciiTextoDialog = lazy(() =>
++  import('./components/AsciiTextoDialog').then(({ AsciiTextoDialog }) => ({
++    default: AsciiTextoDialog,
++  })),
++);
+ 
+ function editandoTexto(alvo: EventTarget | null) {
+   return (
+@@ -71,6 +81,12 @@ export default function App() {
+   const ferramenta = useEditor((estado) => estado.tool);
+   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+   const [filtroDialog, setFiltroDialog] = useState<IdFiltro | 'repetir' | null>(null);
++  const [asciiDialog, setAsciiDialog] = useState<
++    | { tipo: 'converter'; fonte: FonteAscii }
++    | { tipo: 'editar'; id: string; arte: ArteAscii }
++    | null
++  >(null);
++  const fecharAscii = useCallback(() => setAsciiDialog(null), []);
+   const fecharFiltro = useCallback(() => setFiltroDialog(null), []);
+   const repetirFiltro = useCallback(() => {
+     if (editor.current?.temUltimoFiltro()) setFiltroDialog('repetir');
+@@ -80,7 +96,7 @@ export default function App() {
+   const colarNaCamadaAtual = useRef(false);
+   const [formas, setFormas] = useState<FormaPropria[]>([]);
+   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
+-  const modalAberto = Boolean(dialog || filtroDialog || painelFormas);
++  const modalAberto = Boolean(dialog || filtroDialog || painelFormas || asciiDialog);
+   const corDeFundo = useEditor((estado) => estado.color2);
+   const corAtiva = useEditor((estado) =>
+     estado.colorTarget === 1 ? estado.color1 : estado.color2,
+@@ -462,6 +478,12 @@ export default function App() {
+         onEditarCores={() => setDialog('colors')}
+         onFiltro={setFiltroDialog}
+         onRepetirFiltro={repetirFiltro}
++        onConverterAscii={() =>
++          run(() => {
++            const fonte = editor.current?.obterFonteAscii();
++            if (fonte) setAsciiDialog({ tipo: 'converter', fonte });
++          })
++        }
+         onColar={() => run(colar)}
+         onColarDe={() => arquivoColagem.current?.click()}
+         alternarTelaInteira={alternarTelaInteira}
+@@ -500,7 +522,15 @@ export default function App() {
+           />
+           <ToolHint />
+         </div>
+-        <StudioPanel info={info} editor={editor} onHelp={() => setDialog('help')} />
++        <StudioPanel
++          info={info}
++          editor={editor}
++          onHelp={() => setDialog('help')}
++          onEditarAscii={(id) => {
++            const camada = info.estrutura.camadas.find((item) => item.id === id);
++            if (camada?.ascii) setAsciiDialog({ tipo: 'editar', id, arte: camada.ascii.arte });
++          }}
++        />
+       </div>
+       <EditorStatus ref={cursorStatus} info={info} editor={editor} />
+       <input
+@@ -546,6 +576,37 @@ export default function App() {
+         />
+       )}
+       <Suspense fallback={<CarregandoDiscreto />}>
++        {asciiDialog?.tipo === 'converter' && (
++          <AsciiDialog
++            origem={asciiDialog.fonte.pixels}
++            fechar={fecharAscii}
++            run={run}
++            aplicar={(arte, rasterizar) =>
++              run(() => {
++                editor.current?.criarCamadaAscii(asciiDialog.fonte, arte, rasterizar);
++              })
++            }
++            copiar={async (arte) => (await import('../estilos/arquivoAscii')).copiarArteAscii(arte)}
++            exportar={async (arte, formato) =>
++              (await import('../estilos/arquivoAscii')).exportarArteAscii(arte, formato)
++            }
++          />
++        )}
++        {asciiDialog?.tipo === 'editar' && (
++          <AsciiTextoDialog
++            arte={asciiDialog.arte}
++            aplicar={(arte) =>
++              run(() => {
++                editor.current?.executarCamada({
++                  tipo: 'EditarCamadaAscii',
++                  id: asciiDialog.id,
++                  arte,
++                });
++              })
++            }
++            fechar={fecharAscii}
++          />
++        )}
+         {dialog && (
+           <EditorDialogs
+             dialog={dialog}
+diff --git a/src/app/components/CamadasPainel.tsx b/src/app/components/CamadasPainel.tsx
+index 5d074d1..c21b17f 100644
+--- a/src/app/components/CamadasPainel.tsx
++++ b/src/app/components/CamadasPainel.tsx
+@@ -13,6 +13,7 @@ import {
+ interface CamadasPainelProps {
+   info: DocumentInfo;
+   editor: RefObject<EditorApi | null>;
++  onEditarAscii(id: string): void;
+ }
+ 
+ /** Miniatura que se redesenha no máximo 4 vezes por segundo enquanto se desenha. */
+@@ -44,7 +45,7 @@ function Miniatura({
+ }
+ 
+ /** Painel de camadas: lista (a de cima primeiro), propriedades da ativa e ações. */
+-export function CamadasPainel({ info, editor }: CamadasPainelProps) {
++export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProps) {
+   const { estrutura, revisao } = info;
+   const formasEmNovaCamada = useEditor((estado) => estado.formasEmNovaCamada);
+   const [renomeando, setRenomeando] = useState<string | null>(null);
+@@ -337,6 +338,11 @@ export function CamadasPainel({ info, editor }: CamadasPainelProps) {
+       {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
+ 
+       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">
++        {ativa?.ascii && (
++          <button type="button" disabled={ativa.locked} onClick={() => onEditarAscii(ativa.id)}>
++            Editar ASCII
++          </button>
++        )}
+         <button
+           type="button"
+           title="Nova camada (Ctrl+Shift+N)"
+diff --git a/src/app/components/FiltrosMenu.tsx b/src/app/components/FiltrosMenu.tsx
+index 05dea15..4485a9b 100644
+--- a/src/app/components/FiltrosMenu.tsx
++++ b/src/app/components/FiltrosMenu.tsx
+@@ -9,11 +9,13 @@ export function FiltrosMenu({
+   podeRepetir,
+   escolher,
+   repetir,
++  converterAscii,
+ }: {
+   desabilitado: boolean;
+   podeRepetir: boolean;
+   escolher(filtro: IdFiltro): void;
+   repetir(): void;
++  converterAscii(): void;
+ }) {
+   const id = useId();
+   const botao = useRef<HTMLButtonElement>(null);
+@@ -153,6 +155,18 @@ export function FiltrosMenu({
+             </div>
+           ))}
+           <div className="filtros-separador" role="separator" />
++          <button
++            type="button"
++            role="menuitem"
++            tabIndex={-1}
++            onClick={() => {
++              fechar();
++              converterAscii();
++            }}
++          >
++            Converter em ASCII
++          </button>
++          <div className="filtros-separador" role="separator" />
+           <button
+             type="button"
+             role="menuitem"
+diff --git a/src/app/components/Ribbon.tsx b/src/app/components/Ribbon.tsx
+index 896d642..fd303aa 100644
+--- a/src/app/components/Ribbon.tsx
++++ b/src/app/components/Ribbon.tsx
+@@ -34,6 +34,7 @@ interface RibbonProps {
+   onEditarCores(): void;
+   onFiltro(filtro: IdFiltro): void;
+   onRepetirFiltro(): void;
++  onConverterAscii(): void;
+   onColar(): void;
+   onColarDe(): void;
+   alternarTelaInteira(): void;
+@@ -51,6 +52,7 @@ export function Ribbon({
+   onEditarCores,
+   onFiltro,
+   onRepetirFiltro,
++  onConverterAscii,
+   onColar,
+   onColarDe,
+   alternarTelaInteira,
+@@ -161,6 +163,7 @@ export function Ribbon({
+                       podeRepetir={Boolean(editor.current?.temUltimoFiltro())}
+                       escolher={onFiltro}
+                       repetir={onRepetirFiltro}
++                      converterAscii={onConverterAscii}
+                     />
+                   </div>
+                   <div className="ribbon-stack image-actions">
+diff --git a/src/app/components/StudioPanel.tsx b/src/app/components/StudioPanel.tsx
+index 59bdfc3..0e248ce 100644
+--- a/src/app/components/StudioPanel.tsx
++++ b/src/app/components/StudioPanel.tsx
+@@ -10,9 +10,10 @@ interface StudioPanelProps {
+   info: DocumentInfo;
+   editor: RefObject<EditorApi | null>;
+   onHelp(): void;
++  onEditarAscii(id: string): void;
+ }
+ 
+-export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
++export function StudioPanel({ info, editor, onHelp, onEditarAscii }: StudioPanelProps) {
+   const state = useEditor();
+   if (!state.sidebar) return null;
+   return (
+@@ -202,7 +203,7 @@ export function StudioPanel({ info, editor, onHelp }: StudioPanelProps) {
+           </button>
+         </div>
+       </section>
+-      <CamadasPainel info={info} editor={editor} />
++      <CamadasPainel info={info} editor={editor} onEditarAscii={onEditarAscii} />
+       <section className="history-panel">
+         <div className="section-heading">
+           <span>
+diff --git a/src/canvas/editorController.ts b/src/canvas/editorController.ts
+index 9caa512..c092aad 100644
+--- a/src/canvas/editorController.ts
++++ b/src/canvas/editorController.ts
+@@ -17,6 +17,8 @@ import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/composito
+ import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
+ import { comoImageData, RabiscoDocument } from '../document/model';
+ import { luminancia } from '../filtros/cores';
++import { coberturaDaSelecao } from '../filtros/cobertura';
++import type { ArteAscii } from '../estilos/ascii';
+ import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
+ import { calcularFiltro } from '../filtros/worker';
+ import type { OpcoesExportacao } from '../io/imagens';
+@@ -34,7 +36,7 @@ import type { NucleoEditor } from './controle/nucleo';
+ import { Persistencia } from './controle/persistencia';
+ import { ControleSelecao } from './controle/selecao';
+ import { SuperficieTela } from './controle/superficie';
+-import type { DocumentInfo, EditorApi } from './editorTypes';
++import type { DocumentInfo, EditorApi, FonteAscii } from './editorTypes';
+ import { medicaoAtiva, medirOperacao, registrarDuracao } from './medicao';
+ import { ZOOM_MIN } from './zoom';
+ 
+@@ -45,6 +47,7 @@ const MENSAGENS_RECUSA = {
+   oculta: 'Esta camada está oculta. Mostre-a no painel Camadas (o olho) para pintar nela.',
+   'ultima-camada': 'O desenho precisa de pelo menos uma camada.',
+   'sem-camada-abaixo': 'Não há camada abaixo para mesclar.',
++  'texto-ascii': 'Use Editar ASCII no painel Camadas para alterar os caracteres desta camada.',
+ } as const;
+ 
+ interface EventosEditor {
+@@ -273,6 +276,43 @@ export class EditorController implements EditorApi, NucleoEditor {
+ 
+   // ---- Filtros ----------------------------------------------------------------------------
+ 
++  obterFonteAscii(): FonteAscii | null {
++    if (!this.disponivel()) return null;
++    this.ferramentas.confirmarPendente();
++    const area = this.selecao.area ?? {
++      x: 0,
++      y: 0,
++      width: this.doc.width,
++      height: this.doc.height,
++    };
++    const pixels = this.doc.lerPixels(area);
++    const camada = this.doc.activeLayer;
++    if (!this.doc.editandoMascara && camada.mascara && camada.mascaraAtiva !== false) {
++      const { data: mascara } = this.doc.lerPixels(area, { camada: camada.id, mascara: true });
++      for (let i = 0; i < mascara.length; i += 4)
++        pixels.data[i + 3] *= luminancia(mascara[i], mascara[i + 1], mascara[i + 2]) / 255;
++    }
++    if (this.selecao.mascara) {
++      const cobertura = coberturaDaSelecao(area, this.selecao.mascara);
++      for (let i = 0; i < cobertura.length; i++) pixels.data[i * 4 + 3] *= cobertura[i] / 255;
++    }
++    return { area, pixels, revisao: this.revisao };
++  }
++
++  criarCamadaAscii(fonte: FonteAscii, arte: ArteAscii, rasterizar: boolean) {
++    if (!this.disponivel() || this.revisao !== fonte.revisao) {
++      this.avisar('O desenho mudou durante a conversão. Abra o conversor novamente.');
++      return false;
++    }
++    return this.executar({
++      tipo: 'NovaCamada',
++      id: novoId('camada'),
++      nome: rasterizar ? 'ASCII rasterizado' : 'Texto ASCII',
++      ascii: { arte, area: fonte.area },
++      rasterizarAscii: rasterizar,
++    });
++  }
++
+   async preverFiltro(filtro: IdFiltro, parametros: ParametrosFiltro, aoDemorar: () => void) {
+     const resultado = await this.processarFiltro({ filtro, parametros, semente: 1 }, aoDemorar);
+     if (!resultado || this.resultadoFiltro !== resultado) return false;
+diff --git a/src/canvas/editorTypes.ts b/src/canvas/editorTypes.ts
+index cb4f696..e7bc801 100644
+--- a/src/canvas/editorTypes.ts
++++ b/src/canvas/editorTypes.ts
+@@ -10,6 +10,13 @@ import type {
+ import type { EstruturaDocumento } from '../document/camadas';
+ import type { DadosFormaPropria } from '../shapes/presets';
+ import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
++import type { ArteAscii } from '../estilos/ascii';
++
++export interface FonteAscii {
++  pixels: PixelBuffer;
++  area: Rect;
++  revisao: number;
++}
+ 
+ export interface DocumentInfo {
+   name: string;
+@@ -74,6 +81,8 @@ export interface EditorApi {
+   repetirFiltro(aoDemorar: () => void): Promise<boolean>;
+   temUltimoFiltro(): boolean;
+   amostrarNivelFiltro(cliente: Point): number | null;
++  obterFonteAscii(): FonteAscii | null;
++  criarCamadaAscii(fonte: FonteAscii, arte: ArteAscii, rasterizar: boolean): boolean;
+ }
+ 
+ export interface CanvasCallbacks {
+diff --git a/src/commands/comandos.ts b/src/commands/comandos.ts
+index 93f4848..eb8f07a 100644
+--- a/src/commands/comandos.ts
++++ b/src/commands/comandos.ts
+@@ -1,6 +1,8 @@
+ import { validarDimensoes } from '../document/dimensoes';
+ import type { ConfigGradiente } from '../tools/gradiente';
+ import type { MascaraSelecao } from '../document/selecao';
++import type { ArteAscii } from '../estilos/ascii';
++import type { CamadaAscii } from '../estilos/camadaAscii';
+ import type { FormatoImagem } from '../io/imagens';
+ import type { ConfiguracaoTexto } from '../tools/texto';
+ import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
+@@ -150,9 +152,13 @@ export type ComandoCamada =
+       propriedades?: AlteracaoCamada;
+       /** Pixels iniciais (importar como camada, colar como nova camada). */
+       imagem?: ImagemSerializada;
++      /** Conteúdo ASCII inicial, com a área no papel. */
++      ascii?: CamadaAscii;
++      rasterizarAscii?: boolean;
+       x?: number;
+       y?: number;
+     }
++  | { tipo: 'EditarCamadaAscii'; id: string; arte: ArteAscii }
+   | { tipo: 'DuplicarCamada'; id: string; novoId: string }
+   | { tipo: 'ExcluirCamada'; id: string }
+   | { tipo: 'AlterarCamada'; id: string; propriedades: AlteracaoCamada }
+diff --git a/src/commands/executador.ts b/src/commands/executador.ts
+index 2a33754..bad3ea8 100644
+--- a/src/commands/executador.ts
++++ b/src/commands/executador.ts
+@@ -26,6 +26,11 @@ import {
+   sobreporPixels,
+ } from '../document/transformacoes';
+ import { coberturaDaSelecao } from '../filtros/cobertura';
++import {
++  moverCamadaAscii,
++  normalizarCamadaAscii,
++  renderizarCamadaAscii,
++} from '../estilos/camadaAscii';
+ import { processarFiltro } from '../filtros/processar';
+ import { obterFiltro } from '../filtros/registro';
+ import type { PixelBuffer, Rect } from '../layers/types';
+@@ -105,7 +110,13 @@ export interface PreparoFiltro {
+ }
+ 
+ /** Por que o último comando não fez nada (para a interface avisar). */
+-export type MotivoRecusa = 'bloqueada' | 'oculta' | 'ultima-camada' | 'sem-camada-abaixo' | null;
++export type MotivoRecusa =
++  | 'bloqueada'
++  | 'oculta'
++  | 'ultima-camada'
++  | 'sem-camada-abaixo'
++  | 'texto-ascii'
++  | null;
+ 
+ type ComandoTransformacao = Extract<
+   Comando,
+@@ -252,6 +263,7 @@ export class Executador {
+     const camada = this.doc.activeLayer;
+     if (camada.locked) return 'bloqueada';
+     if (!camada.visible) return 'oculta';
++    if (camada.ascii && !this.doc.editandoMascara) return 'texto-ascii';
+     return null;
+   }
+ 
+@@ -391,6 +403,7 @@ export class Executador {
+             return [alvo, recortado] as const;
+           });
+           this.doc.redimensionarDocumento(area.width, area.height);
++          for (const camada of this.doc.layers) delete camada.ascii;
+           for (const [alvo, pixels] of novos) this.doc.aplicarPixels(pixels, 0, 0, alvo);
+         });
+       }
+@@ -471,6 +484,8 @@ export class Executador {
+ 
+     switch (comando.tipo) {
+       case 'NovaCamada': {
++        const ascii = normalizarCamadaAscii(comando.ascii);
++        if (comando.ascii && !ascii) throw new Error('O conteúdo da camada ASCII é inválido.');
+         const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
+         const propriedades: PropriedadesCamada = {
+           ...propriedadesPadrao(comando.id, comando.nome),
+@@ -479,27 +494,53 @@ export class Executador {
+           grupo: comando.propriedades?.grupo ?? estrutura.camadas[referencia]?.grupo,
+         };
+         if (!propriedades.grupo) delete propriedades.grupo;
++        if (ascii && !comando.rasterizarAscii) propriedades.ascii = ascii;
+         estrutura.camadas.splice(referencia + 1, 0, propriedades);
+         estrutura.ativa = comando.id;
+         estrutura.editandoMascara = false;
+         const alvo = { camada: comando.id };
+-        return this.alterarDocumento(comando, 'Nova camada', [alvo], () => {
+-          doc.aplicarEstrutura(estrutura);
+-          if (comando.imagem) {
+-            const imagem = desserializarImagem(comando.imagem);
+-            const area = limitarArea(
+-              { x: comando.x ?? 0, y: comando.y ?? 0, width: imagem.width, height: imagem.height },
+-              doc,
+-            );
+-            if (area) {
+-              const visivel = recortarPixels(imagem, {
+-                ...area,
+-                x: area.x - (comando.x ?? 0),
+-                y: area.y - (comando.y ?? 0),
+-              });
+-              doc.aplicarPixels(visivel, area.x, area.y, alvo);
++        return this.alterarDocumento(
++          comando,
++          ascii ? 'Converter em ASCII' : 'Nova camada',
++          [alvo],
++          () => {
++            doc.aplicarEstrutura(estrutura);
++            if (ascii) renderizarCamadaAscii(doc.contexto(alvo), ascii);
++            else if (comando.imagem) {
++              const imagem = desserializarImagem(comando.imagem);
++              const area = limitarArea(
++                {
++                  x: comando.x ?? 0,
++                  y: comando.y ?? 0,
++                  width: imagem.width,
++                  height: imagem.height,
++                },
++                doc,
++              );
++              if (area) {
++                const visivel = recortarPixels(imagem, {
++                  ...area,
++                  x: area.x - (comando.x ?? 0),
++                  y: area.y - (comando.y ?? 0),
++                });
++                doc.aplicarPixels(visivel, area.x, area.y, alvo);
++              }
+             }
+-          }
++          },
++        );
++      }
++      case 'EditarCamadaAscii': {
++        const camada = estrutura.camadas[indice(comando.id)];
++        if (!camada?.ascii || camada.locked) return null;
++        const ascii = normalizarCamadaAscii({ area: camada.ascii.area, arte: comando.arte });
++        if (!ascii || JSON.stringify(ascii) === JSON.stringify(camada.ascii)) return null;
++        camada.ascii = ascii;
++        const alvo = { camada: comando.id };
++        return this.alterarDocumento(comando, 'Editar texto ASCII', [alvo], () => {
++          doc.aplicarEstrutura(estrutura);
++          const contexto = doc.contexto(alvo);
++          contexto.clearRect(0, 0, doc.width, doc.height);
++          renderizarCamadaAscii(contexto, ascii);
+         });
+       }
+       case 'DuplicarCamada': {
+@@ -570,6 +611,13 @@ export class Executador {
+         }
+         const alvos = this.alvosDa(comando.id);
+         return this.alterarDocumento(comando, 'Mover camada', alvos, () => {
++          if (camada.ascii) {
++            estrutura.camadas[indice(comando.id)].ascii = moverCamadaAscii(camada.ascii, {
++              x: comando.dx,
++              y: comando.dy,
++            });
++            doc.aplicarEstrutura(estrutura);
++          }
+           for (const alvo of alvos) {
+             // O que sai do papel é perdido; a máscara anda junto com os pixels.
+             const copia = document.createElement('canvas');
+@@ -594,6 +642,7 @@ export class Executador {
+         }
+         const alvos = this.alvosDa(comando.id);
+         return this.alterarDocumento(comando, 'Transformação livre', alvos, () => {
++          delete camada.ascii;
+           for (const alvo of alvos) {
+             const copia = document.createElement('canvas');
+             copia.width = doc.width;
+@@ -631,6 +680,7 @@ export class Executador {
+         }
+         const alvos = this.alvosDa(comando.id);
+         return this.alterarDocumento(comando, 'Distorcer', alvos, () => {
++          delete camada.ascii;
+           for (const alvo of alvos) {
+             const recorte = document.createElement('canvas');
+             recorte.width = origem.width;
+@@ -673,6 +723,7 @@ export class Executador {
+         const base = estrutura.camadas[posicao - 1];
+         delete base.temMascara;
+         delete base.mascaraAtiva;
++        delete base.ascii;
+         estrutura.ativa = baixo.id;
+         estrutura.editandoMascara = false;
+         this.limparGruposVazios(estrutura);
+@@ -813,6 +864,7 @@ export class Executador {
+         if (!camada?.mascara || !propriedades) return null;
+         delete propriedades.temMascara;
+         delete propriedades.mascaraAtiva;
++        delete propriedades.ascii;
+         estrutura.editandoMascara = false;
+         return this.alterarDocumento(comando, 'Aplicar máscara', this.alvosDa(comando.id), () => {
+           const aplicada = document.createElement('canvas');
+@@ -1105,6 +1157,7 @@ export class Executador {
+         );
+         const [, primeira] = novos[0];
+         this.doc.redimensionarDocumento(primeira.width, primeira.height);
++        for (const camada of this.doc.layers) delete camada.ascii;
+         for (const [alvo, pixels] of novos) this.doc.aplicarPixels(pixels, 0, 0, alvo);
+       });
+     }
+@@ -1112,6 +1165,10 @@ export class Executador {
+       this.motivoRecusa = 'bloqueada';
+       return null;
+     }
++    if (this.doc.activeLayer.ascii && !this.doc.editandoMascara) {
++      this.motivoRecusa = 'texto-ascii';
++      return null;
++    }
+     const papel = this.doc.copiarPixels();
+     const origem = limitarArea(comando.area, papel);
+     if (!origem) return null;
+diff --git a/src/document/camadas.ts b/src/document/camadas.ts
+index e815db9..ff93eda 100644
+--- a/src/document/camadas.ts
++++ b/src/document/camadas.ts
+@@ -1,3 +1,5 @@
++import type { CamadaAscii } from '../estilos/camadaAscii';
++
+ /** Modos de mesclagem das camadas, com os nomes usados na interface em português. */
+ export const MODOS_MESCLAGEM = {
+   normal: { nome: 'Normal', operacao: 'source-over' },
+@@ -56,6 +58,7 @@ export interface PropriedadesCamada {
+   /** Máscara ligada (Shift+clique na miniatura desliga temporariamente). */
+   mascaraAtiva?: boolean;
+   efeitos?: EfeitosCamada;
++  ascii?: CamadaAscii;
+ }
+ 
+ export interface Grupo {
+diff --git a/src/io/camadas.ts b/src/io/camadas.ts
+index c20c168..5463162 100644
+--- a/src/io/camadas.ts
++++ b/src/io/camadas.ts
+@@ -1,6 +1,7 @@
+ // ag-psd é grande: só carrega quando um PSD é salvo ou aberto.
+ import type { BlendMode, Layer as CamadaPsd, Psd } from 'ag-psd';
+ import { guiasSeguras, SEM_GUIAS, type GuiasDocumento } from '../document/guias';
++import { normalizarCamadaAscii } from '../estilos/camadaAscii';
+ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
+ import {
+   chaveDoAlvo,
+@@ -179,6 +180,8 @@ function propriedadesSeguras(
+   if (typeof dados.grupo === 'string' && grupos.has(dados.grupo)) propriedades.grupo = dados.grupo;
+   if (dados.recorte === true) propriedades.recorte = true;
+   if (dados.fundo === true) propriedades.fundo = true;
++  const ascii = normalizarCamadaAscii(dados.ascii);
++  if (ascii) propriedades.ascii = ascii;
+   if (dados.temMascara === true) {
+     propriedades.temMascara = true;
+     propriedades.mascaraAtiva = dados.mascaraAtiva !== false;
+diff --git a/src/app/components/AsciiDialog.tsx b/src/app/components/AsciiDialog.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/components/AsciiDialog.tsx
+@@ -0,0 +1,306 @@
++import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
++import {
++  CONJUNTOS_ASCII,
++  MAX_COLUNAS_ASCII,
++  OPCOES_ASCII_PADRAO,
++  converterAscii,
++  textoAscii,
++  trechosAscii,
++  type ArteAscii,
++  type ConjuntoAscii,
++} from '../../estilos/ascii';
++import type { RespostaAscii, SolicitacaoAscii } from '../../estilos/ascii.worker';
++import type { PixelBuffer } from '../../layers/types';
++import type { RunAction } from './Primitives';
++import './ascii-dialog.css';
++
++type FormatoAscii = 'txt' | 'html' | 'png';
++
++interface AsciiDialogProps {
++  origem: PixelBuffer;
++  fechar(): void;
++  aplicar(arte: ArteAscii, rasterizar: boolean): void;
++  copiar(arte: ArteAscii): Promise<void>;
++  exportar(arte: ArteAscii, formato: FormatoAscii): void | Promise<void>;
++  run: RunAction;
++}
++
++/** Mantém uma cópia da imagem no worker e guarda apenas o pedido mais recente na fila. */
++function criarConversorAscii(origem: PixelBuffer, receber: (resultado: RespostaAscii) => void) {
++  let worker: Worker | null = null;
++  let ativo: SolicitacaoAscii | null = null;
++  let pendente: SolicitacaoAscii | null = null;
++  let fechado = false;
++
++  function processar() {
++    if (fechado || ativo || !pendente) return;
++    const pedido = pendente;
++    pendente = null;
++    if (worker) {
++      ativo = pedido;
++      try {
++        worker.postMessage(pedido);
++      } catch {
++        falharWorker();
++      }
++      return;
++    }
++    try {
++      receber({ chave: pedido.chave, arte: converterAscii(origem, pedido.opcoes) });
++    } catch (erro) {
++      receber({
++        chave: pedido.chave,
++        erro:
++          erro instanceof Error ? erro.message : 'Não foi possível converter a imagem em ASCII.',
++      });
++    }
++  }
++
++  function falharWorker() {
++    worker?.terminate();
++    worker = null;
++    pendente ??= ativo;
++    ativo = null;
++    processar();
++  }
++
++  if (typeof Worker !== 'undefined') {
++    try {
++      worker = new Worker(new URL('../../estilos/ascii.worker.ts', import.meta.url), {
++        type: 'module',
++      });
++      worker.onmessage = ({ data }: MessageEvent<RespostaAscii>) => {
++        if (fechado) return;
++        ativo = null;
++        if (!pendente) receber(data);
++        processar();
++      };
++      worker.onerror = (evento) => {
++        evento.preventDefault();
++        falharWorker();
++      };
++      worker.onmessageerror = falharWorker;
++      // A camada de origem continua disponível para aplicar ou rasterizar a arte.
++      worker.postMessage({ tipo: 'origem', origem });
++    } catch {
++      falharWorker();
++    }
++  }
++
++  return {
++    converter(pedido: SolicitacaoAscii) {
++      pendente = pedido;
++      processar();
++    },
++    fechar() {
++      fechado = true;
++      worker?.terminate();
++      worker = null;
++      ativo = pendente = null;
++    },
++  };
++}
++
++function PreviaAscii({ arte, ocupada }: { arte?: ArteAscii; ocupada: boolean }) {
++  return (
++    <pre
++      className="ascii-previa"
++      data-invertido={arte?.inverter ? '' : undefined}
++      aria-label="Prévia ASCII"
++      aria-busy={ocupada}
++      tabIndex={0}
++    >
++      {arte?.cores
++        ? arte.linhas.map((linha, y) => (
++            <Fragment key={y}>
++              {y > 0 ? '\n' : ''}
++              {trechosAscii(linha, arte.cores?.[y]).map(({ texto, cor }, i) =>
++                cor ? (
++                  <span key={i} style={{ color: cor }}>
++                    {texto}
++                  </span>
++                ) : (
++                  <Fragment key={i}>{texto}</Fragment>
++                ),
++              )}
++            </Fragment>
++          ))
++        : arte && textoAscii(arte)}
++    </pre>
++  );
++}
++
++export function AsciiDialog({ origem, fechar, aplicar, copiar, exportar, run }: AsciiDialogProps) {
++  const titulo = useId();
++  const janela = useRef<HTMLDialogElement>(null);
++  const conversor = useRef<ReturnType<typeof criarConversorAscii> | null>(null);
++  const [largura, definirLargura] = useState(String(OPCOES_ASCII_PADRAO.colunas));
++  const [conjunto, definirConjunto] = useState<ConjuntoAscii>(OPCOES_ASCII_PADRAO.conjunto);
++  const [inverter, definirInverter] = useState(OPCOES_ASCII_PADRAO.inverter);
++  const [colorido, definirColorido] = useState(OPCOES_ASCII_PADRAO.colorido);
++  const [ultimo, definirUltimo] = useState<{ origem: PixelBuffer; resultado: RespostaAscii }>();
++  const [copiado, definirCopiado] = useState<string>();
++  const colunas = Number(largura);
++  const colunasValidas = Number.isInteger(colunas) && colunas >= 1 && colunas <= MAX_COLUNAS_ASCII;
++  const chave = `${colunas}:${conjunto}:${inverter}:${colorido}`;
++  const resultado = ultimo?.origem === origem ? ultimo.resultado : undefined;
++  const previa = resultado && 'arte' in resultado ? resultado.arte : undefined;
++  const atual = resultado?.chave === chave ? resultado : undefined;
++  const arte = atual && 'arte' in atual ? atual.arte : undefined;
++  const ocupada = colunasValidas && !atual;
++
++  useLayoutEffect(() => {
++    const dialogo = janela.current;
++    dialogo?.showModal();
++    return () => dialogo?.close();
++  }, []);
++
++  useEffect(() => {
++    return () => {
++      conversor.current?.fechar();
++      conversor.current = null;
++    };
++  }, [origem]);
++
++  useEffect(() => {
++    if (!colunasValidas) return;
++    const espera = setTimeout(() => {
++      conversor.current ??= criarConversorAscii(origem, (resultado) =>
++        definirUltimo({ origem, resultado }),
++      );
++      conversor.current.converter({
++        tipo: 'converter',
++        chave,
++        opcoes: { colunas, conjunto, inverter, colorido },
++      });
++    }, 70);
++    return () => clearTimeout(espera);
++  }, [origem, chave, colunasValidas, colunas, conjunto, inverter, colorido]);
++
++  function criarCamada(rasterizar: boolean) {
++    if (!arte) return;
++    run(() => {
++      aplicar(arte, rasterizar);
++      fechar();
++    });
++  }
++
++  return (
++    <dialog
++      ref={janela}
++      className="window glass app-dialog ascii-dialog"
++      aria-labelledby={titulo}
++      onCancel={(evento) => {
++        evento.preventDefault();
++        fechar();
++      }}
++    >
++      <div className="title-bar">
++        <div className="title-bar-text" id={titulo}>
++          Converter em ASCII
++        </div>
++        <button type="button" className="dialog-close" aria-label="Fechar janela" onClick={fechar}>
++          ×
++        </button>
++      </div>
++      <div className="window-body dialog-body ascii-corpo">
++        <div className="ascii-opcoes">
++          <label className="ascii-campo">
++            Colunas
++            <input
++              type="number"
++              min={1}
++              max={MAX_COLUNAS_ASCII}
++              value={largura}
++              aria-invalid={!colunasValidas}
++              onChange={(evento) => definirLargura(evento.target.value)}
++            />
++          </label>
++          <label className="ascii-campo">
++            Conjunto de caracteres
++            <select
++              aria-label="Conjunto de caracteres"
++              value={conjunto}
++              onChange={(evento) => definirConjunto(evento.target.value as ConjuntoAscii)}
++            >
++              {Object.entries(CONJUNTOS_ASCII).map(([valor, nome]) => (
++                <option key={valor} value={valor}>
++                  {nome}
++                </option>
++              ))}
++            </select>
++          </label>
++          <label className="ascii-marcacao">
++            <input
++              type="checkbox"
++              checked={inverter}
++              onChange={(evento) => definirInverter(evento.target.checked)}
++            />
++            Inverter
++          </label>
++          <label className="ascii-marcacao">
++            <input
++              type="checkbox"
++              checked={colorido}
++              onChange={(evento) => definirColorido(evento.target.checked)}
++            />
++            Colorido
++          </label>
++          <div className="ascii-status" role="status">
++            {!colunasValidas
++              ? `Use de 1 a ${MAX_COLUNAS_ASCII} colunas.`
++              : atual && 'erro' in atual
++                ? atual.erro
++                : ocupada
++                  ? 'Convertendo…'
++                  : copiado === chave && 'Texto copiado.'}
++          </div>
++        </div>
++        <PreviaAscii arte={previa} ocupada={ocupada} />
++        <div className="ascii-acoes">
++          <button
++            type="button"
++            disabled={!arte}
++            onClick={() => {
++              if (!arte) return;
++              run(async () => {
++                await copiar(arte);
++                definirCopiado(chave);
++              });
++            }}
++          >
++            Copiar texto
++          </button>
++          {(['txt', 'html', 'png'] as const).map((formato) => (
++            <button
++              key={formato}
++              type="button"
++              disabled={!arte}
++              onClick={() => {
++                if (arte) run(() => exportar(arte, formato));
++              }}
++            >
++              Exportar .{formato}
++            </button>
++          ))}
++        </div>
++        <div className="ascii-acoes ascii-acoes-camada">
++          <button type="button" onClick={fechar}>
++            Cancelar
++          </button>
++          <button type="button" disabled={!arte} onClick={() => criarCamada(true)}>
++            Rasterizar em camada
++          </button>
++          <button
++            type="button"
++            className="primary-button"
++            disabled={!arte}
++            onClick={() => criarCamada(false)}
++          >
++            Criar camada de texto
++          </button>
++        </div>
++      </div>
++    </dialog>
++  );
++}
+diff --git a/src/app/components/AsciiTextoDialog.tsx b/src/app/components/AsciiTextoDialog.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/components/AsciiTextoDialog.tsx
+@@ -0,0 +1,75 @@
++import { useId, useLayoutEffect, useRef, useState } from 'react';
++import { textoAscii, type ArteAscii } from '../../estilos/ascii';
++import { atualizarTextoAscii } from '../../estilos/camadaAscii';
++import './ascii-dialog.css';
++
++export function AsciiTextoDialog({
++  arte,
++  aplicar,
++  fechar,
++}: {
++  arte: ArteAscii;
++  aplicar(arte: ArteAscii): void;
++  fechar(): void;
++}) {
++  const titulo = useId();
++  const dialogo = useRef<HTMLDialogElement>(null);
++  const [texto, definirTexto] = useState(() => textoAscii(arte));
++
++  useLayoutEffect(() => {
++    const janela = dialogo.current;
++    janela?.showModal();
++    return () => janela?.close();
++  }, []);
++
++  return (
++    <dialog
++      className="window glass app-dialog ascii-texto-dialog"
++      ref={dialogo}
++      aria-labelledby={titulo}
++      onCancel={(evento) => {
++        evento.preventDefault();
++        fechar();
++      }}
++    >
++      <div className="title-bar">
++        <div className="title-bar-text" id={titulo}>
++          Editar camada ASCII
++        </div>
++        <button type="button" className="dialog-close" aria-label="Fechar janela" onClick={fechar}>
++          ×
++        </button>
++      </div>
++      <form
++        className="window-body dialog-body"
++        onSubmit={(evento) => {
++          evento.preventDefault();
++          aplicar(atualizarTextoAscii(arte, texto));
++          fechar();
++        }}
++      >
++        <label className="ascii-texto-campo">
++          Texto ASCII
++          <textarea
++            aria-label="Texto ASCII"
++            value={texto}
++            spellCheck={false}
++            rows={10}
++            wrap="off"
++            onChange={(evento) => definirTexto(evento.target.value)}
++            aria-describedby={`${titulo}-colunas`}
++          />
++        </label>
++        <p id={`${titulo}-colunas`}>Até {arte.colunas} colunas por linha.</p>
++        <div className="ascii-acoes">
++          <button type="button" onClick={fechar}>
++            Cancelar
++          </button>
++          <button type="submit" className="primary-button">
++            Salvar texto
++          </button>
++        </div>
++      </form>
++    </dialog>
++  );
++}
+diff --git a/src/app/components/ascii-dialog.css b/src/app/components/ascii-dialog.css
+new file mode 100644
+--- /dev/null
++++ b/src/app/components/ascii-dialog.css
+@@ -0,0 +1,113 @@
++.ascii-dialog.app-dialog.window {
++  width: min(820px, calc(100vw - 28px));
++  max-width: none;
++  max-height: calc(100dvh - 28px);
++  overflow: auto;
++}
++
++.ascii-corpo.dialog-body.window-body {
++  display: grid;
++  grid-template-columns: 170px minmax(0, 1fr);
++  gap: 12px;
++  padding: 12px;
++}
++
++.ascii-opcoes {
++  display: flex;
++  min-width: 0;
++  flex-direction: column;
++  gap: 10px;
++}
++
++.ascii-campo {
++  display: grid;
++  gap: 4px;
++}
++
++.ascii-campo input,
++.ascii-campo select {
++  min-width: 0;
++  width: 100%;
++}
++
++.ascii-marcacao {
++  display: flex;
++  align-items: center;
++  gap: 7px;
++}
++
++.ascii-status {
++  min-height: 1lh;
++  color: #244a69;
++}
++
++.ascii-previa {
++  min-height: 10rem;
++  max-height: min(48dvh, 420px);
++  min-width: 0;
++  margin: 0;
++  overflow: auto;
++  padding: 10px;
++  border: 1px solid #9eb6cd;
++  background: #fff;
++  color: #000;
++  font: 0.875rem/1.2 monospace;
++  font-variant-ligatures: none;
++  white-space: pre;
++  scrollbar-gutter: stable;
++}
++
++.ascii-previa[data-invertido] {
++  background: #111;
++  color: #fff;
++}
++
++.ascii-acoes {
++  display: flex;
++  grid-column: 1 / -1;
++  flex-wrap: wrap;
++  gap: 6px;
++}
++
++.ascii-acoes > button {
++  min-height: 28px;
++  padding-inline: 8px;
++}
++
++.ascii-acoes-camada {
++  justify-content: flex-end;
++  border-top: 1px solid #b8cce0;
++  padding-top: 10px;
++}
++
++@media (max-width: 540px) {
++  .ascii-corpo.dialog-body.window-body {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .ascii-opcoes {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
++  }
++
++  .ascii-status {
++    grid-column: 1 / -1;
++  }
++
++  .ascii-previa {
++    min-height: 7rem;
++    max-height: 30dvh;
++  }
++}
++.ascii-texto-dialog .ascii-texto-campo {
++  display: grid;
++  gap: 6px;
++}
++
++.ascii-texto-dialog textarea {
++  width: 100%;
++  box-sizing: border-box;
++  font: 14px/1.2 monospace;
++  font-variant-ligatures: none;
++  resize: vertical;
++}
+diff --git a/src/estilos/arquivoAscii.ts b/src/estilos/arquivoAscii.ts
+new file mode 100644
+--- /dev/null
++++ b/src/estilos/arquivoAscii.ts
+@@ -0,0 +1,69 @@
++import { htmlAscii, textoAscii, type ArteAscii } from './ascii';
++import { renderizarCamadaAscii } from './camadaAscii';
++
++export type FormatoAscii = 'txt' | 'html' | 'png';
++
++function superficieDoDialogo(): HTMLElement {
++  return document.querySelector<HTMLDialogElement>('dialog[open]') ?? document.body;
++}
++
++export async function copiarArteAscii(arte: ArteAscii): Promise<void> {
++  const texto = textoAscii(arte);
++  if (navigator.clipboard?.writeText) {
++    try {
++      await navigator.clipboard.writeText(texto);
++      return;
++    } catch {
++      // Na prévia HTTP da rede, use a seleção de um campo para copiar.
++    }
++  }
++  const anterior = document.activeElement;
++  const campo = document.createElement('textarea');
++  campo.value = texto;
++  campo.readOnly = true;
++  campo.style.cssText = 'position:fixed;left:-10000px;top:0';
++  superficieDoDialogo().append(campo);
++  campo.focus({ preventScroll: true });
++  campo.select();
++  try {
++    if (!document.execCommand('copy')) throw new Error('Não foi possível copiar a arte ASCII.');
++  } finally {
++    campo.remove();
++    if (anterior instanceof HTMLElement) anterior.focus({ preventScroll: true });
++  }
++}
++
++async function criarBlob(arte: ArteAscii, formato: FormatoAscii): Promise<Blob> {
++  if (formato === 'html') return new Blob([htmlAscii(arte)], { type: 'text/html;charset=utf-8' });
++  if (formato === 'txt') return new Blob([textoAscii(arte)], { type: 'text/plain;charset=utf-8' });
++
++  const canvas = document.createElement('canvas');
++  canvas.width = Math.max(1, arte.colunas * 8);
++  canvas.height = Math.max(1, arte.linhas.length * 14);
++  const contexto = canvas.getContext('2d')!;
++  renderizarCamadaAscii(contexto, {
++    arte,
++    area: { x: 0, y: 0, width: canvas.width, height: canvas.height },
++  });
++  return new Promise((resolver, rejeitar) => {
++    canvas.toBlob((blob) => {
++      if (blob) resolver(blob);
++      else rejeitar(new Error('Não foi possível criar o PNG da arte ASCII.'));
++    }, 'image/png');
++  });
++}
++
++export async function exportarArteAscii(arte: ArteAscii, formato: FormatoAscii): Promise<void> {
++  const blob = await criarBlob(arte, formato);
++  const url = URL.createObjectURL(blob);
++  const link = document.createElement('a');
++  link.href = url;
++  link.download = `arte-ascii.${formato}`;
++  superficieDoDialogo().append(link);
++  try {
++    link.click();
++  } finally {
++    link.remove();
++    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
++  }
++}
+diff --git a/src/estilos/ascii.ts b/src/estilos/ascii.ts
+new file mode 100644
+--- /dev/null
++++ b/src/estilos/ascii.ts
+@@ -0,0 +1,302 @@
++import { luminancia } from '../filtros/cores';
++import type { PixelBuffer, Rect } from '../layers/types';
++
++export const CONJUNTOS_ASCII = {
++  simples: 'Simples',
++  detalhado: 'Detalhado',
++  blocos: 'Blocos',
++  braille: 'Braille',
++} as const;
++
++export type ConjuntoAscii = keyof typeof CONJUNTOS_ASCII;
++
++export interface OpcoesAscii {
++  colunas: number;
++  conjunto: ConjuntoAscii;
++  inverter: boolean;
++  colorido: boolean;
++}
++
++export interface ArteAscii {
++  colunas: number;
++  linhas: string[];
++  inverter: boolean;
++  cores?: (string | null)[][];
++}
++
++export const MAX_COLUNAS_ASCII = 256;
++export const MAX_CELULAS_ASCII = 131_072;
++export const MAX_LINHAS_ASCII = 1024;
++
++export const OPCOES_ASCII_PADRAO: Readonly<OpcoesAscii> = {
++  colunas: 80,
++  conjunto: 'simples',
++  inverter: false,
++  colorido: false,
++};
++
++const RAMPAS = {
++  simples: ' .:-=+*#%@',
++  detalhado: ' .`^",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
++  blocos: ' ░▒▓█',
++};
++
++const BITS_BRAILLE = [
++  [1, 8],
++  [2, 16],
++  [4, 32],
++  [64, 128],
++];
++
++const VAZIO_BRAILLE = '\u2800';
++const COR_HEXA = /^#[0-9a-f]{6}$/i;
++
++interface Amostra {
++  r: number;
++  g: number;
++  b: number;
++  alfa: number;
++}
++
++function amostrar(
++  { width, height, data }: PixelBuffer,
++  coluna: number,
++  linha: number,
++  colunas: number,
++  linhas: number,
++  saida: Amostra,
++) {
++  const esquerda = (coluna * width) / colunas;
++  const topo = (linha * height) / linhas;
++  const direita = ((coluna + 1) * width) / colunas;
++  const base = ((linha + 1) * height) / linhas;
++  const xInicial = Math.floor(esquerda);
++  const xFinal = Math.min(width, Math.ceil(direita));
++  const yFinal = Math.min(height, Math.ceil(base));
++  let r = 0;
++  let g = 0;
++  let b = 0;
++  let alfa = 0;
++  for (let y = Math.floor(topo); y < yFinal; y++) {
++    const altura = Math.min(y + 1, base) - Math.max(y, topo);
++    for (let x = xInicial; x < xFinal; x++) {
++      const i = (y * width + x) * 4;
++      if (data[i + 3] === 0) continue;
++      const largura = Math.min(x + 1, direita) - Math.max(x, esquerda);
++      const peso = data[i + 3] * largura * altura;
++      r += peso * data[i];
++      g += peso * data[i + 1];
++      b += peso * data[i + 2];
++      alfa += peso;
++    }
++  }
++  saida.r = alfa ? r / alfa : 0;
++  saida.g = alfa ? g / alfa : 0;
++  saida.b = alfa ? b / alfa : 0;
++  saida.alfa = alfa / (255 * (direita - esquerda) * (base - topo));
++}
++
++function densidade({ r, g, b, alfa }: Amostra, inverter: boolean): number {
++  const cinza = luminancia(r, g, b);
++  const densidade = (inverter ? cinza : 255 - cinza) * alfa;
++  return Math.max(0, Math.min(1, densidade / 255));
++}
++
++function hexa(r: number, g: number, b: number): string {
++  const canal = (v: number) => Math.round(v).toString(16).padStart(2, '0');
++  return `#${canal(r)}${canal(g)}${canal(b)}`;
++}
++
++function celulaBraille(
++  pixels: PixelBuffer,
++  amostra: Amostra,
++  coluna: number,
++  linha: number,
++  colunas: number,
++  linhas: number,
++  inverter: boolean,
++  colorido: boolean,
++) {
++  let pontos = 0;
++  let r = 0;
++  let g = 0;
++  let b = 0;
++  let alfa = 0;
++  for (let dy = 0; dy < 4; dy++) {
++    for (let dx = 0; dx < 2; dx++) {
++      amostrar(pixels, coluna * 2 + dx, linha * 4 + dy, colunas * 2, linhas * 4, amostra);
++      if (densidade(amostra, inverter) < 0.5) continue;
++      pontos |= BITS_BRAILLE[dy][dx];
++      if (colorido) {
++        r += amostra.r * amostra.alfa;
++        g += amostra.g * amostra.alfa;
++        b += amostra.b * amostra.alfa;
++        alfa += amostra.alfa;
++      }
++    }
++  }
++  return {
++    letra: String.fromCharCode(0x2800 + pontos),
++    cor: alfa ? hexa(r / alfa, g / alfa, b / alfa) : null,
++  };
++}
++
++/** Cada célula cobre uma área da imagem, com proporção aproximada de 1:2. */
++export function converterAscii(pixels: PixelBuffer, opcoes: Partial<OpcoesAscii> = {}): ArteAscii {
++  const conjunto = opcoes.conjunto ?? OPCOES_ASCII_PADRAO.conjunto;
++  const inverter = opcoes.inverter ?? OPCOES_ASCII_PADRAO.inverter;
++  const colorido = opcoes.colorido ?? OPCOES_ASCII_PADRAO.colorido;
++  const largura = opcoes.colunas ?? OPCOES_ASCII_PADRAO.colunas;
++  const colunas = Number.isFinite(largura)
++    ? Math.max(1, Math.min(MAX_COLUNAS_ASCII, Math.round(largura)))
++    : OPCOES_ASCII_PADRAO.colunas;
++  const linhas: string[] = [];
++  const cores: (string | null)[][] | undefined = colorido ? [] : undefined;
++  const { width, height } = pixels;
++  if (width > 0 && height > 0) {
++    const altura = Math.max(
++      1,
++      Math.min(
++        MAX_LINHAS_ASCII,
++        Math.floor(MAX_CELULAS_ASCII / colunas),
++        Math.round((height * colunas) / (width * 2)),
++      ),
++    );
++    const rampa =
++      conjunto !== 'braille' && typeof RAMPAS[conjunto] === 'string'
++        ? RAMPAS[conjunto]
++        : RAMPAS.simples;
++    const amostra: Amostra = { r: 0, g: 0, b: 0, alfa: 0 };
++    for (let y = 0; y < altura; y++) {
++      let linha = '';
++      const coresDaLinha: (string | null)[] = [];
++      for (let x = 0; x < colunas; x++) {
++        if (conjunto === 'braille') {
++          const { letra, cor } = celulaBraille(
++            pixels,
++            amostra,
++            x,
++            y,
++            colunas,
++            altura,
++            inverter,
++            colorido,
++          );
++          linha += letra;
++          if (colorido) coresDaLinha.push(cor);
++        } else {
++          amostrar(pixels, x, y, colunas, altura, amostra);
++          const letra = rampa[Math.round(densidade(amostra, inverter) * (rampa.length - 1))];
++          linha += letra;
++          if (colorido) {
++            coresDaLinha.push(letra === ' ' ? null : hexa(amostra.r, amostra.g, amostra.b));
++          }
++        }
++      }
++      linhas.push(linha);
++      cores?.push(coresDaLinha);
++    }
++  }
++  return { colunas, linhas, inverter, ...(cores ? { cores } : {}) };
++}
++
++export function textoAscii(arte: ArteAscii): string {
++  return arte.linhas.join('\n');
++}
++
++function escaparHtml(texto: string): string {
++  const substituicoes: Record<string, string> = {
++    '&': '&amp;',
++    '<': '&lt;',
++    '>': '&gt;',
++    '"': '&quot;',
++    "'": '&#39;',
++  };
++  return texto.replace(/[&<>"']/g, (letra) => substituicoes[letra]);
++}
++
++function corValida(cor: string | null | undefined): string | null {
++  return typeof cor === 'string' && COR_HEXA.test(cor) ? cor : null;
++}
++
++export function trechosAscii(linha: string, cores: (string | null)[] | undefined) {
++  if (!cores) return [{ texto: linha, cor: null }];
++  const letras = Array.from(linha);
++  const trechos: { texto: string; cor: string | null }[] = [];
++  let inicio = 0;
++  let cor = corValida(cores[0]);
++  for (let i = 1; i <= letras.length; i++) {
++    const proxima = corValida(cores[i]);
++    if (cor === proxima && i < letras.length) continue;
++    trechos.push({ texto: letras.slice(inicio, i).join(''), cor });
++    cor = proxima;
++    inicio = i;
++  }
++  return trechos;
++}
++
++function linhaHtml(linha: string, cores: (string | null)[] | undefined): string {
++  return trechosAscii(linha, cores)
++    .map(({ texto, cor }) => {
++      const seguro = escaparHtml(texto);
++      return cor ? `<span style="color:${cor}">${seguro}</span>` : seguro;
++    })
++    .join('');
++}
++
++export function htmlAscii(arte: ArteAscii): string {
++  const conteudo = arte.linhas.map((linha, y) => linhaHtml(linha, arte.cores?.[y])).join('\n');
++  // O parser HTML descarta a primeira quebra logo após a abertura de <pre>.
++  const quebraInicial = conteudo.startsWith('\n') ? '\n' : '';
++  const cor = arte.inverter ? '#fff' : '#000';
++  const fundo = arte.inverter ? '#111' : '#fff';
++  return `<!doctype html>
++<html lang="pt-BR">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Arte ASCII · Rabisco</title>
++  <style>
++    body { background: ${fundo}; color: ${cor}; margin: 1rem; }
++    pre { font: 1rem/1.2 monospace; font-variant-ligatures: none; white-space: pre; }
++  </style>
++</head>
++<body>
++<pre>${quebraInicial}${conteudo}</pre>
++</body>
++</html>\n`;
++}
++
++/** Desenha a arte dentro de uma área, com a superfície de fundo a cargo do chamador. */
++export function desenharAscii(
++  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
++  arte: ArteAscii,
++  area: Rect,
++): void {
++  if (arte.colunas <= 0 || !arte.linhas.length || area.width <= 0 || area.height <= 0) return;
++  const largura = area.width / arte.colunas;
++  const altura = area.height / arte.linhas.length;
++  const tamanho = Math.max(1, Math.min(altura * 0.88, largura * 1.9));
++  const cor = arte.inverter ? '#fff' : '#000';
++  ctx.save();
++  ctx.beginPath();
++  ctx.rect(area.x, area.y, area.width, area.height);
++  ctx.clip();
++  ctx.font = `${tamanho}px monospace`;
++  ctx.textAlign = 'center';
++  ctx.textBaseline = 'middle';
++  for (const [y, linha] of arte.linhas.entries()) {
++    const base = area.y + (y + 0.5) * altura;
++    const cores = arte.cores?.[y];
++    let x = 0;
++    for (const letra of linha) {
++      if (x >= arte.colunas) break;
++      if (letra !== ' ' && letra !== VAZIO_BRAILLE) {
++        ctx.fillStyle = corValida(cores?.[x]) ?? cor;
++        ctx.fillText(letra, area.x + (x + 0.5) * largura, base, largura);
++      }
++      x++;
++    }
++  }
++  ctx.restore();
++}
+diff --git a/src/estilos/ascii.worker.ts b/src/estilos/ascii.worker.ts
+new file mode 100644
+--- /dev/null
++++ b/src/estilos/ascii.worker.ts
+@@ -0,0 +1,35 @@
++/// <reference lib="webworker" />
++import type { PixelBuffer } from '../layers/types';
++import { converterAscii, type ArteAscii, type OpcoesAscii } from './ascii';
++
++export interface SolicitacaoAscii {
++  tipo: 'converter';
++  chave: string;
++  opcoes: OpcoesAscii;
++}
++
++type PedidoAscii = { tipo: 'origem'; origem: PixelBuffer } | SolicitacaoAscii;
++
++export type RespostaAscii = { chave: string } & ({ arte: ArteAscii } | { erro: string });
++
++const worker = self as DedicatedWorkerGlobalScope;
++let origem: PixelBuffer | undefined;
++
++worker.onmessage = ({ data }: MessageEvent<PedidoAscii>) => {
++  if (data.tipo === 'origem') {
++    origem = data.origem;
++    return;
++  }
++  const { chave, opcoes } = data;
++  try {
++    if (!origem) throw new Error('A imagem de origem não está disponível.');
++    const resposta: RespostaAscii = { chave, arte: converterAscii(origem, opcoes) };
++    worker.postMessage(resposta);
++  } catch (erro) {
++    const resposta: RespostaAscii = {
++      chave,
++      erro: erro instanceof Error ? erro.message : 'Não foi possível converter a imagem em ASCII.',
++    };
++    worker.postMessage(resposta);
++  }
++};
+diff --git a/src/estilos/camadaAscii.ts b/src/estilos/camadaAscii.ts
+new file mode 100644
+--- /dev/null
++++ b/src/estilos/camadaAscii.ts
+@@ -0,0 +1,88 @@
++import type { Point, Rect } from '../layers/types';
++import { dimensoesValidas } from '../document/dimensoes';
++import {
++  desenharAscii,
++  MAX_CELULAS_ASCII,
++  MAX_COLUNAS_ASCII,
++  MAX_LINHAS_ASCII,
++  type ArteAscii,
++} from './ascii';
++
++export interface CamadaAscii {
++  arte: ArteAscii;
++  area: Rect;
++}
++
++/** A camada editável mantém os caracteres e a área em coordenadas de papel. */
++export function renderizarCamadaAscii(ctx: CanvasRenderingContext2D, ascii: CamadaAscii): void {
++  const { arte, area } = ascii;
++  if (arte.inverter) {
++    ctx.save();
++    ctx.fillStyle = '#111';
++    ctx.fillRect(area.x, area.y, area.width, area.height);
++    ctx.restore();
++  }
++  desenharAscii(ctx, arte, area);
++}
++
++function inteiro(valor: unknown): valor is number {
++  return typeof valor === 'number' && Number.isSafeInteger(valor);
++}
++
++type DadosAscii = Partial<CamadaAscii>;
++
++export function normalizarCamadaAscii(valor: unknown): CamadaAscii | undefined {
++  if (!valor || typeof valor !== 'object') return undefined;
++  const { area, arte } = valor as DadosAscii;
++  if (
++    !area ||
++    !inteiro(area.x) ||
++    !inteiro(area.y) ||
++    !inteiro(area.width) ||
++    !inteiro(area.height) ||
++    !dimensoesValidas(area.width, area.height) ||
++    !arte ||
++    !inteiro(arte.colunas) ||
++    arte.colunas < 1 ||
++    arte.colunas > MAX_COLUNAS_ASCII ||
++    !Array.isArray(arte.linhas) ||
++    !arte.linhas.length ||
++    arte.linhas.length > MAX_LINHAS_ASCII ||
++    arte.linhas.length * arte.colunas > MAX_CELULAS_ASCII ||
++    !arte.linhas.every(
++      (linha) => typeof linha === 'string' && Array.from(linha).length <= arte.colunas,
++    )
++  )
++    return undefined;
++
++  const cores = Array.isArray(arte.cores)
++    ? arte.linhas.map((linha, y) => {
++        const fonte = arte.cores?.[y];
++        return Array.from(linha, (_, x) => {
++          const cor = Array.isArray(fonte) ? fonte[x] : undefined;
++          return typeof cor === 'string' && /^#[0-9a-f]{6}$/i.test(cor) ? cor : null;
++        });
++      })
++    : undefined;
++  return {
++    area: { x: area.x, y: area.y, width: area.width, height: area.height },
++    arte: {
++      colunas: arte.colunas,
++      linhas: [...arte.linhas],
++      inverter: Boolean(arte.inverter),
++      cores,
++    },
++  };
++}
++
++export function moverCamadaAscii(ascii: CamadaAscii, { x, y }: Point): CamadaAscii {
++  return { ...ascii, area: { ...ascii.area, x: ascii.area.x + x, y: ascii.area.y + y } };
++}
++
++export function atualizarTextoAscii(arte: ArteAscii, texto: string): ArteAscii {
++  const linhas = texto
++    .split(/\r?\n/)
++    .slice(0, Math.min(MAX_LINHAS_ASCII, Math.floor(MAX_CELULAS_ASCII / arte.colunas)))
++    .map((linha) => Array.from(linha).slice(0, arte.colunas).join(''));
++  return { ...arte, linhas };
++}
+diff --git a/tests/e2e/ascii.spec.ts b/tests/e2e/ascii.spec.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/e2e/ascii.spec.ts
+@@ -0,0 +1,80 @@
++import { readFile } from 'node:fs/promises';
++import { expect, test, type Page } from '@playwright/test';
++
++async function abrirConversor(page: Page) {
++  await page.goto('/');
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  await page.getByRole('button', { name: 'Usar cor #252a34', exact: true }).click();
++  await page.locator('.drawing-canvas').focus();
++  await page.keyboard.press('f');
++  await page.locator('.drawing-canvas').click({ position: { x: 100, y: 100 } });
++  await page.getByRole('button', { name: 'Filtros', exact: true }).click();
++  await page.getByRole('menuitem', { name: 'Converter em ASCII', exact: true }).click();
++  const dialogo = page.getByRole('dialog', { name: 'Converter em ASCII', exact: true });
++  await dialogo.getByLabel('Colunas', { exact: true }).fill('16');
++  await expect(dialogo.getByRole('button', { name: 'Criar camada de texto' })).toBeEnabled();
++  return dialogo;
++}
++
++test('converte em ASCII, copia e exporta o texto da prévia e rasteriza em nova camada', async ({
++  page,
++  context,
++}) => {
++  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
++  const dialogo = await abrirConversor(page);
++  await dialogo.getByLabel('Conjunto de caracteres', { exact: true }).selectOption('braille');
++  await dialogo.getByLabel('Colorido', { exact: true }).check();
++  const previa = dialogo.getByLabel('Prévia ASCII', { exact: true });
++  await expect(previa).toHaveAttribute('aria-busy', 'false');
++  const texto = (await previa.textContent())!;
++  expect(texto).toMatch(/[\u2801-\u28ff]/);
++
++  await dialogo.getByRole('button', { name: 'Copiar texto' }).click();
++  await expect(dialogo.getByText('Texto copiado.', { exact: true })).toBeVisible();
++  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(texto);
++
++  const downloads = page.waitForEvent('download');
++  await dialogo.getByRole('button', { name: 'Exportar .txt', exact: true }).click();
++  const download = await downloads;
++  expect(download.suggestedFilename()).toBe('arte-ascii.txt');
++  expect(await readFile(await download.path(), 'utf8')).toBe(texto);
++  await dialogo.getByRole('button', { name: 'Rasterizar em camada' }).click();
++  const camadas = page.getByRole('listbox', { name: 'Lista de camadas' });
++  await expect(camadas.getByRole('option', { selected: true })).toContainText('ASCII rasterizado');
++  await expect(page.getByRole('button', { name: 'Editar ASCII', exact: true })).toHaveCount(0);
++});
++
++test('edita caracteres da camada ASCII e recupera o texto ao reabrir .rabisco', async ({
++  page,
++}) => {
++  const dialogo = await abrirConversor(page);
++  await dialogo.getByRole('button', { name: 'Criar camada de texto' }).click();
++  const camadas = page.getByRole('listbox', { name: 'Lista de camadas' });
++  await expect(camadas.getByRole('option', { selected: true })).toContainText('Texto ASCII');
++  const editar = page.getByRole('button', { name: 'Editar ASCII', exact: true });
++  await editar.click();
++  const texto = page.getByRole('dialog', { name: 'Editar camada ASCII', exact: true });
++  await texto.getByLabel('Texto ASCII', { exact: true }).fill('A B C\nD E F');
++  await texto.getByRole('button', { name: 'Salvar texto', exact: true }).click();
++  await expect(
++    page.locator('.history-list').getByText('Editar texto ASCII', { exact: true }),
++  ).toHaveCount(1);
++
++  const downloads = page.waitForEvent('download');
++  await page.keyboard.press('Control+s');
++  const arquivo = await downloads;
++  await page.keyboard.press('Control+n');
++  await page
++    .getByRole('dialog')
++    .getByRole('button', { name: 'Criar desenho', exact: true })
++    .click();
++  await expect(camadas.getByRole('option')).toHaveCount(1);
++  await page.getByLabel('Abrir arquivo de imagem', { exact: true }).setInputFiles({
++    name: arquivo.suggestedFilename(),
++    mimeType: 'application/octet-stream',
++    buffer: await readFile(await arquivo.path()),
++  });
++  await expect(camadas.getByRole('option', { selected: true })).toContainText('Texto ASCII');
++  await editar.click();
++  await expect(texto.getByLabel('Texto ASCII', { exact: true })).toHaveValue('A B C\nD E F');
++});
+diff --git a/tests/unit/ascii.test.ts b/tests/unit/ascii.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/ascii.test.ts
+@@ -0,0 +1,101 @@
++import { describe, expect, it, vi } from 'vitest';
++import { converterAscii, desenharAscii, htmlAscii, textoAscii } from '../../src/estilos/ascii';
++
++const BRANCO = [255, 255, 255, 255];
++const PRETO = [0, 0, 0, 255];
++const TRANSPARENTE = [21, 53, 100, 0];
++
++function imagem(linhas: number[][][]) {
++  return {
++    width: linhas[0]?.length ?? 0,
++    height: linhas.length,
++    data: new Uint8ClampedArray(linhas.flat(2)),
++  };
++}
++
++describe('arte ASCII', () => {
++  it('mapeia preto, branco e transparência em colunas editáveis, com inversão opcional', () => {
++    const pixels = imagem([[BRANCO, PRETO, TRANSPARENTE]]);
++    const opcoes = { colunas: 3, colorido: true };
++    expect(converterAscii(pixels, opcoes)).toEqual({
++      colunas: 3,
++      linhas: [' @ '],
++      inverter: false,
++      cores: [[null, '#000000', null]],
++    });
++    expect(converterAscii(pixels, { ...opcoes, inverter: true })).toEqual({
++      colunas: 3,
++      linhas: ['@  '],
++      inverter: true,
++      cores: [['#ffffff', null, null]],
++    });
++  });
++
++  it('faz a média proporcional nas bordas dos recortes e pondera pelo alfa', () => {
++    expect(converterAscii(imagem([[PRETO, BRANCO, BRANCO]]), { colunas: 2 }).linhas).toEqual(['* ']);
++    const semitransparente = imagem([[[0, 0, 0, 128], [80, 40, 0, 255]]]);
++    const arte = converterAscii(semitransparente, { colunas: 2, conjunto: 'blocos', colorido: true });
++    expect(arte.linhas).toEqual(['▒▓']);
++    expect(arte.cores).toEqual([['#000000', '#502800']]);
++  });
++
++  it('respeita a proporção aproximada das células monoespaçadas', () => {
++    const pixels = imagem(Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => PRETO)));
++    const arte = converterAscii(pixels, { colunas: 8, conjunto: 'detalhado' });
++    expect(arte.linhas).toEqual(Array(4).fill('$$$$$$$$'));
++    expect(converterAscii(imagem([]), { colunas: 4 }).linhas).toEqual([]);
++  });
++
++  it('preenche os bits da célula Braille 2 × 4 em ordem Unicode', () => {
++    const pixels = imagem([
++      [[80, 0, 0, 255], BRANCO],
++      [BRANCO, [0, 0, 80, 255]],
++      [[0, 10, 0, 255], BRANCO],
++      [BRANCO, TRANSPARENTE],
++    ]);
++    expect(converterAscii(pixels, { colunas: 1, conjunto: 'braille', colorido: true })).toEqual({
++      colunas: 1,
++      linhas: ['⠕'],
++      inverter: false,
++      cores: [['#1b031b']],
++    });
++    const vazia = imagem(Array.from({ length: 4 }, () => [BRANCO, BRANCO]));
++    expect(converterAscii(vazia, { colunas: 1, conjunto: 'braille' }).linhas).toEqual(['\u2800']);
++  });
++
++  it('preserva espaços no texto e escapa letras e cores editadas no HTML', () => {
++    const arte = {
++      colunas: 4,
++      linhas: ['<x&>', '\"  '],
++      inverter: false,
++      cores: [['#12ab34', '#12ab34', '#fff\" onmouseover=1', null], [null, null, null]],
++    };
++    expect(textoAscii(arte)).toBe('<x&>\n\"  ');
++    const html = htmlAscii(arte);
++    expect(html.startsWith('<!doctype html>')).toBe(true);
++    expect(html).toContain('<span style="color:#12ab34">&lt;x</span>&amp;&gt;\n&quot;  ');
++    expect(html).not.toContain('onmouseover');
++  });
++
++  it('desenha letras coloridas dentro da área sem preencher células vazias', () => {
++    const ctx = {
++      save: vi.fn(),
++      restore: vi.fn(),
++      rect: vi.fn(),
++      clip: vi.fn(),
++      beginPath: vi.fn(),
++      fillText: vi.fn(),
++    };
++    desenharAscii(ctx as unknown as CanvasRenderingContext2D, {
++      colunas: 2,
++      linhas: ['@ ', '\u2800█'],
++      inverter: false,
++      cores: [['#ff0000', null], [null, '#0000ff']],
++    }, {
++      x: 10, y: 20, width: 40, height: 80,
++    });
++    expect(ctx.rect).toHaveBeenCalledWith(10, 20, 40, 80);
++    expect(ctx.fillText.mock.calls).toEqual([['@', 20, 40, 20], ['█', 40, 80, 20]]);
++    expect(ctx.restore).toHaveBeenCalledTimes(1);
++  });
++});

@@ -1,0 +1,686 @@
+diff --git a/src/canvas/CanvasSurface.tsx b/src/canvas/CanvasSurface.tsx
+index 9ed1155..f6928e9 100644
+--- a/src/canvas/CanvasSurface.tsx
++++ b/src/canvas/CanvasSurface.tsx
+@@ -208,6 +208,7 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+       viewport: workspace,
+       tela,
+       zoom,
++      vista,
+       largura: dimensoes.width,
+       altura: dimensoes.height,
+     };
+@@ -326,8 +327,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
+             </span>
+           </div>
+         </div>
+-        {ruler && !callbacks.telaInteira && !girada && <Reguas {...propsViewport} />}
+-        {miniatura && !callbacks.telaInteira && !girada && (
++        {ruler && !callbacks.telaInteira && <Reguas {...propsViewport} />}
++        {miniatura && !callbacks.telaInteira && (
+           <Miniatura
+             {...propsViewport}
+             revisao={callbacks.revisaoMiniatura}
+diff --git a/src/canvas/Miniatura.tsx b/src/canvas/Miniatura.tsx
+index db5d48a..ca7af63 100644
+--- a/src/canvas/Miniatura.tsx
++++ b/src/canvas/Miniatura.tsx
+@@ -1,8 +1,9 @@
+ import { useLayoutEffect, useRef, type PointerEvent } from 'react';
+ import type { Point } from '../layers/types';
++import { deslocamentoNaTela, papelParaTela, type Vista } from './vista';
+ import {
+-  areaVisivel,
+   medirViewport,
++  poligonoVisivel,
+   prepararTelaPequena,
+   type PropsViewportVisual,
+ } from './viewportVisual';
+@@ -18,6 +19,8 @@ interface ArrasteMiniatura {
+   origem: Point;
+   scrollX: number;
+   scrollY: number;
++  razao: number;
++  vista: Vista;
+ }
+ 
+ const MARGEM = 8;
+@@ -40,18 +43,21 @@ export function Miniatura({
+   zoom,
+   largura,
+   altura,
++  vista,
+   revisao,
+   fechar,
+ }: PropsMiniatura) {
+   const miniatura = useRef<HTMLCanvasElement>(null);
+   const arraste = useRef<ArrasteMiniatura | null>(null);
+   const atualizar = useRef<(() => void) | null>(null);
++  const { rotacao, espelhar } = vista;
+ 
+   useLayoutEffect(() => {
+     const scroll = viewport.current;
+     const desenho = tela.current;
+     const mapa = miniatura.current;
+     if (!scroll || !desenho || !mapa) return;
++    const orientacao = { rotacao, espelhar };
+     let quadroPendente = 0;
+ 
+     function pintar() {
+@@ -69,15 +75,25 @@ export function Miniatura({
+       ctx.strokeStyle = '#9ab1c4';
+       ctx.lineWidth = 1;
+       ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
+-      const moldura = areaVisivel(medirViewport(scroll, desenho), zoom, largura, altura);
+-      if (moldura.width <= 0 || moldura.height <= 0) return;
++      const moldura = poligonoVisivel(
++        medirViewport(scroll, desenho),
++        zoom,
++        largura,
++        altura,
++        orientacao,
++      );
++      if (moldura.length < 3) return;
+       ctx.fillStyle = '#2a83bc19';
+       ctx.strokeStyle = '#1c6da6';
+       ctx.lineWidth = 1.5;
+-      const esquerda = x + moldura.x * escala;
+-      const topo = y + moldura.y * escala;
+-      ctx.fillRect(esquerda, topo, moldura.width * escala, moldura.height * escala);
+-      ctx.strokeRect(esquerda, topo, moldura.width * escala, moldura.height * escala);
++      ctx.beginPath();
++      ctx.moveTo(x + moldura[0].x * escala, y + moldura[0].y * escala);
++      for (let i = 1; i < moldura.length; i++) {
++        ctx.lineTo(x + moldura[i].x * escala, y + moldura[i].y * escala);
++      }
++      ctx.closePath();
++      ctx.fill();
++      ctx.stroke();
+     }
+ 
+     function agendar() {
+@@ -97,7 +113,7 @@ export function Miniatura({
+       scroll.removeEventListener('scroll', agendar);
+       if (quadroPendente) cancelAnimationFrame(quadroPendente);
+     };
+-  }, [viewport, tela, zoom, largura, altura]);
++  }, [viewport, tela, zoom, largura, altura, rotacao, espelhar]);
+ 
+   useLayoutEffect(() => atualizar.current?.(), [revisao]);
+ 
+@@ -117,16 +133,14 @@ export function Miniatura({
+       y: Math.max(0, Math.min(altura, (evento.clientY - dimensoes.top - y) / escala)),
+     };
+     const quadro = medirViewport(scroll, desenho);
+-    const moldura = areaVisivel(quadro, zoom, largura, altura);
+-    const dentro =
+-      ponto.x >= moldura.x &&
+-      ponto.x <= moldura.x + moldura.width &&
+-      ponto.y >= moldura.y &&
+-      ponto.y <= moldura.y + moldura.height;
++    const naTela = papelParaTela(ponto, quadro.papel, largura, altura, zoom, vista);
++    const dx = naTela.x - quadro.esquerda;
++    const dy = naTela.y - quadro.topo;
++    const dentro = dx >= 0 && dy >= 0 && dx <= quadro.width && dy <= quadro.height;
+     if (!dentro) {
+       scroll.scrollTo({
+-        left: scroll.scrollLeft + quadro.papelX + ponto.x * zoom - quadro.width / 2,
+-        top: scroll.scrollTop + quadro.papelY + ponto.y * zoom - quadro.height / 2,
++        left: scroll.scrollLeft + dx - quadro.width / 2,
++        top: scroll.scrollTop + dy - quadro.height / 2,
+       });
+     }
+     arraste.current = {
+@@ -134,6 +148,8 @@ export function Miniatura({
+       origem: { x: evento.clientX, y: evento.clientY },
+       scrollX: scroll.scrollLeft,
+       scrollY: scroll.scrollTop,
++      razao: zoom / escala,
++      vista,
+     };
+     mapa.setPointerCapture(evento.pointerId);
+   }
+@@ -142,12 +158,14 @@ export function Miniatura({
+     const ativo = arraste.current;
+     const scroll = viewport.current;
+     if (!ativo || !scroll || ativo.id !== evento.pointerId) return;
+-    const { escala } = enquadrar(evento.currentTarget, largura, altura);
+-    if (escala <= 0) return;
+-    const razao = zoom / escala;
++    const delta = deslocamentoNaTela(
++      { x: evento.clientX - ativo.origem.x, y: evento.clientY - ativo.origem.y },
++      ativo.razao,
++      ativo.vista,
++    );
+     scroll.scrollTo({
+-      left: ativo.scrollX + (evento.clientX - ativo.origem.x) * razao,
+-      top: ativo.scrollY + (evento.clientY - ativo.origem.y) * razao,
++      left: ativo.scrollX + delta.x,
++      top: ativo.scrollY + delta.y,
+     });
+   }
+ 
+@@ -191,7 +209,8 @@ export function Miniatura({
+           if (!direcao) return;
+           evento.preventDefault();
+           evento.stopPropagation();
+-          viewport.current?.scrollBy({ left: direcao[0], top: direcao[1] });
++          const delta = deslocamentoNaTela({ x: direcao[0], y: direcao[1] }, 1, vista);
++          viewport.current?.scrollBy({ left: delta.x, top: delta.y });
+         }}
+       />
+     </section>
+diff --git a/src/canvas/Reguas.tsx b/src/canvas/Reguas.tsx
+index 1fb2b1a..7e0f1a2 100644
+--- a/src/canvas/Reguas.tsx
++++ b/src/canvas/Reguas.tsx
+@@ -2,7 +2,13 @@ import { useLayoutEffect, useRef, type PointerEvent as EventoPonteiro } from 're
+ import { useEditor } from '../app/store';
+ import { soltarGuia } from './soltarGuia';
+ import type { Point } from '../layers/types';
+-import { medirViewport, prepararTelaPequena, type PropsViewportVisual } from './viewportVisual';
++import { telaParaPapel } from './vista';
++import {
++  eixosDasReguas,
++  medirViewport,
++  prepararTelaPequena,
++  type PropsViewportVisual,
++} from './viewportVisual';
+ import './viewportVisual.css';
+ 
+ const FAIXA = 22;
+@@ -20,7 +26,7 @@ function desenharRegua(
+   disponivel: number,
+   origem: number,
+   total: number,
+-  zoom: number,
++  escala: number,
+   cursor: number | null,
+ ) {
+   const ctx = prepararTelaPequena(
+@@ -34,12 +40,13 @@ function desenharRegua(
+     ctx.rotate(-Math.PI / 2);
+   }
+ 
+-  const inicio = FAIXA - origem;
+-  const maior = intervaloPrincipal(zoom);
++  const da = (FAIXA - origem) / escala;
++  const ate = (FAIXA + disponivel - origem) / escala;
++  const maior = intervaloPrincipal(Math.abs(escala));
+   const menor = maior % 5 === 0 ? maior / 5 : maior / 2;
+   const passo = Math.max(1, menor);
+-  const primeiro = Math.max(0, Math.ceil(inicio / (zoom * passo)) * passo);
+-  const ultimo = Math.min(total, (inicio + disponivel) / zoom);
++  const primeiro = Math.max(0, Math.ceil(Math.min(da, ate) / passo) * passo);
++  const ultimo = Math.min(total, Math.max(da, ate));
+   const sinal = vertical ? -1 : 1;
+   const posicao = (offset: number) => (vertical ? disponivel : 0) + sinal * offset;
+ 
+@@ -56,7 +63,7 @@ function desenharRegua(
+   ctx.textBaseline = 'top';
+   ctx.textAlign = vertical ? 'right' : 'left';
+   for (let valor = primeiro; valor <= ultimo; valor += passo) {
+-    const x = Math.round(posicao(valor * zoom - inicio)) - 0.5;
++    const x = Math.round(posicao(origem + valor * escala - FAIXA)) - 0.5;
+     const marcaMaior = valor % maior === 0;
+     const alturaMarca = marcaMaior ? 8 : 4;
+     ctx.fillRect(x, FAIXA - alturaMarca, 1, alturaMarca - 1);
+@@ -76,11 +83,13 @@ function desenharRegua(
+   }
+ }
+ 
+-export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportVisual) {
++export function Reguas({ viewport, tela, zoom, largura, altura, vista }: PropsViewportVisual) {
+   const moldura = useRef<HTMLDivElement>(null);
+   const horizontal = useRef<HTMLCanvasElement>(null);
+   const vertical = useRef<HTMLCanvasElement>(null);
+   const cursor = useRef<Point | null>(null);
++  const { rotacao, espelhar } = vista;
++  const eixos = eixosDasReguas(zoom, largura, altura, vista);
+ 
+   useLayoutEffect(() => {
+     const scroll = viewport.current;
+@@ -89,6 +98,8 @@ export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportV
+     const topo = horizontal.current;
+     const lateral = vertical.current;
+     if (!scroll || !desenho || !reguas || !topo || !lateral) return;
++    const orientacao = { rotacao, espelhar };
++    const eixos = eixosDasReguas(zoom, largura, altura, orientacao);
+     let quadroPendente = 0;
+ 
+     function pintar() {
+@@ -98,33 +109,40 @@ export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportV
+       if (quadro.width <= FAIXA || quadro.height <= FAIXA) return;
+       reguas.style.width = `${quadro.width}px`;
+       reguas.style.height = `${quadro.height}px`;
+-      const ponto = cursor.current && {
+-        x: cursor.current.x - quadro.esquerda,
+-        y: cursor.current.y - quadro.topo,
+-      };
+-      const estaNoPapel =
+-        ponto &&
+-        ponto.x >= quadro.papelX &&
+-        ponto.y >= quadro.papelY &&
+-        ponto.x < quadro.papelX + largura * zoom &&
+-        ponto.y < quadro.papelY + altura * zoom;
++      const ponto =
++        cursor.current &&
++        telaParaPapel(cursor.current, quadro.papel, largura, altura, zoom, orientacao);
++      const visivel =
++        ponto && ponto.x >= 0 && ponto.y >= 0 && ponto.x < largura && ponto.y < altura
++          ? ponto
++          : null;
++      const origemX =
++        quadro.papel.left +
++        quadro.papel.width / 2 -
++        quadro.esquerda -
++        (eixos.topo.total * eixos.topo.escala) / 2;
++      const origemY =
++        quadro.papel.top +
++        quadro.papel.height / 2 -
++        quadro.topo -
++        (eixos.lateral.total * eixos.lateral.escala) / 2;
+       desenharRegua(
+         topo,
+         false,
+         quadro.width - FAIXA,
+-        quadro.papelX,
+-        largura,
+-        zoom,
+-        estaNoPapel ? ponto.x : null,
++        origemX,
++        eixos.topo.total,
++        eixos.topo.escala,
++        visivel ? origemX + visivel[eixos.topo.eixo] * eixos.topo.escala : null,
+       );
+       desenharRegua(
+         lateral,
+         true,
+         quadro.height - FAIXA,
+-        quadro.papelY,
+-        altura,
+-        zoom,
+-        estaNoPapel ? ponto.y : null,
++        origemY,
++        eixos.lateral.total,
++        eixos.lateral.escala,
++        visivel ? origemY + visivel[eixos.lateral.eixo] * eixos.lateral.escala : null,
+       );
+     }
+ 
+@@ -156,31 +174,43 @@ export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportV
+       scroll.removeEventListener('pointerleave', sair);
+       if (quadroPendente) cancelAnimationFrame(quadroPendente);
+     };
+-  }, [viewport, tela, zoom, largura, altura]);
++  }, [viewport, tela, zoom, largura, altura, rotacao, espelhar]);
+ 
+-  /** Arrastar da régua de cima cria uma guia horizontal; da lateral, uma vertical. */
++  /** Cada régua cria uma guia paralela ao seu eixo no papel. */
+   function arrastarGuia(eixo: 'horizontal' | 'vertical') {
+-    const valor = (evento: EventoPonteiro) => {
+-      const papel = tela.current!.getBoundingClientRect();
+-      return Math.round(
+-        eixo === 'horizontal'
+-          ? (evento.clientY - papel.top) / zoom
+-          : (evento.clientX - papel.left) / zoom,
++    const valor = (evento: EventoPonteiro, direcao: typeof eixo) => {
++      const ponto = telaParaPapel(
++        { x: evento.clientX, y: evento.clientY },
++        tela.current!.getBoundingClientRect(),
++        largura,
++        altura,
++        zoom,
++        vista,
+       );
++      return Math.round(direcao === 'horizontal' ? ponto.y : ponto.x);
++    };
++    const atualizar = (evento: EventoPonteiro<HTMLCanvasElement>) => {
++      const estado = useEditor.getState();
++      if (!estado.guiaNova || !tela.current) return;
++      const guiaNova = { ...estado.guiaNova, valor: valor(evento, estado.guiaNova.eixo) };
++      estado.set({ guiaNova });
+     };
+     return {
+       onPointerDown(evento: EventoPonteiro<HTMLCanvasElement>) {
+         if (evento.button !== 0 || !tela.current) return;
+         evento.preventDefault();
+         evento.currentTarget.setPointerCapture(evento.pointerId);
+-        useEditor.getState().set({ guiaNova: { eixo, valor: valor(evento) }, mostrarGuias: true });
++        useEditor
++          .getState()
++          .set({ guiaNova: { eixo, valor: valor(evento, eixo) }, mostrarGuias: true });
+       },
+       onPointerMove(evento: EventoPonteiro<HTMLCanvasElement>) {
+-        if (!evento.currentTarget.hasPointerCapture(evento.pointerId) || !tela.current) return;
+-        useEditor.getState().set({ guiaNova: { eixo, valor: valor(evento) } });
++        if (!evento.currentTarget.hasPointerCapture(evento.pointerId)) return;
++        atualizar(evento);
+       },
+       onPointerUp(evento: EventoPonteiro<HTMLCanvasElement>) {
+         if (!evento.currentTarget.hasPointerCapture(evento.pointerId)) return;
++        atualizar(evento);
+         soltarGuia(largura, altura);
+       },
+       onPointerCancel() {
+@@ -189,20 +219,25 @@ export function Reguas({ viewport, tela, zoom, largura, altura }: PropsViewportV
+     };
+   }
+ 
++  const guiaTopo = eixos.topo.eixo === 'x' ? 'horizontal' : 'vertical';
++  const guiaLateral = eixos.lateral.eixo === 'x' ? 'horizontal' : 'vertical';
++
+   return (
+     <div ref={moldura} className="canvas-rulers" aria-hidden="true">
+       <div className="canvas-rulers-corner">px</div>
+       <canvas
+         ref={horizontal}
+         className="canvas-ruler-x"
+-        title="Arraste para o papel para criar uma guia horizontal"
+-        {...arrastarGuia('horizontal')}
++        data-eixo={eixos.topo.eixo}
++        title={`Eixo ${eixos.topo.eixo.toUpperCase()} do papel. Arraste para criar uma guia ${guiaTopo}.`}
++        {...arrastarGuia(guiaTopo)}
+       />
+       <canvas
+         ref={vertical}
+         className="canvas-ruler-y"
+-        title="Arraste para o papel para criar uma guia vertical"
+-        {...arrastarGuia('vertical')}
++        data-eixo={eixos.lateral.eixo}
++        title={`Eixo ${eixos.lateral.eixo.toUpperCase()} do papel. Arraste para criar uma guia ${guiaLateral}.`}
++        {...arrastarGuia(guiaLateral)}
+       />
+     </div>
+   );
+diff --git a/src/canvas/viewportVisual.ts b/src/canvas/viewportVisual.ts
+index 2348994..9e0c2ab 100644
+--- a/src/canvas/viewportVisual.ts
++++ b/src/canvas/viewportVisual.ts
+@@ -1,5 +1,6 @@
+ import type { RefObject } from 'react';
+-import type { Rect } from '../layers/types';
++import type { Point } from '../layers/types';
++import { deslocamentoNaTela, telaParaPapel, type Vista } from './vista';
+ 
+ export interface PropsViewportVisual {
+   viewport: RefObject<HTMLDivElement | null>;
+@@ -7,38 +8,89 @@ export interface PropsViewportVisual {
+   zoom: number;
+   largura: number;
+   altura: number;
++  vista: Vista;
+ }
+ 
+-export function medirViewport(viewport: HTMLElement, tela: HTMLCanvasElement) {
++interface QuadroViewport {
++  esquerda: number;
++  topo: number;
++  width: number;
++  height: number;
++  papel: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
++}
++
++export function medirViewport(viewport: HTMLElement, tela: HTMLCanvasElement): QuadroViewport {
+   const moldura = viewport.getBoundingClientRect();
+-  const papel = tela.getBoundingClientRect();
+   const esquerda = moldura.left + viewport.clientLeft;
+   const topo = moldura.top + viewport.clientTop;
+   return {
+     esquerda,
+     topo,
+-    papelX: papel.left - esquerda,
+-    papelY: papel.top - topo,
++    papel: tela.getBoundingClientRect(),
+     width: viewport.clientWidth,
+     height: viewport.clientHeight,
+   };
+ }
+ 
+-export function areaVisivel(
+-  quadro: ReturnType<typeof medirViewport>,
++/** Projeta os eixos do papel, escolhendo o mais próximo de cada régua da tela. */
++export function eixosDasReguas(zoom: number, largura: number, altura: number, vista: Vista) {
++  const x = deslocamentoNaTela({ x: 1, y: 0 }, zoom, vista);
++  const y = deslocamentoNaTela({ x: 0, y: 1 }, zoom, vista);
++  const trocar = Math.abs(x.x) < Math.abs(y.x);
++  return {
++    topo: trocar
++      ? { eixo: 'y' as const, total: altura, escala: y.x }
++      : { eixo: 'x' as const, total: largura, escala: x.x },
++    lateral: trocar
++      ? { eixo: 'x' as const, total: largura, escala: x.y }
++      : { eixo: 'y' as const, total: altura, escala: y.y },
++  };
++}
++
++/** Recorta um polígono num semiplano e mantém as interseções na borda exata. */
++function recortar(pontos: Point[], eixo: 'x' | 'y', limite: number, lado: 1 | -1): Point[] {
++  const recorte: Point[] = [];
++  for (let i = 0; i < pontos.length; i++) {
++    const atual = pontos[i];
++    const anterior = pontos[(i + pontos.length - 1) % pontos.length];
++    const dentro = (atual[eixo] - limite) * lado >= 0;
++    const anteriorDentro = (anterior[eixo] - limite) * lado >= 0;
++    if (dentro !== anteriorDentro) {
++      const t = (limite - anterior[eixo]) / (atual[eixo] - anterior[eixo]);
++      const corte = {
++        x: anterior.x + (atual.x - anterior.x) * t,
++        y: anterior.y + (atual.y - anterior.y) * t,
++      };
++      corte[eixo] = limite;
++      recorte.push(corte);
++    }
++    if (dentro) recorte.push(atual);
++  }
++  return recorte;
++}
++
++/** Quatro cantos da tela no papel, recortados ao desenho para a moldura da miniatura. */
++export function poligonoVisivel(
++  quadro: QuadroViewport,
+   zoom: number,
+   largura: number,
+   altura: number,
+-): Rect {
+-  const limitar = (n: number, max: number) => Math.min(max, Math.max(0, n));
+-  const x = limitar(-quadro.papelX / zoom, largura);
+-  const y = limitar(-quadro.papelY / zoom, altura);
+-  return {
+-    x,
+-    y,
+-    width: limitar((quadro.width - quadro.papelX) / zoom, largura) - x,
+-    height: limitar((quadro.height - quadro.papelY) / zoom, altura) - y,
+-  };
++  vista: Vista,
++): Point[] {
++  const { esquerda, topo, width, height, papel } = quadro;
++  if (width <= 0 || height <= 0) return [];
++  const direita = esquerda + width;
++  const base = topo + height;
++  let cantos = [
++    { x: esquerda, y: topo },
++    { x: direita, y: topo },
++    { x: direita, y: base },
++    { x: esquerda, y: base },
++  ].map((ponto) => telaParaPapel(ponto, papel, largura, altura, zoom, vista));
++  cantos = recortar(cantos, 'x', 0, 1);
++  cantos = recortar(cantos, 'x', largura, -1);
++  cantos = recortar(cantos, 'y', 0, 1);
++  return recortar(cantos, 'y', altura, -1);
+ }
+ 
+ export function prepararTelaPequena(tela: HTMLCanvasElement, largura: number, altura: number) {
+diff --git a/src/canvas/vista.ts b/src/canvas/vista.ts
+index 78be534..e3349ad 100644
+--- a/src/canvas/vista.ts
++++ b/src/canvas/vista.ts
+@@ -65,13 +65,23 @@ export function papelParaTela(
+   zoom: number,
+   vista: Vista,
+ ): Point {
+-  let x = (ponto.x - largura / 2) * zoom;
+-  const y = (ponto.y - altura / 2) * zoom;
++  const delta = deslocamentoNaTela(
++    { x: ponto.x - largura / 2, y: ponto.y - altura / 2 },
++    zoom,
++    vista,
++  );
++  return { x: caixa.left + caixa.width / 2 + delta.x, y: caixa.top + caixa.height / 2 + delta.y };
++}
++
++/** Converte um deslocamento do papel para os eixos da tela, sem mover o centro. */
++export function deslocamentoNaTela(delta: Point, zoom: number, vista: Vista): Point {
++  let x = delta.x * zoom;
++  const y = delta.y * zoom;
+   if (vista.espelhar) x = -x;
+   const angulo = (vista.rotacao * Math.PI) / 180;
+   return {
+-    x: caixa.left + caixa.width / 2 + x * Math.cos(angulo) - y * Math.sin(angulo),
+-    y: caixa.top + caixa.height / 2 + x * Math.sin(angulo) + y * Math.cos(angulo),
++    x: x * Math.cos(angulo) - y * Math.sin(angulo),
++    y: x * Math.sin(angulo) + y * Math.cos(angulo),
+   };
+ }
+ 
+diff --git a/tests/unit/viewport-girado.test.ts b/tests/unit/viewport-girado.test.ts
+new file mode 100644
+index 0000000..4750e8c
+--- /dev/null
++++ b/tests/unit/viewport-girado.test.ts
+@@ -0,0 +1,77 @@
++import { describe, expect, it } from 'vitest';
++import { eixosDasReguas, poligonoVisivel } from '../../src/canvas/viewportVisual';
++import { caixaGirada, deslocamentoNaTela, deslocamentoNoPapel } from '../../src/canvas/vista';
++
++describe('réguas e miniatura com vista transformada', () => {
++  it('troca os eixos a 90° e inverte o sentido da régua no espelho', () => {
++    expect(eixosDasReguas(2, 200, 100, { rotacao: 0, espelhar: false })).toEqual({
++      topo: { eixo: 'x', total: 200, escala: 2 },
++      lateral: { eixo: 'y', total: 100, escala: 2 },
++    });
++    expect(eixosDasReguas(2, 200, 100, { rotacao: 90, espelhar: false })).toEqual({
++      topo: { eixo: 'y', total: 100, escala: -2 },
++      lateral: { eixo: 'x', total: 200, escala: 2 },
++    });
++    expect(eixosDasReguas(2, 200, 100, { rotacao: 0, espelhar: true }).topo.escala).toBe(-2);
++    expect(eixosDasReguas(2, 200, 100, { rotacao: 90, espelhar: true }).lateral.escala).toBe(-2);
++  });
++
++  it('mapeia a metade direita da vista girada para a metade superior do papel', () => {
++    const vista = { rotacao: 90, espelhar: false };
++    const poligono = poligonoVisivel(
++      {
++        esquerda: 500,
++        topo: 100,
++        width: 100,
++        height: 400,
++        papel: { left: 400, top: 100, width: 200, height: 400 },
++      },
++      2,
++      200,
++      100,
++      vista,
++    );
++    expect(Math.min(...poligono.map(({ x }) => x))).toBeCloseTo(0);
++    expect(Math.max(...poligono.map(({ x }) => x))).toBeCloseTo(200);
++    expect(Math.min(...poligono.map(({ y }) => y))).toBeCloseTo(0);
++    expect(Math.max(...poligono.map(({ y }) => y))).toBeCloseTo(50);
++  });
++
++  it('desenha um losango na miniatura a 45° e recorta o enquadramento na borda da imagem', () => {
++    const caixa = caixaGirada(100, 100, 45);
++    const quadro = {
++      esquerda: 90,
++      topo: 40,
++      width: 20,
++      height: 20,
++      papel: { left: 100 - caixa.width / 2, top: 50 - caixa.height / 2, ...caixa },
++    };
++    const vista = { rotacao: 45, espelhar: false };
++    const pontos = poligonoVisivel(quadro, 1, 100, 100, vista);
++    expect(pontos).toHaveLength(4);
++    expect(pontos[0].x).toBeCloseTo(50 - Math.SQRT2 * 10);
++    expect(pontos[0].y).toBeCloseTo(50);
++    expect(pontos[1].x).toBeCloseTo(50);
++    expect(pontos[1].y).toBeCloseTo(50 - Math.SQRT2 * 10);
++    const inteira = poligonoVisivel(
++      { ...quadro, esquerda: -500, topo: -500, width: 1000, height: 1000 },
++      1,
++      100,
++      100,
++      vista,
++    );
++    expect(inteira).toHaveLength(4);
++    expect(inteira.every(({ x, y }) => x >= 0 && x <= 100 && y >= 0 && y <= 100)).toBe(true);
++    expect(poligonoVisivel({ ...quadro, esquerda: 1000 }, 1, 100, 100, vista)).toEqual([]);
++  });
++
++  it('transforma o arraste da miniatura em rolagem para a vista atual', () => {
++    const vista = { rotacao: 90, espelhar: true };
++    const delta = deslocamentoNaTela({ x: 12, y: -7 }, 2, vista);
++    expect(delta.x).toBeCloseTo(14);
++    expect(delta.y).toBeCloseTo(-24);
++    const volta = deslocamentoNoPapel(delta, 2, vista);
++    expect(volta.x).toBeCloseTo(12);
++    expect(volta.y).toBeCloseTo(-7);
++  });
++});
+diff --git a/tests/e2e/viewport-girado.spec.ts b/tests/e2e/viewport-girado.spec.ts
+new file mode 100644
+index 0000000..5dbb03a
+--- /dev/null
++++ b/tests/e2e/viewport-girado.spec.ts
+@@ -0,0 +1,52 @@
++import { expect, test } from '@playwright/test';
++
++test('réguas criam guias no eixo girado e a miniatura navega em coordenadas do papel', async ({
++  page,
++}) => {
++  await page.goto('/');
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  const tela = page.locator('.drawing-canvas');
++  await tela.focus();
++  await page.keyboard.press('Control+r');
++  for (let i = 0; i < 6; i++) await page.keyboard.press('6');
++  await expect(page.getByRole('button', { name: /↻ 90°/ })).toBeVisible();
++  const topo = page.locator('.canvas-ruler-x');
++  const lateral = page.locator('.canvas-ruler-y');
++  await expect(topo).toHaveAttribute('data-eixo', 'y');
++  await expect(lateral).toHaveAttribute('data-eixo', 'x');
++
++  const papel = (await tela.boundingBox())!;
++  const regua = (await topo.boundingBox())!;
++  const largura = Number(await tela.getAttribute('width'));
++  const altura = Number(await tela.getAttribute('height'));
++  const zoom = papel.width / altura;
++  await page.mouse.move(regua.x + regua.width / 2, regua.y + regua.height / 2);
++  await page.mouse.down();
++  await page.mouse.move(papel.x + papel.width / 2, papel.y + papel.height / 2 + 20 * zoom, {
++    steps: 8,
++  });
++  await page.mouse.up();
++  const guia = page.getByTestId('guia-vertical');
++  await expect(guia).toHaveCount(1);
++  expect(
++    Math.abs(Number(await guia.getAttribute('data-valor')) - (largura / 2 + 20)),
++  ).toBeLessThanOrEqual(1);
++
++  await page.getByRole('tab', { name: 'Exibir', exact: true }).click();
++  await page.getByText('Miniatura', { exact: true }).click();
++  await page.getByRole('slider', { name: 'Zoom', exact: true }).fill('6');
++  const workspace = page.getByLabel('Área de trabalho', { exact: true });
++  await workspace.evaluate((elemento) => elemento.scrollTo(0, 0));
++  const miniatura = page.getByLabel('Navegar pela miniatura do desenho', { exact: true });
++  const mapa = (await miniatura.boundingBox())!;
++  await page.mouse.click(mapa.x + mapa.width * 0.84, mapa.y + mapa.height * 0.16);
++  await expect
++    .poll(() => workspace.evaluate((elemento) => Math.min(elemento.scrollLeft, elemento.scrollTop)))
++    .toBeGreaterThan(100);
++
++  await tela.focus();
++  await page.keyboard.press('h');
++  await expect(page.getByRole('button', { name: /espelhada/ })).toBeVisible();
++  await expect(topo).toHaveAttribute('data-eixo', 'y');
++  await expect(miniatura).toBeVisible();
++});

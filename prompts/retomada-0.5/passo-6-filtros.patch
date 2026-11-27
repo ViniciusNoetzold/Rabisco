@@ -1,0 +1,690 @@
+diff --git a/src/filtros/dithering.ts b/src/filtros/dithering.ts
+new file mode 100644
+index 0000000..c9dd259
+--- /dev/null
++++ b/src/filtros/dithering.ts
+@@ -0,0 +1,169 @@
++import type { PixelBuffer } from '../layers/types';
++import {
++  acumularErro,
++  aplicarPaleta,
++  corMaisProxima,
++  paletaDoDesenho,
++  type CorPaleta,
++} from './pixelArt';
++
++export const OPCOES_DITHERING = [
++  { valor: 'floyd-steinberg', nome: 'Floyd–Steinberg' },
++  { valor: 'atkinson', nome: 'Atkinson' },
++  { valor: 'bayer-2', nome: 'Bayer 2 × 2' },
++  { valor: 'bayer-4', nome: 'Bayer 4 × 4' },
++  { valor: 'bayer-8', nome: 'Bayer 8 × 8' },
++] as const;
++
++export const OPCOES_PALETA_DITHERING = [
++  { valor: 'cinza', nome: 'Tons de cinza' },
++  { valor: 'desenho', nome: 'Paleta do desenho' },
++] as const;
++
++type SelecaoBayer = Extract<(typeof OPCOES_DITHERING)[number]['valor'], `bayer-${number}`>;
++
++function matrizBayer(tamanho: number): number[] {
++  const quadrantes = [0, 2, 3, 1];
++  let anterior = [0];
++  for (let lado = 1; lado < tamanho; lado *= 2) {
++    const ladoExpandido = lado * 2;
++    anterior = Array.from({ length: ladoExpandido * ladoExpandido }, (_, i) => {
++      const x = i % ladoExpandido;
++      const y = Math.floor(i / ladoExpandido);
++      const quadrante = Math.floor(y / lado) * 2 + Math.floor(x / lado);
++      return anterior[(y % lado) * lado + (x % lado)] * 4 + quadrantes[quadrante];
++    });
++  }
++  return anterior;
++}
++
++const MATRIZES_BAYER: Record<SelecaoBayer, { tamanho: number; matriz: number[] }> = {
++  'bayer-2': { tamanho: 2, matriz: matrizBayer(2) },
++  'bayer-4': { tamanho: 4, matriz: matrizBayer(4) },
++  'bayer-8': { tamanho: 8, matriz: matrizBayer(8) },
++};
++
++function paletaCinza(total: number): CorPaleta[] {
++  return Array.from({ length: total }, (_, i) => {
++    const cinza = Math.round((255 * i) / (total - 1));
++    return [cinza, cinza, cinza];
++  });
++}
++
++function atkinson(pixels: PixelBuffer, paleta: readonly CorPaleta[]): PixelBuffer {
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  let erros = new Float32Array((width + 4) * 3);
++  let seguintes = new Float32Array(erros.length);
++  let posteriores = new Float32Array(erros.length);
++
++  for (let y = 0; y < height; y++) {
++    for (let x = 0; x < width; x++) {
++      const i = (y * width + x) * 4;
++      const alfa = data[i + 3];
++      if (alfa === 0) continue;
++      const posicao = (x + 2) * 3;
++      const r = Math.max(0, Math.min(255, data[i] + erros[posicao]));
++      const g = Math.max(0, Math.min(255, data[i + 1] + erros[posicao + 1]));
++      const b = Math.max(0, Math.min(255, data[i + 2] + erros[posicao + 2]));
++      const cor = corMaisProxima(r, g, b, paleta);
++      saida[i] = cor[0];
++      saida[i + 1] = cor[1];
++      saida[i + 2] = cor[2];
++      const dr = r - cor[0];
++      const dg = g - cor[1];
++      const db = b - cor[2];
++      const peso = alfa / (255 * 8);
++      acumularErro(erros, posicao + 3, dr, dg, db, peso);
++      acumularErro(erros, posicao + 6, dr, dg, db, peso);
++      acumularErro(seguintes, posicao - 3, dr, dg, db, peso);
++      acumularErro(seguintes, posicao, dr, dg, db, peso);
++      acumularErro(seguintes, posicao + 3, dr, dg, db, peso);
++      acumularErro(posteriores, posicao, dr, dg, db, peso);
++    }
++    erros.fill(0);
++    [erros, seguintes, posteriores] = [seguintes, posteriores, erros];
++  }
++  return { width, height, data: saida };
++}
++
++/** Projeta o pixel no segmento entre suas duas cores mais próximas na paleta. */
++function corOrdenada(
++  r: number,
++  g: number,
++  b: number,
++  paleta: readonly CorPaleta[],
++  limiar: number,
++): CorPaleta {
++  let primeira = 0;
++  let segunda = 1;
++  let menorDistancia = Infinity;
++  let outraDistancia = Infinity;
++  for (let i = 0; i < paleta.length; i++) {
++    const [vermelho, verde, azul] = paleta[i];
++    const dr = r - vermelho;
++    const dg = g - verde;
++    const db = b - azul;
++    const distancia = dr * dr + dg * dg + db * db;
++    if (distancia === 0) return paleta[i];
++    if (distancia < menorDistancia) {
++      outraDistancia = menorDistancia;
++      segunda = primeira;
++      menorDistancia = distancia;
++      primeira = i;
++    } else if (distancia < outraDistancia) {
++      outraDistancia = distancia;
++      segunda = i;
++    }
++  }
++
++  const partida = paleta[Math.min(primeira, segunda)];
++  const chegada = paleta[Math.max(primeira, segunda)];
++  const dr = chegada[0] - partida[0];
++  const dg = chegada[1] - partida[1];
++  const db = chegada[2] - partida[2];
++  const projecao = (r - partida[0]) * dr + (g - partida[1]) * dg + (b - partida[2]) * db;
++  const limite = limiar * (dr * dr + dg * dg + db * db);
++  return projecao > limite ? chegada : partida;
++}
++
++function bayer(
++  pixels: PixelBuffer,
++  paleta: readonly CorPaleta[],
++  { matriz, tamanho }: (typeof MATRIZES_BAYER)[SelecaoBayer],
++): PixelBuffer {
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  for (let y = 0; y < height; y++) {
++    const linha = (y % tamanho) * tamanho;
++    for (let x = 0; x < width; x++) {
++      const i = (y * width + x) * 4;
++      if (data[i + 3] === 0) continue;
++      const limiar = (matriz[linha + (x % tamanho)] + 0.5) / matriz.length;
++      const cor = corOrdenada(data[i], data[i + 1], data[i + 2], paleta, limiar);
++      saida[i] = cor[0];
++      saida[i + 1] = cor[1];
++      saida[i + 2] = cor[2];
++    }
++  }
++  return { width, height, data: saida };
++}
++
++export function dithering(
++  pixels: PixelBuffer,
++  parametros: Readonly<Record<string, unknown>>,
++): PixelBuffer {
++  const total =
++    typeof parametros.cores === 'number' && Number.isFinite(parametros.cores)
++      ? Math.max(2, Math.min(16, Math.round(parametros.cores)))
++      : 2;
++  const paleta =
++    parametros.paleta === 'desenho' ? paletaDoDesenho(pixels, total) : paletaCinza(total);
++  if (paleta.length < 2) return aplicarPaleta(pixels, paleta);
++  const { algoritmo } = parametros;
++  if (algoritmo === 'atkinson') return atkinson(pixels, paleta);
++  if (typeof algoritmo === 'string' && Object.hasOwn(MATRIZES_BAYER, algoritmo)) {
++    return bayer(pixels, paleta, MATRIZES_BAYER[algoritmo as SelecaoBayer]);
++  }
++  return aplicarPaleta(pixels, paleta, true);
++}
+diff --git a/src/filtros/estilos.ts b/src/filtros/estilos.ts
+new file mode 100644
+index 0000000..a139945
+--- /dev/null
++++ b/src/filtros/estilos.ts
+@@ -0,0 +1,320 @@
++import { criarAleatorioPincel } from '../brushes/motor';
++import type { PixelBuffer } from '../layers/types';
++import { pixelizar, type CorPaleta } from './pixelArt';
++
++type Parametros = Readonly<Record<string, unknown>>;
++
++function limitar(valor: number, minimo: number, maximo: number) {
++  return Math.min(maximo, Math.max(minimo, valor));
++}
++
++function inteiroEntre(valor: unknown, padrao: number, minimo: number, maximo: number) {
++  return typeof valor === 'number' && Number.isFinite(valor)
++    ? limitar(Math.round(valor), minimo, maximo)
++    : padrao;
++}
++
++function corHex(valor: unknown, padrao: CorPaleta): CorPaleta {
++  if (typeof valor !== 'string' || !/^#[\da-f]{6}$/i.test(valor)) return padrao;
++  const rgb = Number.parseInt(valor.slice(1), 16);
++  return [rgb >> 16, (rgb >> 8) & 255, rgb & 255];
++}
++
++/** Raio com área proporcional à tinta. Perto de 100%, os pontos fecham os cantos da célula. */
++const RAIOS_DE_TINTA = Array.from({ length: 256 }, (_, nivel) => {
++  const proporcao = nivel / 255;
++  const areaDoCirculoInscrito = Math.PI / 4;
++  if (proporcao <= areaDoCirculoInscrito) return Math.sqrt(proporcao / Math.PI);
++  const excesso = (proporcao - areaDoCirculoInscrito) / (1 - areaDoCirculoInscrito);
++  return 0.5 + (Math.SQRT1_2 - 0.5) * excesso;
++});
++
++function reticula(tamanho: number, angulo: number) {
++  const radianos = (angulo * Math.PI) / 180;
++  const cos = Math.cos(radianos) / tamanho;
++  const sen = Math.sin(radianos) / tamanho;
++  return (x: number, y: number, nivel: number) => {
++    if (nivel <= 0) return 0;
++    if (nivel >= 255) return 1;
++    const u = x * cos + y * sen;
++    const v = y * cos - x * sen;
++    const dx = u - Math.floor(u) - 0.5;
++    const dy = v - Math.floor(v) - 0.5;
++    const dist = Math.sqrt(dx * dx + dy * dy);
++    return limitar((RAIOS_DE_TINTA[nivel] - dist) * tamanho + 0.5, 0, 1);
++  };
++}
++
++export function meioTom(pixels: PixelBuffer, parametros: Parametros): PixelBuffer {
++  const tamanho = inteiroEntre(parametros.tamanho, 9, 3, 64);
++  const angulo = inteiroEntre(parametros.angulo, 45, -180, 180);
++  const cmyk = parametros.modo === 'cmyk';
++  const [vermelho, verde, azul] = corHex(parametros.cor, [0, 0, 0]);
++  const preto = reticula(tamanho, angulo);
++  const ciano = reticula(tamanho, angulo - 30);
++  const magenta = reticula(tamanho, angulo + 30);
++  const amarelo = reticula(tamanho, angulo - 45);
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  let i = 0;
++  for (let y = 0.5; y < height; y++) {
++    for (let x = 0.5; x < width; x++, i += 4) {
++      if (!data[i + 3]) continue;
++      const r = data[i];
++      const g = data[i + 1];
++      const b = data[i + 2];
++      if (cmyk) {
++        const maximo = Math.max(r, g, b);
++        const luz = 255 * (1 - preto(x, y, 255 - maximo));
++        const escala = maximo ? 255 / maximo : 0;
++        saida[i] = luz * (1 - ciano(x, y, Math.round((maximo - r) * escala)));
++        saida[i + 1] = luz * (1 - magenta(x, y, Math.round((maximo - g) * escala)));
++        saida[i + 2] = luz * (1 - amarelo(x, y, Math.round((maximo - b) * escala)));
++      } else {
++        const cinza = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
++        const tinta = preto(x, y, 255 - cinza);
++        saida[i] = 255 + (vermelho - 255) * tinta;
++        saida[i + 1] = 255 + (verde - 255) * tinta;
++        saida[i + 2] = 255 + (azul - 255) * tinta;
++      }
++    }
++  }
++  return { width, height, data: saida };
++}
++
++export function mosaico(pixels: PixelBuffer, parametros: Parametros): PixelBuffer {
++  const tamanho = inteiroEntre(parametros.tamanho, 12, 2, 128);
++  const junta = Math.min(inteiroEntre(parametros.junta, 1, 0, 8), tamanho - 1);
++  const [r, g, b] = corHex(parametros.corJuntas, [40, 37, 42]);
++  const { width, height, data } = pixels;
++  const resultado = pixelizar(pixels, { tamanho });
++  const saida = resultado.data;
++  let i = 0;
++  for (let y = 0; y < height; y++) {
++    const juntaHorizontal = y % tamanho < junta;
++    for (let x = 0; x < width; x++, i += 4) {
++      const alfa = data[i + 3];
++      saida[i + 3] = alfa;
++      if (!alfa) {
++        saida[i] = data[i];
++        saida[i + 1] = data[i + 1];
++        saida[i + 2] = data[i + 2];
++      } else if (juntaHorizontal || x % tamanho < junta) {
++        saida[i] = r;
++        saida[i + 1] = g;
++        saida[i + 2] = b;
++      }
++    }
++  }
++  return resultado;
++}
++
++function corMediaDaCelula(
++  pixels: PixelBuffer,
++  x: number,
++  y: number,
++  tamanho: number,
++): CorPaleta | null {
++  const { width, height, data } = pixels;
++  const direita = Math.min(width, x + tamanho);
++  const fundo = Math.min(height, y + tamanho);
++  let r = 0;
++  let g = 0;
++  let b = 0;
++  let a = 0;
++  for (let linha = y; linha < fundo; linha++) {
++    let i = (linha * width + x) * 4;
++    for (let coluna = x; coluna < direita; coluna++, i += 4) {
++      const peso = data[i + 3];
++      r += data[i] * peso;
++      g += data[i + 1] * peso;
++      b += data[i + 2] * peso;
++      a += peso;
++    }
++  }
++  return a ? [r / a, g / a, b / a] : null;
++}
++
++export function pontilhismo(pixels: PixelBuffer, parametros: Parametros, semente = 1): PixelBuffer {
++  const tamanho = inteiroEntre(parametros.tamanho, 8, 3, 64);
++  const densidade = inteiroEntre(parametros.densidade, 70, 10, 100) / 100;
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  const aleatorio = criarAleatorioPincel(semente);
++
++  for (let i = 0; i < saida.length; i += 4) {
++    if (!data[i + 3]) continue;
++    saida[i] = 250;
++    saida[i + 1] = 247;
++    saida[i + 2] = 239;
++  }
++
++  for (let y = 0; y < height; y += tamanho) {
++    for (let x = 0; x < width; x += tamanho) {
++      const ocupada = aleatorio() < densidade;
++      const cx = x + (0.25 + 0.5 * aleatorio()) * Math.min(tamanho, width - x);
++      const cy = y + (0.25 + 0.5 * aleatorio()) * Math.min(tamanho, height - y);
++      const raio = (0.22 + 0.2 * aleatorio()) * tamanho;
++      if (!ocupada) continue;
++      const cor = corMediaDaCelula(pixels, x, y, tamanho);
++      if (!cor) continue;
++
++      const esquerda = Math.max(0, Math.floor(cx - raio));
++      const direita = Math.min(width, Math.ceil(cx + raio));
++      const topo = Math.max(0, Math.floor(cy - raio));
++      const fundo = Math.min(height, Math.ceil(cy + raio));
++      for (let linha = topo; linha < fundo; linha++) {
++        const dy = linha + 0.5 - cy;
++        for (let coluna = esquerda; coluna < direita; coluna++) {
++          const i = (linha * width + coluna) * 4;
++          if (!data[i + 3]) continue;
++          const dx = coluna + 0.5 - cx;
++          const peso = limitar(raio + 0.5 - Math.sqrt(dx * dx + dy * dy), 0, 1);
++          saida[i] += (cor[0] - saida[i]) * peso;
++          saida[i + 1] += (cor[1] - saida[i + 1]) * peso;
++          saida[i + 2] += (cor[2] - saida[i + 2]) * peso;
++        }
++      }
++    }
++  }
++  return { width, height, data: saida };
++}
++
++function centrosDoVitral(pixels: PixelBuffer, tamanho: number, semente: number) {
++  const { width, height, data } = pixels;
++  const largura = Math.ceil(width / tamanho);
++  const altura = Math.ceil(height / tamanho);
++  const centros = new Float32Array(largura * altura * 2);
++  const cores = new Uint8ClampedArray(largura * altura * 4);
++  const aleatorio = criarAleatorioPincel(semente);
++  let i = 0;
++  for (let y = 0; y < altura; y++) {
++    for (let x = 0; x < largura; x++, i++) {
++      // Os centros ficam no meio da própria célula, inclusive junto à borda do papel.
++      const cx = (x + 0.25 + aleatorio() * 0.5) * tamanho;
++      const cy = (y + 0.25 + aleatorio() * 0.5) * tamanho;
++      centros[2 * i] = cx;
++      centros[2 * i + 1] = cy;
++      const ix = Math.min(width - 1, Math.floor(cx));
++      const iy = Math.min(height - 1, Math.floor(cy));
++      const posicao = (iy * width + ix) * 4;
++      if (data[posicao + 3]) {
++        cores[4 * i] = data[posicao];
++        cores[4 * i + 1] = data[posicao + 1];
++        cores[4 * i + 2] = data[posicao + 2];
++        cores[4 * i + 3] = 255;
++      } else {
++        const cor = corMediaDaCelula(pixels, x * tamanho, y * tamanho, tamanho);
++        if (!cor) continue;
++        cores[4 * i] = cor[0];
++        cores[4 * i + 1] = cor[1];
++        cores[4 * i + 2] = cor[2];
++        cores[4 * i + 3] = 255;
++      }
++    }
++  }
++  return { largura, altura, centros, cores };
++}
++
++export function vitral(pixels: PixelBuffer, parametros: Parametros, semente = 1): PixelBuffer {
++  const tamanho = inteiroEntre(parametros.tamanho, 18, 3, 128);
++  const borda = Math.min(inteiroEntre(parametros.borda, 1, 0, 8), tamanho - 1);
++  const corBorda = corHex(parametros.corBorda, [32, 33, 38]);
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  const { largura, altura, centros, cores } = centrosDoVitral(pixels, tamanho, semente);
++  const alcanceDaBorda = borda * 0.5 + 0.5;
++  let i = 0;
++
++  for (let y = 0.5; y < height; y++) {
++    const celulaY = Math.floor(y / tamanho);
++    const topo = Math.max(0, celulaY - 1);
++    const fundo = Math.min(altura - 1, celulaY + 1);
++    const topoDaBorda = Math.max(0, celulaY - 2);
++    const fundoDaBorda = Math.min(altura - 1, celulaY + 2);
++    for (let x = 0.5; x < width; x++, i += 4) {
++      if (!data[i + 3]) continue;
++      const celulaX = Math.floor(x / tamanho);
++      let menorDistancia = Infinity;
++      let maisProximo = 0;
++      // Como cada centro está no meio de sua célula, o vencedor fica na janela de 3 × 3.
++      const esquerda = Math.max(0, celulaX - 1);
++      const direita = Math.min(largura - 1, celulaX + 1);
++      for (let yy = topo; yy <= fundo; yy++) {
++        const fim = yy * largura + direita;
++        for (let atual = yy * largura + esquerda; atual <= fim; atual++) {
++          const dx = x - centros[2 * atual];
++          const dy = y - centros[2 * atual + 1];
++          const distancia = dx * dx + dy * dy;
++          if (distancia >= menorDistancia) continue;
++          menorDistancia = distancia;
++          maisProximo = atual;
++        }
++      }
++
++      const iCor = maisProximo * 4;
++      if (cores[iCor + 3]) {
++        saida[i] = cores[iCor];
++        saida[i + 1] = cores[iCor + 1];
++        saida[i + 2] = cores[iCor + 2];
++      }
++      if (!borda) continue;
++
++      // A célula pode tocar mais de um vizinho. Use a distância até a mediatriz mais próxima.
++      const cx = centros[maisProximo * 2];
++      const cy = centros[maisProximo * 2 + 1];
++      let distanciaDaBorda = alcanceDaBorda ** 2;
++      const esquerdaDaBorda = Math.max(0, celulaX - 2);
++      const direitaDaBorda = Math.min(largura - 1, celulaX + 2);
++      for (let yy = topoDaBorda; yy <= fundoDaBorda; yy++) {
++        const fim = yy * largura + direitaDaBorda;
++        for (let atual = yy * largura + esquerdaDaBorda; atual <= fim; atual++) {
++          if (atual === maisProximo) continue;
++          const outroX = centros[atual * 2];
++          const outroY = centros[atual * 2 + 1];
++          const dx = x - outroX;
++          const dy = y - outroY;
++          const diferenca = dx * dx + dy * dy - menorDistancia;
++          const divisor = 4 * ((outroX - cx) ** 2 + (outroY - cy) ** 2);
++          const numerador = diferenca * diferenca;
++          if (numerador < divisor * distanciaDaBorda) distanciaDaBorda = numerador / divisor;
++        }
++      }
++      const peso = limitar(alcanceDaBorda - Math.sqrt(distanciaDaBorda), 0, 1);
++      saida[i] += (corBorda[0] - saida[i]) * peso;
++      saida[i + 1] += (corBorda[1] - saida[i + 1]) * peso;
++      saida[i + 2] += (corBorda[2] - saida[i + 2]) * peso;
++    }
++  }
++  return { width, height, data: saida };
++}
++
++function amostrarCanal(data: Uint8ClampedArray, centro: number, vizinho: number, canal: number) {
++  return (
++    data[centro + canal] +
++    (data[vizinho + canal] - data[centro + canal]) * (data[vizinho + 3] / 255)
++  );
++}
++
++export function efeitoCrt(pixels: PixelBuffer, parametros: Parametros): PixelBuffer {
++  const linhas = inteiroEntre(parametros.linhas, 25, 0, 100);
++  const periodo = inteiroEntre(parametros.periodo, 3, 2, 8);
++  const separacao = inteiroEntre(parametros.separacao, 2, 0, 8);
++  if (!linhas && !separacao) return pixels;
++  const { width, height, data } = pixels;
++  const saida = new Uint8ClampedArray(data);
++  for (let y = 0; y < height; y++) {
++    const brilho = y % periodo === periodo - 1 ? 1 - linhas / 100 : 1;
++    const inicioDaLinha = y * width * 4;
++    for (let x = 0; x < width; x++) {
++      const i = inicioDaLinha + x * 4;
++      if (!data[i + 3]) continue;
++      const esquerda = inicioDaLinha + Math.max(0, x - separacao) * 4;
++      const direita = inicioDaLinha + Math.min(width - 1, x + separacao) * 4;
++      saida[i] = amostrarCanal(data, i, esquerda, 0) * brilho;
++      saida[i + 1] = data[i + 1] * brilho;
++      saida[i + 2] = amostrarCanal(data, i, direita, 2) * brilho;
++    }
++  }
++  return { width, height, data: saida };
++}
+diff --git a/tests/unit/filtros-dithering.test.ts b/tests/unit/filtros-dithering.test.ts
+new file mode 100644
+index 0000000..ff0e0b5
+--- /dev/null
++++ b/tests/unit/filtros-dithering.test.ts
+@@ -0,0 +1,74 @@
++import { describe, expect, it } from 'vitest';
++import { dithering, OPCOES_DITHERING } from '../../src/filtros/dithering';
++import { paletaDoDesenho } from '../../src/filtros/pixelArt';
++
++function imagem(width: number, ...pixels: readonly number[][]) {
++  return { width, height: pixels.length / width, data: new Uint8ClampedArray(pixels.flat()) };
++}
++
++function cinza(width: number, height: number, valor: number) {
++  return imagem(width, ...Array.from({ length: width * height }, () => [valor, valor, valor, 255]));
++}
++
++function canaisVermelhos(data: Uint8ClampedArray) {
++  return Array.from(data.filter((_, i) => i % 4 === 0));
++}
++
++describe('dithering', () => {
++  it('gera o padrão Bayer 4 × 4 de cinza a 50%', () => {
++    const resultado = dithering(cinza(4, 4, 128), { algoritmo: 'bayer-4' });
++    expect(canaisVermelhos(resultado.data)).toEqual([
++      255, 0, 255, 0,
++      0, 255, 0, 255,
++      255, 0, 255, 0,
++      0, 255, 0, 255,
++    ]);
++  });
++
++  it('usa matrizes distintas para Bayer 2 × 2, 4 × 4 e 8 × 8', () => {
++    const entrada = cinza(8, 8, 26);
++    const contarBrancos = (algoritmo: string) =>
++      canaisVermelhos(dithering(entrada, { algoritmo }).data).filter((canal) => canal === 255).length;
++    expect(contarBrancos('bayer-2')).toBe(0);
++    expect(contarBrancos('bayer-4')).toBe(8);
++    expect(contarBrancos('bayer-8')).toBe(7);
++  });
++
++  it('difunde o erro de Atkinson até duas colunas e duas linhas adiante', () => {
++    const linha = dithering(cinza(4, 1, 124), { algoritmo: 'atkinson' });
++    expect(canaisVermelhos(linha.data)).toEqual([0, 255, 0, 0]);
++    const coluna = dithering(cinza(1, 3, 126), { algoritmo: 'atkinson' });
++    expect(canaisVermelhos(coluna.data)).toEqual([0, 255, 255]);
++    const floyd = dithering(cinza(4, 1, 124), { algoritmo: 'floyd-steinberg' });
++    expect(canaisVermelhos(floyd.data)).toEqual([0, 255, 0, 255]);
++  });
++
++  it.each(OPCOES_DITHERING)('conserva o alfa em $nome e só usa cores da paleta', ({ valor }) => {
++    const entrada = imagem(2, [155, 89, 202, 133], [5, 12, 22, 0], [240, 40, 45, 255], [10, 254, 8, 96]);
++    const original = entrada.data.slice();
++    const parametros = { algoritmo: valor, cores: 3 };
++    const { data } = dithering(entrada, parametros);
++    expect(dithering(entrada, parametros).data).toEqual(data);
++    expect(entrada.data).toEqual(original);
++    for (let i = 0; i < data.length; i += 4) {
++      expect(data[i + 3]).toBe(original[i + 3]);
++      if (data[i + 3] === 0) {
++        expect(data.slice(i, i + 4)).toEqual(original.slice(i, i + 4));
++        continue;
++      }
++      expect([0, 128, 255]).toContain(data[i]);
++      expect(data[i + 1]).toBe(data[i]);
++      expect(data[i + 2]).toBe(data[i]);
++    }
++  });
++
++  it('aplica Bayer sobre a paleta reduzida do desenho', () => {
++    const entrada = imagem(4, [193, 10, 20, 255], [184, 40, 30, 255], [1, 12, 95, 255], [8, 9, 112, 255]);
++    const paleta = paletaDoDesenho(entrada, 2);
++    const { data } = dithering(entrada, { algoritmo: 'bayer-8', paleta: 'desenho', cores: 2 });
++    expect(paleta).toHaveLength(2);
++    for (let i = 0; i < data.length; i += 4) {
++      expect(paleta).toContainEqual(Array.from(data.slice(i, i + 3)));
++    }
++  });
++});
+diff --git a/tests/unit/filtros-estilos.test.ts b/tests/unit/filtros-estilos.test.ts
+new file mode 100644
+index 0000000..4f1964d
+--- /dev/null
++++ b/tests/unit/filtros-estilos.test.ts
+@@ -0,0 +1,103 @@
++import { describe, expect, it } from 'vitest';
++import { efeitoCrt, meioTom, mosaico, pontilhismo, vitral } from '../../src/filtros/estilos';
++import type { PixelBuffer } from '../../src/layers/types';
++
++function imagem(
++  width: number,
++  height: number,
++  cor: (x: number, y: number) => number[],
++): PixelBuffer {
++  const data = new Uint8ClampedArray(width * height * 4);
++  for (let y = 0; y < height; y++) {
++    for (let x = 0; x < width; x++) data.set(cor(x, y), (y * width + x) * 4);
++  }
++  return { width, height, data };
++}
++
++function pixel(imagem: PixelBuffer, x: number, y: number) {
++  const i = (y * imagem.width + x) * 4;
++  return [...imagem.data.subarray(i, i + 4)];
++}
++
++describe('estilos artísticos', () => {
++  it('meio-tom desenha pontos da tinta escolhida no ângulo da retícula', () => {
++    const entrada = imagem(12, 8, () => [128, 128, 128, 170]);
++    const parametros = { modo: 'mono', tamanho: 4, angulo: 0, cor: '#9c2200' };
++    const filtrada = meioTom(entrada, parametros);
++    expect(pixel(filtrada, 1, 1)).toEqual([156, 34, 0, 170]);
++    expect(pixel(filtrada, 0, 0)).toEqual([255, 255, 255, 170]);
++    expect(filtrada).not.toEqual(meioTom(entrada, { ...parametros, angulo: 45 }));
++  });
++
++  it('meio-tom CMYK mantém branco, preto e primárias em tintas plenas', () => {
++    const cores = [
++      [255, 255, 255, 150],
++      [0, 0, 0, 200],
++      [255, 0, 0, 255],
++      [0, 255, 255, 255],
++    ];
++    const entrada = imagem(cores.length, 1, (x) => cores[x]);
++    expect(meioTom(entrada, { modo: 'cmyk' })).toEqual(entrada);
++  });
++
++  it('mosaico usa a média visível da peça e pinta as juntas', () => {
++    const cores = [
++      [200, 0, 0, 255],
++      [0, 200, 0, 255],
++      [80, 120, 200, 0],
++      [0, 0, 200, 255],
++    ];
++    const entrada = imagem(2, 2, (x, y) => cores[y * 2 + x]);
++    const filtrada = mosaico(entrada, { tamanho: 2, junta: 1, corJuntas: '#503214' });
++    expect(pixel(filtrada, 0, 0)).toEqual([80, 50, 20, 255]);
++    expect(pixel(filtrada, 0, 1)).toEqual([80, 120, 200, 0]);
++    expect(pixel(filtrada, 1, 1)).toEqual([67, 67, 67, 255]);
++    expect(pixel(entrada, 1, 1)).toEqual([0, 0, 200, 255]);
++  });
++
++  it('pontilhismo repete os pontos da semente sobre o fundo claro', () => {
++    const entrada = imagem(24, 24, () => [10, 80, 130, 190]);
++    const parametros = { densidade: 100, tamanho: 6 };
++    const filtrada = pontilhismo(entrada, parametros, 22);
++    expect(filtrada).toEqual(pontilhismo(entrada, parametros, 22));
++    expect(filtrada).not.toEqual(pontilhismo(entrada, parametros, 23));
++    const vermelhos = filtrada.data.filter((_, i) => i % 4 === 0);
++    expect(vermelhos).toContain(10);
++    expect(vermelhos).toContain(250);
++  });
++
++  it('vitral repete a distribuição e a cor dos centros de Voronoi com semente fixa', () => {
++    const entrada = imagem(24, 17, (x, y) => [x * 10, y * 10, (x + y) * 6, 210]);
++    const parametros = { tamanho: 5, borda: 2 };
++    const filtrada = vitral(entrada, parametros, 42);
++    expect(filtrada).toEqual(vitral(entrada, parametros, 42));
++    expect(filtrada).not.toEqual(vitral(entrada, parametros, 13));
++    expect(filtrada).not.toEqual(vitral(entrada, { ...parametros, borda: 0 }, 42));
++    expect(filtrada.data.filter((_, i) => i % 4 === 3)).toEqual(
++      entrada.data.filter((_, i) => i % 4 === 3),
++    );
++  });
++
++  it('CRT desloca vermelho e azul e escurece cada linha de varredura', () => {
++    const entrada = imagem(3, 2, (x) => [20 + 30 * x, 30 + 30 * x, 40 + 30 * x, 180]);
++    entrada.data[3] = 255;
++    entrada.data[11] = 255;
++    entrada.data[15] = 255;
++    entrada.data[23] = 255;
++    const filtrada = efeitoCrt(entrada, { periodo: 2, linhas: 50, separacao: 1 });
++    expect(pixel(filtrada, 1, 0)).toEqual([20, 60, 100, 180]);
++    expect(pixel(filtrada, 1, 1)).toEqual([10, 30, 50, 180]);
++  });
++
++  it('os estilos preservam o alfa e o RGB invisível em camadas transparentes', () => {
++    const entrada = imagem(17, 17, (x, y) => [230, 24, 110, (x + y) % 3 ? 255 : 0]);
++    const alfa = entrada.data.filter((_, i) => i % 4 === 3);
++    for (const filtro of [meioTom, mosaico, pontilhismo, vitral, efeitoCrt]) {
++      const filtrada = filtro(entrada, {});
++      expect(filtrada.data.filter((_, i) => i % 4 === 3)).toEqual(alfa);
++      expect(pixel(filtrada, 0, 0)).toEqual([230, 24, 110, 0]);
++    }
++    const borda = imagem(2, 1, (x) => (x ? [60, 80, 100, 255] : [255, 0, 0, 0]));
++    expect(pixel(efeitoCrt(borda, { separacao: 1, linhas: 0 }), 1, 0)).toEqual([60, 80, 100, 255]);
++  });
++});

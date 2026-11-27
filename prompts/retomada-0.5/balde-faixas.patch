@@ -1,0 +1,728 @@
+diff --git a/src/canvas/controle/ferramentas.ts b/src/canvas/controle/ferramentas.ts
+index 00df18f..c2c16b2 100644
+--- a/src/canvas/controle/ferramentas.ts
++++ b/src/canvas/controle/ferramentas.ts
+@@ -1,4 +1,6 @@
+-import { criarPreenchedor, PIXELS_PARA_WORKER } from './preenchedor';
++import { criarPreenchedor, PIXELS_PARA_WORKER, prepararPreenchimentoEmFaixas } from './preenchedor';
++import { chaveDoAlvo } from '../../document/camadas';
++import { recortarPixels } from '../../commands/history';
+ import { registrarDuracao } from '../medicao';
+ import { FERRAMENTAS_DE_SELECAO } from '../../tools/select';
+ import { useEditor } from '../../app/store';
+@@ -81,7 +83,7 @@ export class ControleFerramentas {
+ 
+   private readonly preenchedor = criarPreenchedor();
+   /** Balde em andamento no worker: novos gestos esperam (a tela não trava). */
+-  private preenchendo = false;
++  private preenchendo: AbortController | null = null;
+ 
+   /** Régua em que o traço em andamento grudou (começou perto da borda dela). */
+   private reguaDoGesto: Regua | null = null;
+@@ -97,7 +99,7 @@ export class ControleFerramentas {
+   ) {}
+ 
+   get emGesto(): boolean {
+-    return this.gesto !== null || this.preenchendo;
++    return this.gesto !== null || this.preenchendo !== null;
+   }
+ 
+   get ativa(): Tool {
+@@ -238,6 +240,10 @@ export class ControleFerramentas {
+   }
+ 
+   tecla(evento: KeyboardEvent) {
++    if (evento.key === 'Escape' && this.cancelarPreenchimento()) {
++      this.nucleo.avisar('Preenchimento cancelado.');
++      return true;
++    }
+     if (this.formaInteligente && !this.gesto) {
+       if (evento.key === 'Escape') return this.encerrarFormaInteligente('original');
+       if (evento.key === 'Enter') return this.encerrarFormaInteligente('confirmar');
+@@ -293,6 +299,7 @@ export class ControleFerramentas {
+   }
+ 
+   encerrar() {
++    this.cancelarPreenchimento();
+     this.preenchedor.encerrar();
+     this.cancelarGesto();
+   }
+@@ -430,38 +437,86 @@ export class ControleFerramentas {
+     return ponto === evento.ponto ? evento : { ...evento, ponto };
+   }
+ 
+-  /**
+-   * Balde: papéis pequenos executam na hora; nos grandes, a área é calculada num worker e o
+-   * comando é executado quando ela chega. Passando de 200 ms, a barra avisa "Preenchendo…".
+-   */
++  cancelarPreenchimento(): boolean {
++    const processo = this.preenchendo;
++    if (!processo) return false;
++    this.preenchendo = null;
++    processo.abort();
++    return true;
++  }
++
++  /** Balde grande: encontra a região no worker e prepara a alteração em faixas. */
+   private preencher(comando: Extract<Comando, { tipo: 'Preencher' }>): boolean {
+     const { doc, comandos } = this.nucleo;
+     if (this.preenchendo) return false;
+     if (doc.width * doc.height < PIXELS_PARA_WORKER || !this.preenchedor.noWorker)
+       return this.nucleo.executar(comando);
+-    this.preenchendo = true;
++    const processo = new AbortController();
++    this.preenchendo = processo;
++    const revisao = this.nucleo.revisaoAtual();
++    const alvo = doc.alvoAtivo();
++    const chave = chaveDoAlvo(alvo);
++    const travarAlfa = !alvo.mascara && doc.activeLayer.bloqueioTransparencia;
++    const ativo = () =>
++      this.preenchendo === processo &&
++      this.nucleo.ativo() &&
++      this.nucleo.revisaoAtual() === revisao &&
++      chaveDoAlvo(doc.alvoAtivo()) === chave;
+     const inicio = performance.now();
+-    const aviso = setTimeout(() => this.nucleo.avisar('Preenchendo…'), 200);
+-    const referencia = comandos.referenciaDoBalde(comando);
+-    this.preenchedor
+-      .planejar(referencia, comando)
+-      .then(({ plano, referencia }) => {
+-        if (!this.nucleo.ativo()) return;
+-        comandos.usarPlanoPronto(comando, plano, referencia);
+-        this.preenchendo = false;
++    const aviso = setTimeout(() => {
++      if (ativo()) this.nucleo.avisar('Preenchendo…');
++    }, 200);
++
++    const preparar = async () => {
++      const { plano, referencia } = await this.preenchedor.planejar(
++        comandos.referenciaDoBalde(comando),
++        comando,
++        processo.signal,
++      );
++      if (!plano || !ativo()) return null;
++      const { area } = plano;
++      const lerFaixa = comando.amostrarTudo
++        ? (faixa: typeof area) => doc.lerPixels(faixa, alvo)
++        : (faixa: typeof area) => recortarPixels(referencia, faixa);
++      const antesCompleto =
++        !comando.amostrarTudo &&
++        area.x === 0 &&
++        area.y === 0 &&
++        area.width === referencia.width &&
++        area.height === referencia.height
++          ? referencia
++          : undefined;
++      const pixels = await prepararPreenchimentoEmFaixas(plano, lerFaixa, ativo, {
++        antesCompleto,
++        travarAlfa,
++      });
++      return pixels && { ...pixels, alvo, rect: area };
++    };
++
++    void (async () => {
++      try {
++        let alteracao: Awaited<ReturnType<typeof preparar>>;
++        try {
++          alteracao = await preparar();
++        } catch {
++          // Fallback antes de qualquer gravação, somente se for o mesmo documento e alvo.
++          if (ativo()) this.nucleo.executar(comando);
++          return;
++        }
++        if (!ativo() || !alteracao) return;
++        comandos.usarPreenchimentoPronto(comando, alteracao);
+         this.nucleo.executar(comando);
+         registrarDuracao('balde:total', performance.now() - inicio);
+-      })
+-      .catch(() => {
+-        if (!this.nucleo.ativo()) return;
+-        this.preenchendo = false;
+-        this.nucleo.executar(comando);
+-      })
+-      .finally(() => {
++      } catch {
++        if (ativo()) this.nucleo.avisar('Não foi possível concluir o preenchimento.');
++      } finally {
+         clearTimeout(aviso);
+-        this.preenchendo = false;
+-        if (this.nucleo.ativo()) this.nucleo.notificar();
+-      });
++        if (this.preenchendo === processo) {
++          this.preenchendo = null;
++          if (this.nucleo.ativo()) this.nucleo.notificar();
++        }
++      }
++    })();
+     return true;
+   }
+ 
+diff --git a/src/canvas/controle/nucleo.ts b/src/canvas/controle/nucleo.ts
+index fe6d818..6d95bdf 100644
+--- a/src/canvas/controle/nucleo.ts
++++ b/src/canvas/controle/nucleo.ts
+@@ -9,6 +9,8 @@ export interface NucleoEditor {
+   readonly comandos: Executador;
+   /** Editor montado e ainda não encerrado. */
+   ativo(): boolean;
++  /** Revisão dos pixels e da estrutura sobre a qual uma operação assíncrona começou. */
++  revisaoAtual(): number;
+   /** Pronto para uma ação: carregado, ativo e sem gesto em andamento. */
+   disponivel(): boolean;
+   /** Executa um comando no histórico. `aposExecutar` roda antes de atualizar tela e autosave. */
+diff --git a/src/canvas/controle/preenchedor.ts b/src/canvas/controle/preenchedor.ts
+index 4a348c5..e3f3830 100644
+--- a/src/canvas/controle/preenchedor.ts
++++ b/src/canvas/controle/preenchedor.ts
+@@ -1,12 +1,76 @@
+ import type { Comando } from '../../commands/comandos';
+-import type { PixelBuffer } from '../../layers/types';
+-import { planejarPreenchimento } from '../../tools/pixels';
++import type { PixelBuffer, Rect } from '../../layers/types';
++import { aplicarPreenchimento, planejarPreenchimento, preservarAlfa } from '../../tools/pixels';
++import { medirOperacao } from '../medicao';
+ 
+ type ComandoPreencher = Extract<Comando, { tipo: 'Preencher' }>;
+ export type PlanoDoBalde = ReturnType<typeof planejarPreenchimento>;
+ 
+-/** A partir daqui (px), o balde calcula a área num worker: a tela não trava. */
++/** A partir daqui (px), o balde calcula a área num worker. */
+ export const PIXELS_PARA_WORKER = 1_000_000;
++const PIXELS_POR_FAIXA = 65_536;
++const FAIXAS_POR_QUADRO = 8;
++const ORCAMENTO_MS = 5;
++
++function proximoQuadro(): Promise<void> {
++  return new Promise((resolver) => {
++    if (document.hidden) setTimeout(resolver, 16);
++    else requestAnimationFrame(() => resolver());
++  });
++}
++
++/** Prepara a alteração fora do documento. Um cancelamento descarta os dois buffers. */
++export async function prepararPreenchimentoEmFaixas(
++  plano: NonNullable<PlanoDoBalde>,
++  lerFaixa: (area: Rect) => PixelBuffer,
++  ativo: () => boolean,
++  {
++    antesCompleto,
++    travarAlfa = false,
++    aguardarQuadro = proximoQuadro,
++  }: {
++    antesCompleto?: PixelBuffer;
++    travarAlfa?: boolean;
++    aguardarQuadro?: () => Promise<void>;
++  } = {},
++): Promise<{ before: PixelBuffer; after: PixelBuffer } | null> {
++  if (!ativo()) return null;
++  const { area } = plano;
++  const { width, height } = area;
++  const criar = () => ({ width, height, data: new Uint8ClampedArray(width * height * 4) });
++  const before = antesCompleto ?? criar();
++  const after = criar();
++  const linhasPorFaixa = Math.max(1, Math.floor(PIXELS_POR_FAIXA / width));
++  let houveMudanca = false;
++  let linha = 0;
++
++  while (linha < height) {
++    await aguardarQuadro();
++    if (!ativo()) return null;
++    const inicioDoQuadro = performance.now();
++    for (let faixa = 0; faixa < FAIXAS_POR_QUADRO && linha < height; faixa++) {
++      const linhas = Math.min(linhasPorFaixa, height - linha);
++      medirOperacao('balde:faixa', () => {
++        const inicio = linha * width * 4;
++        const fim = inicio + linhas * width * 4;
++        const origem = { ...area, y: area.y + linha, height: linhas };
++        const dadosOriginais = antesCompleto
++          ? before.data.subarray(inicio, fim)
++          : lerFaixa(origem).data;
++        if (!antesCompleto) before.data.set(dadosOriginais, inicio);
++        const saida = { width, height: linhas, data: after.data.subarray(inicio, fim) };
++        saida.data.set(dadosOriginais);
++        aplicarPreenchimento(saida, plano, origem);
++        if (travarAlfa)
++          saida.data.set(preservarAlfa({ ...saida, data: dadosOriginais }, saida).data);
++        houveMudanca ||= dadosOriginais.some((byte, i) => byte !== saida.data[i]);
++      });
++      linha += linhas;
++      if (performance.now() - inicioDoQuadro >= ORCAMENTO_MS) break;
++    }
++  }
++  return ativo() && houveMudanca ? { before, after } : null;
++}
+ 
+ /**
+  * Calcula a área do balde num Web Worker. Os pixels vão e voltam transferidos (sem cópia). Sem
+@@ -14,14 +78,7 @@ export const PIXELS_PARA_WORKER = 1_000_000;
+  */
+ export function criarPreenchedor() {
+   let worker: Worker | null = null;
+-  try {
+-    if (typeof Worker !== 'undefined')
+-      worker = new Worker(new URL('../../tools/preenchimento.worker.ts', import.meta.url), {
+-        type: 'module',
+-      });
+-  } catch {
+-    worker = null;
+-  }
++  let tentouCriar = false;
+   let proximo = 0;
+   const pendentes = new Map<
+     number,
+@@ -30,10 +87,40 @@ export function criarPreenchedor() {
+       rejeitar(erro: Error): void;
+       largura: number;
+       altura: number;
++      removerAbort(): void;
+     }
+   >();
+-  if (worker)
+-    worker.onmessage = ({
++  function desligar(erro: Error) {
++    worker?.terminate();
++    worker = null;
++    for (const pedido of pendentes.values()) {
++      pedido.removerAbort();
++      pedido.rejeitar(erro);
++    }
++    pendentes.clear();
++  }
++
++  function obterWorker(): Worker | null {
++    if (tentouCriar) return worker;
++    tentouCriar = true;
++    try {
++      if (typeof Worker === 'undefined') return null;
++      worker = new Worker(new URL('../../tools/preenchimento.worker.ts', import.meta.url), {
++        type: 'module',
++      });
++    } catch {
++      return null;
++    }
++    const ligado = worker;
++    ligado.onerror = (evento) => {
++      if (worker !== ligado) return;
++      evento.preventDefault();
++      desligar(new Error(evento.message || 'O worker do balde falhou.'));
++    };
++    ligado.onmessageerror = () => {
++      if (worker === ligado) desligar(new Error('Não foi possível receber a área do balde.'));
++    };
++    ligado.onmessage = ({
+       data,
+     }: MessageEvent<{
+       id: number;
+@@ -41,9 +128,11 @@ export function criarPreenchedor() {
+       dados: Uint8ClampedArray;
+       erro?: string;
+     }>) => {
++      if (worker !== ligado) return;
+       const pedido = pendentes.get(data.id);
+       if (!pedido) return;
+       pendentes.delete(data.id);
++      pedido.removerAbort();
+       if (data.erro) pedido.rejeitar(new Error(data.erro));
+       else
+         pedido.resolver({
+@@ -51,49 +140,66 @@ export function criarPreenchedor() {
+           referencia: { width: pedido.largura, height: pedido.altura, data: data.dados },
+         });
+     };
++    return ligado;
++  }
+ 
+   return {
+     get noWorker() {
+-      return worker !== null;
++      return obterWorker() !== null;
+     },
+     planejar(
+       referencia: PixelBuffer,
+       comando: ComandoPreencher,
++      sinal?: AbortSignal,
+     ): Promise<{ plano: PlanoDoBalde; referencia: PixelBuffer }> {
++      sinal?.throwIfAborted();
+       const { ponto, cor, tolerancia, global = false } = comando;
+-      if (!worker)
++      const ligado = obterWorker();
++      if (!ligado)
+         return Promise.resolve({
+           plano: planejarPreenchimento(referencia, ponto.x, ponto.y, cor, tolerancia, global),
+           referencia,
+         });
+       const id = ++proximo;
+       return new Promise((resolver, rejeitar) => {
++        const abortar = () => {
++          if (worker !== ligado) return;
++          tentouCriar = false;
++          desligar(new Error('Preenchimento cancelado.'));
++        };
++        const removerAbort = () => sinal?.removeEventListener('abort', abortar);
++        sinal?.addEventListener('abort', abortar, { once: true });
+         pendentes.set(id, {
+           resolver,
+           rejeitar,
+           largura: referencia.width,
+           altura: referencia.height,
++          removerAbort,
+         });
+-        worker!.postMessage(
+-          {
+-            id,
+-            largura: referencia.width,
+-            altura: referencia.height,
+-            dados: referencia.data,
+-            ponto,
+-            cor,
+-            tolerancia,
+-            global,
+-          },
+-          [referencia.data.buffer],
+-        );
++        try {
++          ligado.postMessage(
++            {
++              id,
++              largura: referencia.width,
++              altura: referencia.height,
++              dados: referencia.data,
++              ponto,
++              cor,
++              tolerancia,
++              global,
++            },
++            [referencia.data.buffer],
++          );
++        } catch (erro) {
++          pendentes.delete(id);
++          removerAbort();
++          rejeitar(erro);
++        }
+       });
+     },
+     encerrar() {
+-      worker?.terminate();
+-      worker = null;
+-      for (const pedido of pendentes.values()) pedido.rejeitar(new Error('Editor encerrado.'));
+-      pendentes.clear();
++      tentouCriar = true;
++      desligar(new Error('Editor encerrado.'));
+     },
+   };
+ }
+diff --git a/src/canvas/editorController.ts b/src/canvas/editorController.ts
+index db5ae68..db75226 100644
+--- a/src/canvas/editorController.ts
++++ b/src/canvas/editorController.ts
+@@ -111,11 +111,16 @@ export class EditorController implements EditorApi, NucleoEditor {
+     return this.ligado;
+   }
+ 
++  revisaoAtual() {
++    return this.revisao;
++  }
++
+   disponivel() {
+     return this.ligado && this.pronto && !this.ferramentas.emGesto;
+   }
+ 
+   executar(comando: Comando, aposExecutar?: () => void) {
++    if (comando.tipo !== 'Preencher') this.ferramentas.cancelarPreenchimento();
+     // As prévias não entram no histórico. O comando rasteriza uma única vez na camada.
+     this.superficie.limpar();
+     const categoria =
+@@ -642,6 +647,7 @@ export class EditorController implements EditorApi, NucleoEditor {
+ 
+   /** Arquivo com camadas aberto: troca o documento e recomeça o histórico. */
+   substituirDocumento(dados: DocumentoComCamadas) {
++    this.ferramentas.cancelarPreenchimento();
+     const { doc } = this;
+     doc.name = dados.nome;
+     doc.dpi = dados.dpi;
+diff --git a/src/canvas/medicao.ts b/src/canvas/medicao.ts
+index 787ec37..fc7ef9d 100644
+--- a/src/canvas/medicao.ts
++++ b/src/canvas/medicao.ts
+@@ -5,7 +5,9 @@ export type OperacaoMedida =
+   | `${FerramentaDoTraco}:${FaseDoTraco}`
+   | 'spray:quadro'
+   | 'balde'
+-  /** Do clique ao balde pronto na tela (com o worker, a tela não trava no meio). */
++  /** Trabalho síncrono de cada faixa preparada para o balde. */
++  | 'balde:faixa'
++  /** Do clique ao balde pronto na tela. */
+   | 'balde:total'
+   | 'desfazer'
+   | 'refazer'
+diff --git a/src/commands/executador.ts b/src/commands/executador.ts
+index b792f73..8095360 100644
+--- a/src/commands/executador.ts
++++ b/src/commands/executador.ts
+@@ -39,6 +39,7 @@ import {
+   aplicarPreenchimento,
+   clearRectPixels,
+   planejarPreenchimento,
++  preservarAlfa,
+ } from '../tools/pixels';
+ import { areaDoTexto, desenharTexto } from '../tools/texto';
+ import {
+@@ -120,16 +121,6 @@ function pixelsIguais(a: PixelBuffer, b: PixelBuffer): boolean {
+   );
+ }
+ 
+-/** Bloqueio de transparência: a tinta só fica onde já havia pixel, com o mesmo alfa. */
+-function preservarAlfa(antes: PixelBuffer, depois: PixelBuffer): PixelBuffer {
+-  const resultado = { ...depois, data: new Uint8ClampedArray(depois.data) };
+-  for (let i = 0; i < resultado.data.length; i += 4) {
+-    if (antes.data[i + 3] === 0) resultado.data.set(antes.data.subarray(i, i + 4), i);
+-    else resultado.data[i + 3] = antes.data[i + 3];
+-  }
+-  return resultado;
+-}
+-
+ /**
+  * Aplica comandos ao documento e registra no histórico só o necessário para desfazer: o recorte
+  * de pixels de uma camada, ou a estrutura e os pixels inteiros das camadas afetadas.
+@@ -143,11 +134,10 @@ export class Executador {
+   ultimaSelecaoTransformada: Rect | null = null;
+   motivoRecusa: MotivoRecusa = null;
+ 
+-  /** Balde calculado fora da thread da tela: usado uma vez, pelo mesmo comando. */
+-  private planoPronto: {
+-    comando: Comando;
+-    plano: ReturnType<typeof planejarPreenchimento>;
+-    referencia: PixelBuffer;
++  /** O balde em faixas já calculou e comparou os pixels, sem tocar na camada. */
++  private preenchimentoPronto: {
++    comando: Extract<Comando, { tipo: 'Preencher' }>;
++    alteracao: AlteracaoPixels & { rect: Rect };
+   } | null = null;
+ 
+   private filtroPronto: {
+@@ -163,13 +153,12 @@ export class Executador {
+     return comando.amostrarTudo ? this.composto() : this.doc.copiarPixels();
+   }
+ 
+-  /** O próximo `executar(comando)` usa este plano em vez de calcular de novo. */
+-  usarPlanoPronto(
+-    comando: Comando,
+-    plano: ReturnType<typeof planejarPreenchimento>,
+-    referencia: PixelBuffer,
++  /** O próximo `executar(comando)` publica a alteração já preparada. */
++  usarPreenchimentoPronto(
++    comando: Extract<Comando, { tipo: 'Preencher' }>,
++    alteracao: AlteracaoPixels & { rect: Rect },
+   ) {
+-    this.planoPronto = { comando, plano, referencia };
++    this.preenchimentoPronto = { comando, alteracao };
+   }
+ 
+   /** Captura os pixels do alvo e o recorte que a prévia e o comando usam. */
+@@ -234,6 +223,7 @@ export class Executador {
+     if (this.filtroPronto?.comando !== comando) this.filtroPronto = null;
+     const entrada = this.aplicar(comando);
+     this.filtroPronto = null;
++    this.preenchimentoPronto = null;
+     if (!entrada) return false;
+     if (comando.tipo === 'NovoDocumento') this.historico.clear();
+     else this.historico.registrarComando(entrada);
+@@ -322,19 +312,24 @@ export class Executador {
+       case 'Preencher': {
+         // O balde pode alcançar qualquer ponto do papel. Com "imagem toda", decide a área
+         // pelo que se vê, mas pinta só na camada ativa.
+-        const pronto = this.planoPronto?.comando === comando ? this.planoPronto : null;
+-        this.planoPronto = null;
+-        const referencia = pronto?.referencia ?? this.referenciaDoBalde(comando);
+-        const plano = pronto
+-          ? pronto.plano
+-          : planejarPreenchimento(
+-              referencia,
+-              comando.ponto.x,
+-              comando.ponto.y,
+-              comando.cor,
+-              comando.tolerancia,
+-              comando.global,
+-            );
++        const pronto =
++          this.preenchimentoPronto?.comando === comando ? this.preenchimentoPronto : null;
++        this.preenchimentoPronto = null;
++        if (pronto) {
++          const { alvo, rect, after } = pronto.alteracao;
++          if (chaveDoAlvo(alvo) !== chaveDoAlvo(this.doc.alvoAtivo())) return null;
++          this.doc.aplicarPixels(after, rect.x, rect.y, alvo);
++          return this.registrarPixels(comando, 'Preenchimento', [pronto.alteracao]);
++        }
++        const referencia = this.referenciaDoBalde(comando);
++        const plano = planejarPreenchimento(
++          referencia,
++          comando.ponto.x,
++          comando.ponto.y,
++          comando.cor,
++          comando.tolerancia,
++          comando.global,
++        );
+         if (!plano) return null;
+         const depois = comando.amostrarTudo
+           ? this.doc.lerPixels(plano.area)
+diff --git a/src/tools/pixels.ts b/src/tools/pixels.ts
+index 964ee4c..c5e4204 100644
+--- a/src/tools/pixels.ts
++++ b/src/tools/pixels.ts
+@@ -161,17 +161,21 @@ export function mascaraPorCor(
+   return planejarPreenchimento(image, x, y, null, tolerance, global)?.mascara ?? null;
+ }
+ 
+-/** Aplica o plano a um recorte, indicando sua origem em coordenadas do documento. */
++/** Aplica a parte do plano que cruza o recorte, em coordenadas do documento. */
+ export function aplicarPreenchimento(
+   image: PixelBuffer,
+   plano: PlanoPreenchimento,
+   origem: Point,
+ ): void {
+   const { area, mascara, largura, cor } = plano;
+-  for (let y = area.y; y < area.y + area.height; y++) {
+-    let destino = ((y - origem.y) * image.width + area.x - origem.x) * 4;
++  const esquerda = Math.max(area.x, origem.x);
++  const direita = Math.min(area.x + area.width, origem.x + image.width);
++  const topo = Math.max(area.y, origem.y);
++  const fundo = Math.min(area.y + area.height, origem.y + image.height);
++  for (let y = topo; y < fundo; y++) {
++    let destino = ((y - origem.y) * image.width + esquerda - origem.x) * 4;
+     const linha = y * largura;
+-    for (let x = area.x; x < area.x + area.width; x++, destino += 4) {
++    for (let x = esquerda; x < direita; x++, destino += 4) {
+       if (!mascara[linha + x]) continue;
+       image.data[destino] = cor[0];
+       image.data[destino + 1] = cor[1];
+@@ -181,6 +185,21 @@ export function aplicarPreenchimento(
+   }
+ }
+ 
++/** Bloqueio de transparência: preserva o alfa e os pixels completamente transparentes. */
++export function preservarAlfa(antes: PixelBuffer, depois: PixelBuffer): PixelBuffer {
++  const resultado = { ...depois, data: new Uint8ClampedArray(depois.data) };
++  for (let i = 0; i < resultado.data.length; i += 4) {
++    const alfa = antes.data[i + 3];
++    if (!alfa) {
++      resultado.data[i] = antes.data[i];
++      resultado.data[i + 1] = antes.data[i + 1];
++      resultado.data[i + 2] = antes.data[i + 2];
++    }
++    resultado.data[i + 3] = alfa;
++  }
++  return resultado;
++}
++
+ /** Preenche por segmentos horizontais sem recursão e sem atravessar diagonais. */
+ export function floodFill(
+   image: PixelBuffer,
+diff --git a/tests/unit/balde-faixas.test.ts b/tests/unit/balde-faixas.test.ts
+new file mode 100644
+index 0000000..c4bd79e
+--- /dev/null
++++ b/tests/unit/balde-faixas.test.ts
+@@ -0,0 +1,103 @@
++import { describe, expect, it, vi } from 'vitest';
++import {
++  prepararPreenchimentoEmFaixas,
++  type PlanoDoBalde,
++} from '../../src/canvas/controle/preenchedor';
++import type { Comando } from '../../src/commands/comandos';
++import { Executador } from '../../src/commands/executador';
++import { recortarPixels } from '../../src/commands/history';
++import type { PixelBuffer, Rect } from '../../src/layers/types';
++import { aplicarPreenchimento, preservarAlfa } from '../../src/tools/pixels';
++import { documentoFalso } from './documentoFalso';
++
++function papel(width: number, height: number): PixelBuffer {
++  return { width, height, data: new Uint8ClampedArray(width * height * 4).fill(255) };
++}
++
++describe('preenchimento em faixas', () => {
++  it('aplica o plano de um recorte deslocado com o mesmo alfa do caminho síncrono', async () => {
++    const pixels = papel(352, 290);
++    pixels.data[(20 * pixels.width + 31) * 4 + 3] = 0;
++    pixels.data[(21 * pixels.width + 31) * 4 + 3] = 98;
++    const area = { x: 15, y: 10, width: 280, height: 245 };
++    const mascara = new Uint8Array(pixels.width * pixels.height).map((_, i) => (i % 5 ? 1 : 0));
++    const plano: NonNullable<PlanoDoBalde> = {
++      area,
++      largura: pixels.width,
++      mascara,
++      cor: [40, 80, 120, 255],
++    };
++    const original = recortarPixels(pixels, area);
++    const preenchido = recortarPixels(pixels, area);
++    aplicarPreenchimento(preenchido, plano, area);
++    const lerFaixa = vi.fn((faixa: Rect) => recortarPixels(pixels, faixa));
++    const preparado = await prepararPreenchimentoEmFaixas(plano, lerFaixa, () => true, {
++      aguardarQuadro: async () => {},
++      travarAlfa: true,
++    });
++    const esperado = preservarAlfa(original, preenchido);
++    expect(preparado?.before.data.every((byte, i) => byte === original.data[i])).toBe(true);
++    expect(preparado?.after.data.every((byte, i) => byte === esperado.data[i])).toBe(true);
++    expect(lerFaixa.mock.calls.length).toBeGreaterThan(1);
++  });
++
++  it('descarta resultados ao cancelar depois de preparar um quadro', async () => {
++    const before = papel(1024, 600);
++    const area = { x: 0, y: 0, width: before.width, height: before.height };
++    const mascara = new Uint8Array(before.width * before.height).fill(1);
++    const plano: NonNullable<PlanoDoBalde> = {
++      area,
++      largura: before.width,
++      mascara,
++      cor: [40, 80, 120, 255],
++    };
++    const lerFaixa = vi.fn((faixa: Rect) => recortarPixels(before, faixa));
++    let quadros = 0;
++    const preparado = await prepararPreenchimentoEmFaixas(plano, lerFaixa, () => quadros < 2, {
++      aguardarQuadro: async () => {
++        quadros++;
++      },
++    });
++    expect(preparado).toBeNull();
++    expect(lerFaixa.mock.calls.length).toBeGreaterThan(0);
++    expect(lerFaixa.mock.calls.length).toBeLessThan(10);
++    expect(before.data.every((byte) => byte === 255)).toBe(true);
++  });
++
++  it('publica os pixels preparados com um comando e uma gravação reversível', async () => {
++    const before = papel(32, 28);
++    const doc = documentoFalso(before);
++    const executor = new Executador(doc);
++    const alvo = doc.alvoAtivo();
++    const rect = { x: 0, y: 0, width: before.width, height: before.height };
++    const plano: NonNullable<PlanoDoBalde> = {
++      area: rect,
++      largura: before.width,
++      mascara: new Uint8Array(rect.width * rect.height).fill(1),
++      cor: [40, 80, 120, 255],
++    };
++    const comando: Extract<Comando, { tipo: 'Preencher' }> = {
++      tipo: 'Preencher',
++      ponto: { x: 1, y: 2 },
++      cor: '#285078',
++      tolerancia: 0,
++    };
++    const lerFaixa = vi.fn((faixa: Rect) => doc.lerPixels(faixa));
++    const preparado = await prepararPreenchimentoEmFaixas(plano, lerFaixa, () => true, {
++      antesCompleto: before,
++      aguardarQuadro: async () => {},
++    });
++    expect(lerFaixa).not.toHaveBeenCalled();
++    expect(doc.aplicarPixels).not.toHaveBeenCalled();
++    expect(preparado?.before).toBe(before);
++    executor.usarPreenchimentoPronto(comando, { ...preparado!, alvo, rect });
++    expect(executor.executar(comando)).toBe(true);
++    expect(doc.aplicarPixels).toHaveBeenCalledTimes(1);
++    expect(executor.historico.entries).toEqual([{ label: 'Preenchimento' }]);
++    expect(doc.raster).toEqual(preparado?.after);
++    expect(executor.desfazer()).toBe(true);
++    expect(doc.raster).toEqual(before);
++    expect(executor.refazer()).toBe(true);
++    expect(doc.raster).toEqual(preparado?.after);
++  });
++});

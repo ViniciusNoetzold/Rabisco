@@ -1,0 +1,521 @@
+diff --git a/src/brushes/borrar.ts b/src/brushes/borrar.ts
+index e061a99..e492bd9 100644
+--- a/src/brushes/borrar.ts
++++ b/src/brushes/borrar.ts
+@@ -1,4 +1,12 @@
+ import type { PixelBuffer, Point, Rect } from '../layers/types';
++import { transformacoes, type ConfigSimetria, type Transformacao } from './simetria';
++
++interface OpcoesBorrao {
++  area?: Rect;
++  cobertura?: Uint8ClampedArray;
++  travarAlfa?: boolean;
++  simetria?: ConfigSimetria;
++}
+ 
+ /**
+  * Dedo (borrar/esfumar): a ponta "carrega" os pixels de onde passou e os arrasta. Cada carimbo
+@@ -20,6 +28,7 @@ export class Borrador {
+     private readonly origem: Point,
+     espessura: number,
+     private readonly forca: number,
++    private readonly opcoes: OpcoesBorrao = {},
+   ) {
+     this.raio = Math.max(1, espessura / 2);
+     this.lado = 2 * Math.ceil(this.raio) + 1;
+@@ -81,9 +90,12 @@ export class Borrador {
+       for (let dx = -meio; dx <= meio; dx++) {
+         const d = Math.hypot(dx, dy) / this.raio;
+         if (d > 1) continue;
+-        const pixel = this.indice(centro.x + dx, centro.y + dy);
++        const x = centro.x + dx;
++        const y = centro.y + dy;
++        const pixel = this.indice(x, y);
+         if (pixel < 0) continue;
+-        const peso = this.forca * (1 - d * d);
++        const cobertura = this.cobertura(x, y);
++        const peso = this.forca * (1 - d * d) * cobertura;
+         const carga = ((dy + meio) * this.lado + dx + meio) * 4;
+         const alfa = data[pixel + 3] / 255;
+         const antes = [
+@@ -95,8 +107,10 @@ export class Borrador {
+         const depois = antes.map((valor, c) => valor + (this.carga[carga + c] - valor) * peso);
+         for (let c = 0; c < 4; c++)
+           this.carga[carga + c] += (antes[c] - this.carga[carga + c]) * pegar;
++        if (!peso || (this.opcoes.travarAlfa && !alfa)) continue;
+         const novoAlfa = depois[3];
+-        data[pixel + 3] = Math.round(novoAlfa);
++        if (!this.opcoes.travarAlfa) data[pixel + 3] = Math.round(novoAlfa);
++        else if (!novoAlfa) continue;
+         const escala = novoAlfa > 0 ? 255 / novoAlfa : 0;
+         data[pixel] = Math.round(depois[0] * escala);
+         data[pixel + 1] = Math.round(depois[1] * escala);
+@@ -104,6 +118,15 @@ export class Borrador {
+       }
+   }
+ 
++  private cobertura(x: number, y: number): number {
++    const { area, cobertura } = this.opcoes;
++    if (!area) return 1;
++    const coluna = x - area.x;
++    const linha = y - area.y;
++    if (coluna < 0 || coluna >= area.width || linha < 0 || linha >= area.height) return 0;
++    return cobertura ? cobertura[linha * area.width + coluna] / 255 : 1;
++  }
++
+   /** Índice do pixel (px do papel) dentro da imagem, ou −1 fora dela. */
+   private indice(x: number, y: number): number {
+     const lx = x - this.origem.x;
+@@ -118,6 +141,37 @@ export class Borrador {
+   }
+ }
+ 
++/** Cada cópia tem sua própria carga. Compartilham os pixels e a ordem das amostras. */
++export class BorradorSimetrico {
++  private readonly copias: { transformar: Transformacao; borrador: Borrador }[];
++
++  constructor(
++    imagem: PixelBuffer,
++    origem: Point,
++    espessura: number,
++    forca: number,
++    opcoes: OpcoesBorrao = {},
++  ) {
++    this.copias = transformacoes(opcoes.simetria).map((transformar) => ({
++      transformar,
++      borrador: new Borrador(imagem, origem, espessura, forca, opcoes),
++    }));
++  }
++
++  iniciar(ponto: Point) {
++    for (const { transformar, borrador } of this.copias) borrador.iniciar(transformar(ponto));
++  }
++
++  mover(ponto: Point): Rect[] {
++    const areas: Rect[] = [];
++    for (const { transformar, borrador } of this.copias) {
++      const area = borrador.mover(transformar(ponto));
++      if (area) areas.push(area);
++    }
++    return areas;
++  }
++}
++
+ function unir(a: Rect, b: Rect): Rect {
+   const x = Math.min(a.x, b.x);
+   const y = Math.min(a.y, b.y);
+@@ -130,32 +184,46 @@ function unir(a: Rect, b: Rect): Rect {
+ }
+ 
+ /** A área que um traço de dedo pode mexer: os pontos com a margem do raio. */
+-export function areaDoBorrao(pontos: readonly Point[], espessura: number): Rect | null {
++export function areaDoBorrao(
++  pontos: readonly Point[],
++  espessura: number,
++  transformar?: Transformacao,
++): Rect | null {
+   if (!pontos.length) return null;
+   const margem = Math.ceil(Math.max(1, espessura / 2)) + 1;
+-  const xs = pontos.map((p) => Math.round(p.x));
+-  const ys = pontos.map((p) => Math.round(p.y));
+-  const x = Math.min(...xs) - margem;
+-  const y = Math.min(...ys) - margem;
++  let esquerda = Infinity;
++  let topo = Infinity;
++  let direita = -Infinity;
++  let base = -Infinity;
++  for (const original of pontos) {
++    const ponto = transformar?.(original) ?? original;
++    const x = Math.round(ponto.x);
++    const y = Math.round(ponto.y);
++    esquerda = Math.min(esquerda, x);
++    direita = Math.max(direita, x);
++    topo = Math.min(topo, y);
++    base = Math.max(base, y);
++  }
+   return {
+-    x,
+-    y,
+-    width: Math.max(...xs) + margem + 1 - x,
+-    height: Math.max(...ys) + margem + 1 - y,
++    x: esquerda - margem,
++    y: topo - margem,
++    width: direita - esquerda + 2 * margem + 1,
++    height: base - topo + 2 * margem + 1,
+   };
+ }
+ 
+-/** Aplica um traço inteiro (o executor e a miniatura da galeria usam). */
++/** Aplica um traço inteiro, na mesma ordem da prévia. */
+ export function borrarTraco(
+   imagem: PixelBuffer,
+   origem: Point,
+   pontos: readonly Point[],
+   espessura: number,
+   forca: number,
++  opcoes: OpcoesBorrao = {},
+ ) {
+   const [primeiro, ...resto] = pontos;
+   if (!primeiro) return;
+-  const borrador = new Borrador(imagem, origem, espessura, forca);
++  const borrador = new BorradorSimetrico(imagem, origem, espessura, forca, opcoes);
+   borrador.iniciar(primeiro);
+   for (const ponto of resto) borrador.mover(ponto);
+ }
+diff --git a/src/canvas/controle/ferramentas.ts b/src/canvas/controle/ferramentas.ts
+index f7dc668..81ccae8 100644
+--- a/src/canvas/controle/ferramentas.ts
++++ b/src/canvas/controle/ferramentas.ts
+@@ -153,7 +153,11 @@ export class ControleFerramentas {
+       : null;
+     this.simetria = config && { config, copias: transformacoes(config) };
+     // A prévia do traço fica atrás das camadas de cima, como o resultado final.
+-    if (FERRAMENTAS_ESTABILIZAVEIS.has(id)) this.superficie.mostrarCamadasDeCima();
++    if (
++      FERRAMENTAS_ESTABILIZAVEIS.has(id) &&
++      !(id === 'brush' && useEditor.getState().pincel === 'dedo')
++    )
++      this.superficie.mostrarCamadasDeCima();
+     // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
+     this.inteligente =
+       useEditor.getState().formasInteligentes &&
+@@ -351,6 +355,8 @@ export class ControleFerramentas {
+       opcoes: opcoesDaFerramenta(estado),
+       selecao: selecao.area,
+       mascaraSelecao: selecao.mascara,
++      simetria: this.simetria?.config,
++      travarAlfa: !doc.editandoMascara && doc.activeLayer.bloqueioTransparencia,
+       colagemFlutuante: colagem.ativa,
+       executar: (comando) => {
+         // O comando leva a simetria e as marcas de um eixo só; o executor pinta as cópias.
+diff --git a/src/canvas/controle/superficie.ts b/src/canvas/controle/superficie.ts
+index ed5d41c..5f0abd9 100644
+--- a/src/canvas/controle/superficie.ts
++++ b/src/canvas/controle/superficie.ts
+@@ -180,13 +180,17 @@ export class SuperficieTela {
+     this.areaPrevia = origem ? unirAreas(origem, destino) : destino;
+   }
+ 
+-  /** Prévia do dedo: copia um trecho já borrado para a tela (some ao limpar). */
+-  trecho(fonte: CanvasImageSource, area: Rect) {
++  /** Prévia do dedo: recompõe o trecho com os pixels borrados no alvo original. */
++  trecho(fonte: HTMLCanvasElement, area: Rect) {
+     const recorte = limitarArea(area, this.doc);
+     if (!recorte) return;
+-    const { x, y, width, height } = recorte;
+-    this.grafico.drawImage(fonte, x, y, width, height, x, y, width, height);
+-    this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, recorte) : recorte;
++    const atualizar = areaDaPreviaFiltro(this.doc, recorte);
++    comporDocumento(this.doc, this.tela, atualizar, {
++      alvo: this.doc.alvoAtivo(),
++      area: { x: 0, y: 0, width: fonte.width, height: fonte.height },
++      canvas: fonte,
++    });
++    this.areaPrevia = unirAreas(this.areaPrevia, atualizar);
+   }
+ 
+   /** Um leve "pulo" da prévia em torno do ponto (formas inteligentes). */
+diff --git a/src/canvas/editorController.ts b/src/canvas/editorController.ts
+index 9caa512..db5ae68 100644
+--- a/src/canvas/editorController.ts
++++ b/src/canvas/editorController.ts
+@@ -140,7 +140,7 @@ export class EditorController implements EditorApi, NucleoEditor {
+     if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
+     if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
+     aposExecutar?.();
+-    this.edicaoAplicada(comando.tipo === 'AplicarFiltro');
++    this.edicaoAplicada(comando.tipo === 'AplicarFiltro' || comando.tipo === 'Borrar');
+     return true;
+   }
+ 
+diff --git a/src/commands/comandos.ts b/src/commands/comandos.ts
+index 224379f..2baab6c 100644
+--- a/src/commands/comandos.ts
++++ b/src/commands/comandos.ts
+@@ -88,6 +88,9 @@ export type Comando =
+       pontos: Point[];
+       espessura: number;
+       forca: number;
++      simetria?: ConfigSimetria;
++      area?: Rect;
++      mascara?: MascaraSelecao;
+     }
+   | {
+       tipo: 'Preencher';
+diff --git a/src/commands/executador.ts b/src/commands/executador.ts
+index 2a33754..5641966 100644
+--- a/src/commands/executador.ts
++++ b/src/commands/executador.ts
+@@ -64,7 +64,7 @@ import {
+   type EntradaComando,
+ } from './history';
+ import { areasDaPincelada, desenharPincelada, nomeDaPincelada } from './pincelada';
+-import { copiasDosPontos } from '../brushes/simetria';
++import { copiasDosPontos, transformacoes } from '../brushes/simetria';
+ 
+ const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
+ const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
+@@ -293,12 +293,25 @@ export class Executador {
+       case 'AplicarFiltro':
+         return this.aplicarFiltro(comando);
+       case 'Borrar': {
+-        const limites = areaDoBorrao(comando.pontos, comando.espessura);
+-        const area = limites && limitarArea(limites, this.doc);
++        const { pontos, espessura, forca, simetria, mascara } = comando;
++        if (pontos.length < 2) return null;
++        const partes = transformacoes(simetria).map(
++          (transformar) => areaDoBorrao(pontos, espessura, transformar)!,
++        );
++        const area = limitarArea(partes.reduce(unirAreas), this.doc);
+         if (!area) return null;
+-        const pixels = this.doc.lerPixels(area);
+-        borrarTraco(pixels, area, comando.pontos, comando.espessura, comando.forca);
+-        return this.escrever(comando, 'Dedo', area, pixels);
++        const selecao = comando.area && limitarArea(comando.area, this.doc);
++        if (comando.area && !selecao) return null;
++        const alvo = this.doc.alvoAtivo();
++        const before = this.doc.lerPixels(area, alvo);
++        const after = { ...before, data: new Uint8ClampedArray(before.data) };
++        borrarTraco(after, area, pontos, espessura, forca, {
++          simetria,
++          area: selecao ?? undefined,
++          cobertura: selecao && mascara ? coberturaDaSelecao(selecao, mascara) : undefined,
++          travarAlfa: this.preservaAlfa(alvo),
++        });
++        return this.escreverAlteracao(comando, 'Dedo', { alvo, rect: area, before, after }, partes);
+       }
+       case 'Gradiente': {
+         const area = areaDoGradiente(comando, this.doc.width, this.doc.height);
+diff --git a/src/tools/brush.ts b/src/tools/brush.ts
+index 0c5ecdf..8469bd2 100644
+--- a/src/tools/brush.ts
++++ b/src/tools/brush.ts
+@@ -78,7 +78,6 @@ export const pincel = definirFerramenta(
+       cursor: () => 'crosshair',
+       onPointerDown(ctx, { ponto, botao }) {
+         if (ctx.opcoes.pincel === 'dedo') {
+-          ctx.selecionar(null);
+           dedo = criarGestoDedo(ctx, ponto);
+           return;
+         }
+diff --git a/src/tools/dedo.ts b/src/tools/dedo.ts
+index 0727d04..df3d020 100644
+--- a/src/tools/dedo.ts
++++ b/src/tools/dedo.ts
+@@ -1,4 +1,6 @@
+-import { Borrador } from '../brushes/borrar';
++import { BorradorSimetrico } from '../brushes/borrar';
++import { limitarArea } from '../commands/desenho';
++import { coberturaDaSelecao } from '../filtros/cobertura';
+ import type { Point } from '../layers/types';
+ import type { ToolCtx } from './tool';
+ 
+@@ -15,29 +17,34 @@ export function criarGestoDedo(ctx: ToolCtx, ponto: Point) {
+   tela.width = largura;
+   tela.height = altura;
+   const grafico = tela.getContext('2d')!;
+-  const borrador = new Borrador(copia, { x: 0, y: 0 }, espessura, forca);
++  grafico.putImageData(copia, 0, 0);
++  const area = ctx.selecao ?? undefined;
++  const mascara = ctx.mascaraSelecao;
++  const simetria = ctx.simetria;
++  const borrador = new BorradorSimetrico(copia, { x: 0, y: 0 }, espessura, forca, {
++    simetria,
++    area,
++    cobertura: area && mascara ? coberturaDaSelecao(area, mascara) : undefined,
++    travarAlfa: ctx.travarAlfa,
++  });
+   const pontos: Point[] = [{ x: ponto.x, y: ponto.y }];
+   borrador.iniciar(ponto);
+ 
+   return {
+     mover(proximo: Point) {
+       pontos.push({ x: proximo.x, y: proximo.y });
+-      const area = borrador.mover(proximo);
+-      if (!area) return;
+-      const x = Math.max(0, area.x);
+-      const y = Math.max(0, area.y);
+-      const largura = Math.min(tela.width, area.x + area.width) - x;
+-      const altura = Math.min(tela.height, area.y + area.height) - y;
+-      if (largura <= 0 || altura <= 0) return;
+-      grafico.putImageData(copia, 0, 0, x, y, largura, altura);
+-      ctx.previsualizarTrecho?.(tela, { x, y, width: largura, height: altura });
++      const recortes = borrador.mover(proximo).flatMap((parte) => limitarArea(parte, tela) ?? []);
++      for (const { x, y, width, height } of recortes)
++        grafico.putImageData(copia, 0, 0, x, y, width, height);
++      for (const parte of recortes) ctx.previsualizarTrecho?.(tela, parte);
+     },
+     terminar(ultimo: Point) {
+       const fim = pontos.at(-1)!;
+       if (ultimo.x !== fim.x || ultimo.y !== fim.y) pontos.push({ x: ultimo.x, y: ultimo.y });
+       tela.width = tela.height = 1;
+       ctx.limparPrevia();
+-      if (pontos.length > 1) ctx.executar({ tipo: 'Borrar', pontos, espessura, forca });
++      if (pontos.length > 1)
++        ctx.executar({ tipo: 'Borrar', pontos, espessura, forca, simetria, area, mascara });
+     },
+     cancelar() {
+       tela.width = tela.height = 1;
+diff --git a/src/tools/tool.ts b/src/tools/tool.ts
+index 352c51d..21f479a 100644
+--- a/src/tools/tool.ts
++++ b/src/tools/tool.ts
+@@ -1,5 +1,6 @@
+ import type { Comando, EstiloTraco } from '../commands/comandos';
+ import type { FormaGradiente } from './gradiente';
++import type { ConfigSimetria } from '../brushes/simetria';
+ import type { MascaraSelecao, RecorteFlutuante } from '../document/selecao';
+ import type {
+   ConfiguracaoPincel,
+@@ -79,6 +80,8 @@ export interface ToolCtx {
+   };
+   readonly selecao: Rect | null;
+   readonly mascaraSelecao?: MascaraSelecao;
++  readonly simetria?: ConfigSimetria;
++  readonly travarAlfa?: boolean;
+   readonly colagemFlutuante?: boolean;
+   executar(comando: Comando): boolean;
+   /** Balde: em papéis grandes, calcula a área num worker e executa quando ficar pronto. */
+@@ -92,7 +95,7 @@ export interface ToolCtx {
+   iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
+   previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
+   /** Prévia do dedo: um trecho já borrado (px do papel) vai para a tela. */
+-  previsualizarTrecho?(fonte: CanvasImageSource, area: Rect): void;
++  previsualizarTrecho?(fonte: HTMLCanvasElement, area: Rect): void;
+   prepararRecorte(area: Rect, mascara?: MascaraSelecao, transparente?: string): RecorteFlutuante;
+   reposicionarColagem?(destino: Rect): void;
+   confirmarColagem?(): void;
+diff --git a/tests/e2e/dedo-simetria.spec.ts b/tests/e2e/dedo-simetria.spec.ts
+new file mode 100644
+index 0000000..da2667d
+--- /dev/null
++++ b/tests/e2e/dedo-simetria.spec.ts
+@@ -0,0 +1,61 @@
++import { expect, test, type Page } from '@playwright/test';
++
++async function pontoNaTela(page: Page, x: number, y: number) {
++  const tela = page.locator('.drawing-canvas');
++  const caixa = (await tela.boundingBox())!;
++  const escala = caixa.width / Number(await tela.getAttribute('width'));
++  return { x: caixa.x + x * escala, y: caixa.y + y * escala };
++}
++
++async function arrastar(page: Page, de: [number, number], ate: [number, number], soltar = true) {
++  const a = await pontoNaTela(page, ...de);
++  const b = await pontoNaTela(page, ...ate);
++  await page.mouse.move(a.x, a.y);
++  await page.mouse.down();
++  await page.mouse.move(b.x, b.y, { steps: 20 });
++  if (soltar) await page.mouse.up();
++}
++
++async function vermelhos(page: Page) {
++  return page.locator('.drawing-canvas').evaluate((tela: HTMLCanvasElement) => {
++    const ctx = tela.getContext('2d')!;
++    return [225, 799].map((x) => ctx.getImageData(x, 300, 1, 1).data[0]);
++  });
++}
++
++test('dedo espelhado usa a mesma prévia, desfaz junto e respeita a seleção', async ({ page }) => {
++  await page.goto('/');
++  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
++  await page.getByRole('tab', { name: 'Exibir' }).click();
++  await page.getByRole('combobox', { name: 'Modo de simetria' }).selectOption('vertical');
++  await page.getByRole('tab', { name: 'Início' }).click();
++  await page.locator('.drawing-canvas').focus();
++  await page.keyboard.press('b');
++  const espessura = page.getByRole('spinbutton', { name: 'Espessura do traço', exact: true });
++  await espessura.fill('100');
++  await espessura.press('Tab');
++  await page.getByRole('button', { name: 'Usar cor #252a34' }).click();
++  await arrastar(page, [150, 300], [151, 300]);
++  await page.getByRole('button', { name: 'Galeria de pincéis' }).click();
++  await page.getByRole('menuitemradio', { name: 'Dedo (borrar)' }).click();
++  await page.getByRole('slider', { name: 'Força do dedo' }).fill('90');
++  expect(await vermelhos(page)).toEqual([255, 255]);
++
++  await arrastar(page, [170, 300], [260, 300], false);
++  const previa = await vermelhos(page);
++  expect(previa[0]).toBeLessThan(200);
++  expect(previa[1]).toBeLessThan(200);
++  await page.mouse.up();
++  expect(await vermelhos(page)).toEqual(previa);
++  await expect(page.locator('.history-list').getByText('Dedo', { exact: true })).toHaveCount(1);
++  await page.keyboard.press('Control+z');
++  expect(await vermelhos(page)).toEqual([255, 255]);
++
++  await page.keyboard.press('s');
++  await arrastar(page, [100, 245], [280, 355]);
++  await page.keyboard.press('b');
++  await arrastar(page, [170, 300], [260, 300]);
++  const [esquerda, direita] = await vermelhos(page);
++  expect(esquerda).toBeLessThan(200);
++  expect(direita).toBe(255);
++});
+diff --git a/tests/unit/borrar.test.ts b/tests/unit/borrar.test.ts
+index fd16315..d8d361d 100644
+--- a/tests/unit/borrar.test.ts
++++ b/tests/unit/borrar.test.ts
+@@ -1,6 +1,9 @@
+ import { describe, expect, it } from 'vitest';
+-import { areaDoBorrao, borrarTraco } from '../../src/brushes/borrar';
++import { areaDoBorrao, borrarTraco, BorradorSimetrico } from '../../src/brushes/borrar';
++import type { ConfigSimetria } from '../../src/brushes/simetria';
++import { Executador } from '../../src/commands/executador';
+ import type { PixelBuffer } from '../../src/layers/types';
++import { documentoFalso } from './documentoFalso';
+ 
+ /** 60 × 20: metade esquerda vermelha, direita branca. */
+ function papel(): PixelBuffer {
+@@ -78,4 +81,51 @@ describe('dedo (borrar)', () => {
+     expect(a).toBeGreaterThan(0);
+     expect(r).toBeGreaterThan(180);
+   });
++
++  it('o mesmo comando borra o traço e o seu espelho, num item reversível', () => {
++    const antes = papel();
++    const doc = documentoFalso(antes);
++    const editor = new Executador(doc);
++    const simetria: ConfigSimetria = {
++      modo: 'horizontal',
++      eixos: 2,
++      espelhar: false,
++      centro: { x: 30, y: 10 },
++    };
++    const pontos = traco.map(({ x }) => ({ x, y: 5 }));
++    expect(editor.executar({ tipo: 'Borrar', pontos, espessura: 8, forca: 0.8, simetria })).toBe(
++      true,
++    );
++    expect(pixel(doc.raster, 36, 5)[1]).toBeLessThan(200);
++    expect(pixel(doc.raster, 36, 15)[1]).toBeLessThan(200);
++    expect(editor.historico.entries).toEqual([{ label: 'Dedo' }]);
++    const depois = doc.raster;
++    expect(editor.desfazer()).toBe(true);
++    expect(doc.raster).toEqual(antes);
++    expect(editor.refazer()).toBe(true);
++    expect(doc.raster).toEqual(depois);
++  });
++
++  it('o replay radial coincide com a prévia e respeita a cobertura da seleção', () => {
++    const previa = papel();
++    const resultado = papel();
++    const area = { x: 30, y: 7, width: 12, height: 8 };
++    const cobertura = new Uint8ClampedArray(area.width * area.height).fill(255);
++    cobertura[3 * area.width + 6] = 0;
++    const simetria: ConfigSimetria = {
++      modo: 'radial',
++      eixos: 4,
++      espelhar: true,
++      centro: { x: 30, y: 10 },
++    };
++    const opcoes = { area, cobertura, simetria };
++    const borrador = new BorradorSimetrico(previa, { x: 0, y: 0 }, 8, 0.8, opcoes);
++    borrador.iniciar(traco[0]);
++    for (const ponto of traco.slice(1)) borrador.mover(ponto);
++    borrarTraco(resultado, { x: 0, y: 0 }, traco, 8, 0.8, opcoes);
++    expect(resultado).toEqual(previa);
++    expect(pixel(resultado, 36, 10)).toEqual([255, 255, 255, 255]);
++    expect(pixel(resultado, 43, 10)).toEqual([255, 255, 255, 255]);
++    expect(pixel(resultado, 35, 10)[1]).toBeLessThan(255);
++  });
+ });

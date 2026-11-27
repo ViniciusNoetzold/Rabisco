@@ -4,6 +4,8 @@
 
 A branch `main` está publicada e validada até o **Passo 4 (Pixel art)**, no commit `e156f64`. Confira `git log -5 --oneline` ao retomar. O **Passo 5 (ASCII)** estava em integração na hora deste checkpoint. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
 
+O [rascunho completo do ASCII](retomada-0.5/passo-5-ascii-em-validacao.patch), com código e testes, está no GitHub. Se o Passo 5 ainda aparecer como pendente no changelog, confira com `git apply --check prompts/retomada-0.5/passo-5-ascii-em-validacao.patch` e aplique com `git apply` no mesmo arquivo. O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos dos Passos 6 a 8 e aponta as integrações e verificações que faltam.
+
 ## Em outro computador
 
 ```powershell
