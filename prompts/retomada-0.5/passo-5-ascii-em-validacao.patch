@@ -1658,7 +1658,7 @@ new file mode 100644
 +
 +  await dialogo.getByRole('button', { name: 'Copiar texto' }).click();
 +  await expect(dialogo.getByText('Texto copiado.', { exact: true })).toBeVisible();
-+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(texto);
++  expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(texto);
 +
 +  const downloads = page.waitForEvent('download');
 +  await dialogo.getByRole('button', { name: 'Exportar .txt', exact: true }).click();
