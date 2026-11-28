@@ -203,7 +203,7 @@ export function EditorDialogs({
           <RedimensionarInclinar info={info} fechar={onClose} aplicar={onTransformar} />
         )}
         {dialog === 'save-as' && (
-          <SalvarComo nome={info.name} fechar={onClose} salvar={onSalvarComo} />
+          <SalvarComo nome={info.name} camadas={info.estrutura.camadas} fechar={onClose} salvar={onSalvarComo} />
         )}
         {dialog === 'print' && <ImprimirDesenho fechar={onClose} imprimir={onImprimir} />}
         {dialog === 'colors' && (

@@ -1,4 +1,5 @@
 import type { CamadaAscii } from '../estilos/camadaAscii';
+import type { AjusteCamada } from './ajustes';
 
 /** Modos de mesclagem das camadas, com os nomes usados na interface em português. */
 export const MODOS_MESCLAGEM = {
@@ -59,6 +60,8 @@ export interface PropriedadesCamada {
   mascaraAtiva?: boolean;
   efeitos?: EfeitosCamada;
   ascii?: CamadaAscii;
+  /** Filtro local não destrutivo, aplicado ao composto abaixo da camada. */
+  ajuste?: AjusteCamada;
 }
 
 export interface Grupo {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { DocumentInfo, EditorApi } from '../../canvas/CanvasSurface';
 import { useEditor } from '../store';
+import { AjusteCamadaDialog, type AlvoDialogoAjuste } from './AjusteCamadaDialog';
 import {
   MODOS_MESCLAGEM,
   type Grupo,
@@ -51,6 +52,7 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
   const [renomeando, setRenomeando] = useState<string | null>(null);
   const [arrastada, setArrastada] = useState<string | null>(null);
   const [extras, setExtras] = useState<string[]>([]);
+  const [dialogoAjuste, definirDialogoAjuste] = useState<AlvoDialogoAjuste | null>(null);
   const camadas = [...estrutura.camadas].reverse();
   // Grupos aparecem como cabeçalho acima da camada mais alta deles; recolhidos escondem as camadas.
   const gruposPorId = new Map(estrutura.grupos.map((grupo) => [grupo.id, grupo]));
@@ -68,7 +70,8 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
     if (!grupo?.recolhido) itens.push({ tipo: 'camada', camada });
     return itens;
   });
-  const ativa = estrutura.camadas.find((camada) => camada.id === estrutura.ativa);
+  const posicaoAtiva = estrutura.camadas.findIndex((camada) => camada.id === estrutura.ativa);
+  const ativa = estrutura.camadas[posicaoAtiva];
   // Ctrl/Shift+clique: outras camadas escolhidas junto com a ativa (para distribuir).
   const escolhidas = [
     ...new Set(
@@ -136,6 +139,8 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
               onClick={(evento) => escolher(camada.id, evento)}
               onKeyDown={(evento) => {
                 if (evento.key === 'F2') setRenomeando(camada.id);
+                if (evento.key === 'Enter' && camada.ajuste && !camada.locked && evento.currentTarget === evento.target)
+                  definirDialogoAjuste({ id: camada.id, ajuste: camada.ajuste });
               }}
             >
               <button
@@ -161,7 +166,9 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
               >
                 {camada.visible ? '👁' : '–'}
               </button>
-              <Miniatura editor={editor} id={camada.id} revisao={revisao} />
+              {camada.ajuste
+                ? <span className="camada-miniatura" aria-hidden="true" title="Camada de ajuste">±</span>
+                : <Miniatura editor={editor} id={camada.id} revisao={revisao} />}
               {camada.temMascara && (
                 <button
                   type="button"
@@ -198,7 +205,13 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
                   }}
                 />
               ) : (
-                <span className="camada-nome" onDoubleClick={() => setRenomeando(camada.id)}>
+                <span
+                  className="camada-nome"
+                  onDoubleClick={() => {
+                    if (camada.ajuste && !camada.locked) definirDialogoAjuste({ id: camada.id, ajuste: camada.ajuste });
+                    else setRenomeando(camada.id);
+                  }}
+                >
                   {camada.recorte && <span title="Máscara de recorte">↳ </span>}
                   {camada.name}
                   {camada.opacity < 1 && <small> {Math.round(camada.opacity * 100)}%</small>}
@@ -248,6 +261,7 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
             <select
               aria-label="Modo de mesclagem"
               value={ativa.modo}
+              disabled={Boolean(ativa.ajuste)}
               onChange={(evento) =>
                 alterar(ativa.id, { modo: evento.target.value as ModoMesclagem })
               }
@@ -264,6 +278,7 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
               <input
                 type="checkbox"
                 checked={ativa.bloqueioTransparencia}
+                disabled={Boolean(ativa.ajuste)}
                 onChange={(evento) =>
                   alterar(ativa.id, { bloqueioTransparencia: evento.target.checked })
                 }
@@ -293,7 +308,7 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
         </div>
       )}
 
-      {ativa && (
+      {ativa && !ativa.ajuste && (
         <label className="camada-alinhar">
           Alinhar ao papel
           <select
@@ -335,9 +350,21 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
           </button>
         </div>
       )}
-      {ativa && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
+      {ativa && !ativa.ajuste && <EfeitosDaCamada camada={ativa} alterar={alterar} api={api} />}
 
       <div className="camadas-acoes" role="toolbar" aria-label="Ações de camada">
+        {ativa?.ajuste && (
+          <>
+            <button type="button" disabled={ativa.locked} onClick={() => definirDialogoAjuste({ id: ativa.id, ajuste: ativa.ajuste })}>
+              Editar ajuste
+            </button>
+            {ativa.temMascara && (
+              <button type="button" onClick={() => api()?.executarCamada({ tipo: 'ExcluirMascara', id: ativa.id })}>
+                Excluir máscara
+              </button>
+            )}
+          </>
+        )}
         {ativa?.ascii && (
           <button type="button" disabled={ativa.locked} onClick={() => onEditarAscii(ativa.id)}>
             Editar ASCII
@@ -350,6 +377,9 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
         >
           ＋ Nova
         </button>
+        <button type="button" onClick={() => definirDialogoAjuste({ acimaDe: ativa?.id })}>
+          Nova camada de ajuste
+        </button>
         <button
           type="button"
           title="Põe a camada ativa num grupo novo (Ctrl+G). Arraste outras camadas para dentro."
@@ -360,8 +390,12 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
         </button>
         <button
           type="button"
-          title="Transformação livre: mover, escalar e girar (Ctrl+T)"
-          disabled={!ativa}
+          title={
+            ativa?.ajuste
+              ? 'Transformação livre disponível para camadas com pixels'
+              : 'Transformação livre: mover, escalar e girar (Ctrl+T)'
+          }
+          disabled={!ativa || Boolean(ativa.ajuste)}
           onClick={() => useEditor.getState().setTool('transform')}
         >
           Transformar
@@ -392,7 +426,7 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
         <button
           type="button"
           title="Mesclar com a camada de baixo (Ctrl+Shift+M)"
-          disabled={!ativa || estrutura.camadas[0]?.id === ativa.id}
+          disabled={posicaoAtiva < 1 || Boolean(ativa?.ajuste || estrutura.camadas[posicaoAtiva - 1]?.ajuste)}
           onClick={() => ativa && api()?.executarCamada({ tipo: 'MesclarAbaixo', id: ativa.id })}
         >
           Mesclar
@@ -411,6 +445,9 @@ export function CamadasPainel({ info, editor, onEditarAscii }: CamadasPainelProp
           Excluir
         </button>
       </div>
+      {dialogoAjuste && (
+        <AjusteCamadaDialog alvo={dialogoAjuste} editor={editor} fechar={() => definirDialogoAjuste(null)} />
+      )}
     </section>
   );
 }

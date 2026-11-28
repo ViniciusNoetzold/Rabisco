@@ -1,3 +1,4 @@
+import type { PreviaAjuste } from '../document/compositor';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { OpcoesExportacao } from '../io/imagens';
 import type { OpcoesImpressao } from '../io/imprimir';
@@ -78,6 +79,7 @@ export interface EditorApi {
   exibirPreviaFiltro(mostrar: boolean): void;
   aplicarFiltro(): boolean;
   cancelarFiltro(limparPrevia?: boolean): void;
+  mostrarPreviaAjuste(previa?: PreviaAjuste): void;
   repetirFiltro(aoDemorar: () => void): Promise<boolean>;
   temUltimoFiltro(): boolean;
   amostrarNivelFiltro(cliente: Point): number | null;

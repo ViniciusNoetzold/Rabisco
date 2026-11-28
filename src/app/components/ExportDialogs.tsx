@@ -1,4 +1,6 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { exportacaoComAjusteAchatado } from '../../document/ajustes';
+import type { PropriedadesCamada } from '../../document/camadas';
 import type { EscalaExportacao, OpcoesExportacao } from '../../io/imagens';
 import type { OpcoesImpressao } from '../../io/imprimir';
 import './export-dialogs.css';
@@ -84,10 +86,12 @@ function FormularioSaida({
 
 export function SalvarComo({
   nome,
+  camadas = [],
   fechar,
   salvar,
 }: {
   nome: string;
+  camadas?: readonly PropriedadesCamada[];
   fechar(): void;
   salvar(opcoes: OpcoesExportacao): Promise<void>;
 }) {
@@ -98,6 +102,9 @@ export function SalvarComo({
   const idFormato = useId();
   const ajustarQualidade = formato === 'jpeg' || formato === 'webp';
   const ampliar = !['rabisco', 'psd', 'ora', 'camadas-png'].includes(formato);
+  const aviso = exportacaoComAjusteAchatado(formato, camadas)
+    ? 'Os ajustes serão aplicados a uma imagem achatada. Salve em .rabisco para manter as camadas editáveis.'
+    : AVISOS[formato];
 
   return (
     <FormularioSaida
@@ -167,9 +174,9 @@ export function SalvarComo({
           </span>
         </label>
       )}
-      {AVISOS[formato] && (
+      {aviso && (
         <p className="export-warning" role="status">
-          {AVISOS[formato]}
+          {aviso}
         </p>
       )}
     </FormularioSaida>

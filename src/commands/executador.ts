@@ -11,6 +11,7 @@ import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
 import { desenharDistorcido } from '../document/distorcer';
 import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
 import type { RabiscoDocument } from '../document/model';
+import { ajusteSeguro } from '../document/ajustes';
 import {
   apagarRecorte,
   caminhoDaSelecao,
@@ -114,8 +115,12 @@ export type MotivoRecusa =
   | 'bloqueada'
   | 'oculta'
   | 'ultima-camada'
+  | 'ultima-camada-raster'
   | 'sem-camada-abaixo'
   | 'texto-ascii'
+  | 'ajuste-sem-pixels'
+  | 'ajuste-mesclar'
+  | 'ajuste-mascara'
   | null;
 
 type ComandoTransformacao = Extract<
@@ -264,6 +269,7 @@ export class Executador {
     if (camada.locked) return 'bloqueada';
     if (!camada.visible) return 'oculta';
     if (camada.ascii && !this.doc.editandoMascara) return 'texto-ascii';
+    if (camada.ajuste && !this.doc.alvoAtivo().mascara) return 'ajuste-sem-pixels';
     return null;
   }
 
@@ -483,6 +489,24 @@ export class Executador {
       this.alterarDocumento(comando, rotulo, alvos, () => doc.aplicarEstrutura(nova));
 
     switch (comando.tipo) {
+      case 'NovaCamadaAjuste': {
+        const ajuste = ajusteSeguro(comando.ajuste);
+        if (!ajuste || !comando.id || indice(comando.id) >= 0) return null;
+        const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
+        const propriedades = { ...propriedadesPadrao(comando.id, comando.nome), ajuste };
+        const grupo = estrutura.camadas[referencia]?.grupo;
+        estrutura.camadas.splice(referencia + 1, 0, grupo ? { ...propriedades, grupo } : propriedades);
+        estrutura.ativa = comando.id;
+        estrutura.editandoMascara = false;
+        return mudarEstrutura('Nova camada de ajuste', estrutura);
+      }
+      case 'EditarCamadaAjuste': {
+        const camada = estrutura.camadas[indice(comando.id)];
+        const ajuste = ajusteSeguro(comando.ajuste);
+        if (!camada?.ajuste || camada.locked || !ajuste) return null;
+        camada.ajuste = ajuste;
+        return mudarEstrutura('Editar camada de ajuste', estrutura);
+      }
       case 'NovaCamada': {
         const ascii = normalizarCamadaAscii(comando.ascii);
         if (comando.ascii && !ascii) throw new Error('O conteúdo da camada ASCII é inválido.');
@@ -493,6 +517,7 @@ export class Executador {
           id: comando.id,
           grupo: comando.propriedades?.grupo ?? estrutura.camadas[referencia]?.grupo,
         };
+        delete propriedades.ajuste;
         if (!propriedades.grupo) delete propriedades.grupo;
         if (ascii && !comando.rasterizarAscii) propriedades.ascii = ascii;
         estrutura.camadas.splice(referencia + 1, 0, propriedades);
@@ -555,10 +580,11 @@ export class Executador {
         });
         delete estrutura.camadas[posicao + 1].fundo;
         estrutura.ativa = comando.novoId;
-        const alvos = [{ camada: comando.novoId }, { camada: comando.novoId, mascara: true }];
+        const alvos = this.alvosDa(comando.id).map((alvo) => ({ ...alvo, camada: comando.novoId }));
         return this.alterarDocumento(comando, 'Duplicar camada', alvos, () => {
           doc.aplicarEstrutura(estrutura);
-          doc.contexto({ camada: comando.novoId }).drawImage(original.canvas, 0, 0);
+          if (!original.ajuste)
+            doc.contexto({ camada: comando.novoId }).drawImage(original.canvas, 0, 0);
           if (original.mascara)
             doc
               .contexto({ camada: comando.novoId, mascara: true })
@@ -572,6 +598,10 @@ export class Executador {
           this.motivoRecusa = 'ultima-camada';
           return null;
         }
+        if (!estrutura.camadas[posicao].ajuste && !estrutura.camadas.some((camada, i) => i !== posicao && !camada.ajuste)) {
+          this.motivoRecusa = 'ultima-camada-raster';
+          return null;
+        }
         estrutura.camadas.splice(posicao, 1);
         if (estrutura.ativa === comando.id)
           estrutura.ativa = estrutura.camadas[Math.max(0, posicao - 1)].id;
@@ -582,7 +612,15 @@ export class Executador {
         const posicao = indice(comando.id);
         if (posicao < 0) return null;
         const camada = estrutura.camadas[posicao];
+        const ajuste = camada.ajuste;
         Object.assign(camada, structuredClone(comando.propriedades));
+        if (ajuste) {
+          camada.ajuste = ajuste;
+          camada.modo = 'normal';
+          delete camada.ascii;
+          delete camada.efeitos;
+          delete camada.fundo;
+        } else delete camada.ajuste;
         if (camada.opacity !== undefined) camada.opacity = Math.min(1, Math.max(0, camada.opacity));
         for (const chave of Object.keys(camada) as (keyof PropriedadesCamada)[]) {
           if (camada[chave] === undefined) delete camada[chave];
@@ -719,6 +757,10 @@ export class Executador {
         }
         const cima = doc.camada(comando.id)!;
         const baixo = doc.layers[posicao - 1];
+        if (cima.ajuste || baixo.ajuste) {
+          this.motivoRecusa = 'ajuste-mesclar';
+          return null;
+        }
         estrutura.camadas.splice(posicao, 1);
         const base = estrutura.camadas[posicao - 1];
         delete base.temMascara;
@@ -776,7 +818,7 @@ export class Executador {
         };
         this.limparGruposVazios(nova);
         const afetadas = achatar
-          ? this.todosOsAlvos()
+          ? [...this.todosOsAlvos(), ...(estrutura.camadas[0].ajuste ? [{ camada: novoId }] : [])]
           : [...visiveis.flatMap((camada) => this.alvosDa(camada.id)), { camada: novoId }];
         return this.alterarDocumento(
           comando,
@@ -860,6 +902,10 @@ export class Executador {
       }
       case 'AplicarMascara': {
         const camada = doc.camada(comando.id);
+        if (camada?.ajuste) {
+          this.motivoRecusa = 'ajuste-mascara';
+          return null;
+        }
         const propriedades = estrutura.camadas[indice(comando.id)];
         if (!camada?.mascara || !propriedades) return null;
         delete propriedades.temMascara;
@@ -1169,6 +1215,10 @@ export class Executador {
       this.motivoRecusa = 'texto-ascii';
       return null;
     }
+    if (this.doc.activeLayer.ajuste && !this.doc.alvoAtivo().mascara) {
+      this.motivoRecusa = 'ajuste-sem-pixels';
+      return null;
+    }
     const papel = this.doc.copiarPixels();
     const origem = limitarArea(comando.area, papel);
     if (!origem) return null;
@@ -1195,7 +1245,9 @@ export class Executador {
   private alvosDa(id: string): Alvo[] {
     const camada = this.doc.camada(id);
     if (!camada) return [];
-    return camada.mascara ? [{ camada: id }, { camada: id, mascara: true }] : [{ camada: id }];
+    const alvos: Alvo[] = camada.ajuste ? [] : [{ camada: id }];
+    if (camada.mascara) alvos.push({ camada: id, mascara: true });
+    return alvos;
   }
 
   private todosOsAlvos(): Alvo[] {

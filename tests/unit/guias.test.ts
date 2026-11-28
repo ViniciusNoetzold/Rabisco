@@ -88,11 +88,11 @@ describe('cabeçalho do .rabisco', () => {
     const guias = { horizontais: [100], verticais: [400], regua };
     const cabecalho = lerCabecalhoRabisco({ ...base, versao: 2, guias }, 'a.rabisco');
     expect(cabecalho.guias).toEqual(guias);
-    expect(VERSAO_RABISCO).toBe(2);
+    expect(VERSAO_RABISCO).toBe(3);
   });
 
   it('recusa versão mais nova, formato errado e tamanho inválido', () => {
-    expect(() => lerCabecalhoRabisco({ ...base, versao: 3 }, 'a')).toThrow('mais nova');
+    expect(() => lerCabecalhoRabisco({ ...base, versao: 4 }, 'a')).toThrow('mais nova');
     expect(() => lerCabecalhoRabisco({ ...base, versao: 2, formato: 'ora' }, 'a')).toThrow(
       'não é um .rabisco',
     );

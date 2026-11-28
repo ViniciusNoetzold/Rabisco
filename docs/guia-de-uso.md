@@ -58,6 +58,12 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - Em **Exibir › Pixel art**, ligue **Modo pixel art** e escolha a grade de 8, 16 ou 32 px. O lápis desenha pixels inteiros de 1 px. A simetria espelha o traço, e o conta-gotas lê um pixel exato.
 - Em **Salvar como**, escolha um formato de imagem e **Ampliação** de 2×, 4× ou 8×. A exportação mantém os pixels quadrados.
 
+## Camadas de ajuste (0.5)
+
+- Em **Camadas**, clique em **Nova camada de ajuste**. Escolha **Brilho e contraste**, **Matiz, saturação e luminosidade**, **Curvas** ou **Preto e branco**. Confira a prévia no papel e clique em **Aplicar ajuste**.
+- Use **Editar ajuste** ou dê duplo clique no nome da camada para mudar os parâmetros. Controle o efeito com a opacidade e a máscara. Dentro de um grupo, o ajuste atua no conteúdo daquele grupo.
+- Salve em **.rabisco** para editar os parâmetros depois. O formato v3 guarda os ajustes, e o Rabisco lê os arquivos v1 e v2. Para PSD, ORA ou o ZIP de PNGs, o diálogo avisa que a exportação de um documento com ajuste gera uma imagem achatada.
+
 ## Ferramentas clássicas
 
 - Escolha lápis, pincel, borracha, balde, linha, retângulo, elipse, seleção ou conta-gotas.

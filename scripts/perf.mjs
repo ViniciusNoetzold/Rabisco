@@ -248,6 +248,24 @@ async function medirFiltroComMarca(pagina, autosave, nome) {
   return fase;
 }
 
+async function medirCamadaDeAjuste(pagina, autosave, papel) {
+  autosave.estado = await criarPapel(pagina, papel, false);
+  await conferirCantos(pagina, branco);
+  await pagina.getByRole('button', { name: 'Nova camada de ajuste', exact: true }).click();
+  const dialogo = pagina.getByRole('dialog', { name: 'Nova camada de ajuste', exact: true });
+  const preto = [0, 0, 0, 255];
+  const fase = await medir(pagina, autosave, async () => {
+    await dialogo.getByRole('slider', { name: 'Brilho', exact: true }).press('Home');
+    await conferirCantos(pagina, preto);
+    await dialogo.getByRole('button', { name: 'Aplicar ajuste', exact: true }).click();
+    await expect(dialogo).toBeHidden();
+    await conferirCantos(pagina, preto);
+  });
+  if (fase.operacoes.camada?.amostras !== 1)
+    throw new Error('O ensaio não recebeu uma amostra da edição da camada de ajuste.');
+  return fase;
+}
+
 async function medirPapel(browser, papel) {
   const contexto = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   try {
@@ -302,6 +320,7 @@ async function medirPapel(browser, papel) {
     const dithering = filtrosGrandes
       ? await medirFiltroComMarca(pagina, autosave, 'Dithering')
       : null;
+    const ajuste = filtrosGrandes ? await medirCamadaDeAjuste(pagina, autosave, papel) : null;
     for (const [nome, fase] of [
       ['balde', balde],
       ['desfazer', desfazer],
@@ -328,6 +347,7 @@ async function medirPapel(browser, papel) {
         ...(desfoque ? { 'desfoque gaussiano': desfoque } : {}),
         ...(pixelizar ? { pixelizar } : {}),
         ...(dithering ? { dithering } : {}),
+        ...(ajuste ? { 'camada de ajuste': ajuste } : {}),
       },
     };
   } finally {

@@ -117,10 +117,10 @@ export function niveis(pixels: PixelBuffer, parametros: Parametros): PixelBuffer
   );
 }
 
-function pontosValidos(valor: unknown): PontoCurva[] {
+export function normalizarPontosCurva(valor: unknown): PontoCurva[] {
   const pontos = new Map(PONTOS_CURVA_PADRAO.map(({ x, y }) => [x, y]));
   if (Array.isArray(valor)) {
-    for (const ponto of valor) {
+    for (const ponto of valor.slice(0, 256)) {
       const x = numero(ponto?.x, NaN, 0, 255);
       const y = numero(ponto?.y, NaN, 0, 255);
       if (Number.isFinite(x) && Number.isFinite(y)) pontos.set(Math.round(x), Math.round(y));
@@ -131,7 +131,7 @@ function pontosValidos(valor: unknown): PontoCurva[] {
 
 /** Interpolação cúbica com tangentes que preservam a monotonia entre pontos. */
 export function tabelaCurvas(valor: unknown): Uint8ClampedArray {
-  const pontos = pontosValidos(valor);
+  const pontos = normalizarPontosCurva(valor);
   const larguras = pontos.slice(1).map((ponto, i) => ponto.x - pontos[i].x);
   const inclinacoes = larguras.map((largura, i) => (pontos[i + 1].y - pontos[i].y) / largura);
   const tangentes = pontos.map((_, i) => {

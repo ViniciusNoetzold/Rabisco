@@ -2,9 +2,9 @@
 
 ## Ponto de parada
 
-A branch `main` está publicada até o **Passo 6 (dithering, meio-tom e estilos artísticos)**. Confira `git log -5 --oneline` ao retomar. O **próximo passo é o 7 (camadas de ajuste)**. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
+A branch `main` está publicada até o **Passo 7 (camadas de ajuste)**. Confira `git log -5 --oneline` ao retomar. O **próximo passo é o 8 (pendências e fechamento da 0.5)**. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
 
-O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos dos Passos 7 e 8 e aponta as integrações e verificações que faltam. Os títulos ASCII com `figlet` seguem condicionados à aprovação da dependência.
+O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos do Passo 8. Ao integrar trechos de arquivos compartilhados, preserve a edição de ASCII e o `.rabisco` v3, que guarda as camadas de ajuste. Os títulos ASCII com `figlet` seguem condicionados à aprovação da dependência.
 
 ## Em outro computador
 
@@ -19,7 +19,7 @@ Para abrir em outro aparelho conectado à mesma rede, execute `npm run dev -- --
 
 ## O que falta
 
-1. Integrar as camadas de ajuste, compatibilidade de arquivos e exportações no Passo 7.
-2. Fechar as pendências da 0.4, medir balde, desfoque e dithering, atualizar as capturas e publicar a versão 0.5.0 no Passo 8.
+1. Integrar seleções, simetria no Dedo e formas inteligentes, balde em faixas, réguas e miniatura na vista girada e histórico de guias.
+2. Medir balde, desfoque e dithering, atualizar as capturas e publicar a versão 0.5.0.
 
 O [CHANGELOG](../CHANGELOG.md) registra a validação de cada passo publicado. O [guia de desempenho](../docs/desempenho.md) contém as medições feitas no Edge.

@@ -10,6 +10,7 @@ import type { ConfigSimetria } from '../brushes/simetria';
 import type { PixelBuffer, Point, Rect } from '../layers/types';
 import type { ConfiguracaoForma } from '../shapes/tipos';
 import type { EfeitosCamada, Grupo, PropriedadesCamada } from '../document/camadas';
+import type { AjusteCamada } from '../document/ajustes';
 import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 
 export { validarDimensoes } from '../document/dimensoes';
@@ -137,12 +138,14 @@ export type Comando =
   /** Vários comandos como um único item no histórico (ex.: nova camada + texto). */
   | { tipo: 'Lote'; rotulo: string; comandos: Comando[] };
 
-type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara'>> & {
+type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara' | 'ajuste'>> & {
   efeitos?: EfeitosCamada;
 };
 
 /** Comandos de estrutura: os identificadores vêm prontos para o comando poder ser repetido. */
 export type ComandoCamada =
+  | { tipo: 'NovaCamadaAjuste'; id: string; nome: string; ajuste: AjusteCamada; acimaDe?: string }
+  | { tipo: 'EditarCamadaAjuste'; id: string; ajuste: AjusteCamada }
   | {
       tipo: 'NovaCamada';
       id: string;

@@ -36,8 +36,8 @@ export class Persistencia {
           largura: doc.width,
           altura: doc.height,
           dpi: doc.dpi,
-          camadas: doc.layers.flatMap(({ id, name, mascara }) => [
-            { id, nome: name },
+          camadas: doc.layers.flatMap(({ id, name, mascara, ajuste }) => [
+            ...(ajuste ? [] : [{ id, nome: name }]),
             ...(mascara
               ? [{ id: chaveDoAlvo({ camada: id, mascara: true }), nome: `${name} (máscara)` }]
               : []),

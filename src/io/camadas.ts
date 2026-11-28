@@ -3,6 +3,7 @@ import type { BlendMode, Layer as CamadaPsd, Psd } from 'ag-psd';
 import { guiasSeguras, SEM_GUIAS, type GuiasDocumento } from '../document/guias';
 import { normalizarCamadaAscii } from '../estilos/camadaAscii';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
+import { ajusteSeguro, exportacaoComAjusteAchatado } from '../document/ajustes';
 import {
   chaveDoAlvo,
   modoValido,
@@ -52,8 +53,8 @@ export interface DocumentoComCamadas {
 const LIMITE_ARQUIVO = 512 * 1024 * 1024;
 const LIMITE_CAMADAS = 200;
 const ID_SEGURO = /^[A-Za-z0-9_-]{1,64}$/;
-/** v1: camadas (0.3). v2: guias e régua de desenho (0.4); lê os dois. */
-export const VERSAO_RABISCO = 2;
+/** v1: camadas. v2: guias e régua. v3: camadas de ajuste. */
+export const VERSAO_RABISCO = 3;
 
 // ---- Utilidades -----------------------------------------------------------------------------
 
@@ -117,6 +118,10 @@ function composto(doc: RabiscoDocument) {
   return canvas;
 }
 
+function camadaAchatada(canvas: HTMLCanvasElement): Layer<HTMLCanvasElement> {
+  return { ...propriedadesPadrao('imagem-achatada', 'Imagem achatada'), canvas };
+}
+
 /** Descompacta com limites: tamanho total, quantidade de entradas e nomes de caminho seguros. */
 function descompactar(bytes: Uint8Array): Record<string, Uint8Array> {
   let total = 0;
@@ -162,6 +167,7 @@ function propriedadesSeguras(
   bruto: unknown,
   indice: number,
   grupos: Set<string>,
+  aceitaAjustes: boolean,
 ): PropriedadesCamada {
   const dados = (typeof bruto === 'object' && bruto ? bruto : {}) as Record<string, unknown>;
   const id =
@@ -180,8 +186,11 @@ function propriedadesSeguras(
   if (typeof dados.grupo === 'string' && grupos.has(dados.grupo)) propriedades.grupo = dados.grupo;
   if (dados.recorte === true) propriedades.recorte = true;
   if (dados.fundo === true) propriedades.fundo = true;
-  const ascii = normalizarCamadaAscii(dados.ascii);
-  if (ascii) propriedades.ascii = ascii;
+  const ajuste = aceitaAjustes ? ajusteSeguro(dados.ajuste) : undefined;
+  if (!ajuste) {
+    const ascii = normalizarCamadaAscii(dados.ascii);
+    if (ascii) propriedades.ascii = ascii;
+  }
   if (dados.temMascara === true) {
     propriedades.temMascara = true;
     propriedades.mascaraAtiva = dados.mascaraAtiva !== false;
@@ -191,7 +200,11 @@ function propriedadesSeguras(
   ) as Record<string, Record<string, unknown> | undefined>;
   const contorno = efeitos.contorno;
   const sombra = efeitos.sombra;
-  if (contorno || sombra) {
+  if (ajuste) {
+    propriedades.ajuste = ajuste;
+    propriedades.modo = 'normal';
+    delete propriedades.fundo;
+  } else if (contorno || sombra) {
     propriedades.efeitos = {};
     if (contorno)
       propriedades.efeitos.contorno = {
@@ -269,14 +282,15 @@ export async function exportarCamadas(
   formato: FormatoCamadas,
   guias: GuiasDocumento = SEM_GUIAS,
 ): Promise<Blob> {
+  const achatar = exportacaoComAjusteAchatado(formato, doc.layers);
   const dados =
     formato === 'rabisco'
       ? await exportarRabisco(doc, guias)
       : formato === 'ora'
-        ? await exportarOra(doc)
+        ? await exportarOra(doc, achatar)
         : formato === 'psd'
-          ? await exportarPsd(doc)
-          : await exportarCamadasPng(doc);
+          ? await exportarPsd(doc, achatar)
+          : await exportarCamadasPng(doc, achatar);
   return new Blob([dados as BlobPart], { type: MIMES_CAMADAS[formato] });
 }
 
@@ -289,7 +303,7 @@ async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Pro
         {
           formato: 'rabisco',
           versao: VERSAO_RABISCO,
-          criadoCom: 'Rabisco 0.4',
+          criadoCom: 'Rabisco 0.5',
           nome: doc.name,
           largura: doc.width,
           altura: doc.height,
@@ -303,7 +317,8 @@ async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Pro
     ),
   };
   for (const camada of doc.layers) {
-    arquivos[`camadas/${camada.id}.png`] = [await bytesPng(camada.canvas), { level: 0 }];
+    if (!camada.ajuste)
+      arquivos[`camadas/${camada.id}.png`] = [await bytesPng(camada.canvas), { level: 0 }];
     if (camada.mascara)
       arquivos[`mascaras/${camada.id}.png`] = [await bytesPng(camada.mascara), { level: 0 }];
   }
@@ -336,14 +351,17 @@ function escaparXml(valor: string) {
   return valor.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
+async function exportarOra(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
   // O "mimetype" precisa ser o primeiro arquivo e sem compressão (especificação OpenRaster).
   const arquivos: Zippable = { mimetype: [strToU8('image/openraster'), { level: 0 }] };
   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
   const linhas: string[] = [];
   let grupoAberto: string | null = null;
+  const achatada = achatar ? composto(doc) : undefined;
+  const camadas = achatada ? [camadaAchatada(achatada)] : [...doc.layers].reverse();
+  let bytesAchatados: Uint8Array | undefined;
   // ORA lista de cima para baixo. Máscaras e efeitos entram aplicados aos pixels.
-  for (const camada of [...doc.layers].reverse()) {
+  for (const camada of camadas) {
     if (camada.grupo !== grupoAberto) {
       if (grupoAberto) linhas.push('  </stack>');
       grupoAberto = camada.grupo && grupos.has(camada.grupo) ? camada.grupo : null;
@@ -355,10 +373,9 @@ async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
       }
     }
     const arquivo = `data/${camada.id}.png`;
-    arquivos[arquivo] = [
-      await bytesPng(camadaAplicada(camada, doc.width, doc.height)),
-      { level: 0 },
-    ];
+    const bytes = await bytesPng(achatada ?? camadaAplicada(camada, doc.width, doc.height));
+    arquivos[arquivo] = [bytes, { level: 0 }];
+    if (achatar) bytesAchatados = bytes;
     linhas.push(
       `${grupoAberto ? '    ' : '  '}<layer name="${escaparXml(camada.name)}" src="${arquivo}" x="0" y="0" opacity="${camada.opacity}" visibility="${camada.visible ? 'visible' : 'hidden'}" composite-op="${ORA_MODOS[camada.modo]}"/>`,
     );
@@ -367,8 +384,8 @@ async function exportarOra(doc: RabiscoDocument): Promise<Uint8Array> {
   arquivos['stack.xml'] = strToU8(
     `<?xml version="1.0" encoding="UTF-8"?>\n<image version="0.0.5" w="${doc.width}" h="${doc.height}" xres="${doc.dpi}" yres="${doc.dpi}">\n <stack>\n${linhas.join('\n')}\n </stack>\n</image>\n`,
   );
-  const previa = composto(doc);
-  arquivos['mergedimage.png'] = [await bytesPng(previa), { level: 0 }];
+  const previa = achatada ?? composto(doc);
+  arquivos['mergedimage.png'] = [bytesAchatados ?? await bytesPng(previa), { level: 0 }];
   arquivos['Thumbnails/thumbnail.png'] = [await bytesPng(miniatura(previa)), { level: 0 }];
   return zipSync(arquivos);
 }
@@ -392,13 +409,14 @@ const PSD_MODOS: Record<ModoMesclagem, BlendMode> = {
   luminosidade: 'luminosity',
 };
 
-async function exportarPsd(doc: RabiscoDocument): Promise<Uint8Array> {
+async function exportarPsd(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
   const { writePsd } = await import('ag-psd');
   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
   const raiz: CamadaPsd[] = [];
   let grupoAtual = null as { id: string; camada: CamadaPsd } | null;
+  const previa = composto(doc);
   // No ag-psd a primeira camada da lista é a de baixo, como no Rabisco.
-  for (const camada of doc.layers) {
+  for (const camada of achatar ? [camadaAchatada(previa)] : doc.layers) {
     const comEfeitos = Boolean(camada.efeitos?.contorno || camada.efeitos?.sombra);
     const psd: CamadaPsd = {
       name: camada.name,
@@ -446,21 +464,22 @@ async function exportarPsd(doc: RabiscoDocument): Promise<Uint8Array> {
   const documento: Psd = {
     width: doc.width,
     height: doc.height,
-    canvas: composto(doc),
+    canvas: previa,
     children: raiz,
   };
   return new Uint8Array(writePsd(documento, { generateThumbnail: true }));
 }
 
-async function exportarCamadasPng(doc: RabiscoDocument): Promise<Uint8Array> {
+async function exportarCamadasPng(doc: RabiscoDocument, achatar: boolean): Promise<Uint8Array> {
   const arquivos: Zippable = {};
   const usados = new Set<string>();
-  for (const [i, camada] of [...doc.layers].reverse().entries()) {
+  const camadas = achatar ? [camadaAchatada(composto(doc))] : [...doc.layers].reverse();
+  for (const [i, camada] of camadas.entries()) {
     let nome = `${String(i + 1).padStart(2, '0')} - ${camada.name.replace(/[\\/:*?"<>|]/g, '_')}`;
     while (usados.has(nome)) nome += '_';
     usados.add(nome);
     arquivos[`${nome}.png`] = [
-      await bytesPng(camadaAplicada(camada, doc.width, doc.height)),
+      await bytesPng(achatar ? camada.canvas : camadaAplicada(camada, doc.width, doc.height)),
       { level: 0 },
     ];
   }
@@ -494,7 +513,7 @@ async function importarRabisco(
   } catch {
     throw new Error('O manifest.json do arquivo .rabisco está danificado.');
   }
-  const { largura, altura, dpi, nome, guias } = lerCabecalhoRabisco(manifest, nomeArquivo);
+  const { versao, largura, altura, dpi, nome, guias } = lerCabecalhoRabisco(manifest, nomeArquivo);
   const brutoEstrutura = (
     typeof manifest.estrutura === 'object' && manifest.estrutura ? manifest.estrutura : {}
   ) as Record<string, unknown>;
@@ -508,18 +527,22 @@ async function importarRabisco(
       ? (bruto as { id: string }).id
       : '',
   );
-  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos));
+  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos, versao >= 3));
   const estrutura = estruturaSegura(camadas, grupos, brutoEstrutura.ativa);
+  if (camadas.every((camada) => camada.ajuste))
+    throw new Error('O arquivo precisa ter pelo menos uma camada de desenho.');
 
   const pixels = new Map<string, HTMLCanvasElement>();
   for (const [i, camada] of estrutura.camadas.entries()) {
     const original = originais[i];
-    const dados = arquivos[`camadas/${original}.png`];
-    if (!dados) throw new Error(`Falta a imagem da camada "${camada.name}" no arquivo.`);
-    const canvas = await canvasDePng(dados, camada.name);
-    if (canvas.width !== largura || canvas.height !== altura)
-      throw new Error(`A camada "${camada.name}" não tem o tamanho do papel.`);
-    pixels.set(chaveDoAlvo({ camada: camada.id }), canvas);
+    if (!camada.ajuste) {
+      const dados = arquivos[`camadas/${original}.png`];
+      if (!dados) throw new Error(`Falta a imagem da camada "${camada.name}" no arquivo.`);
+      const canvas = await canvasDePng(dados, camada.name);
+      if (canvas.width !== largura || canvas.height !== altura)
+        throw new Error(`A camada "${camada.name}" não tem o tamanho do papel.`);
+      pixels.set(chaveDoAlvo({ camada: camada.id }), canvas);
+    }
     if (camada.temMascara) {
       const mascara = arquivos[`mascaras/${original}.png`];
       if (!mascara) {

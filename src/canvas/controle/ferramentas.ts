@@ -597,6 +597,7 @@ export class ControleFerramentas {
   private camadaParaTransformar() {
     const { doc } = this.nucleo;
     const camada = doc.activeLayer;
+    if (camada.ajuste) return null;
     if (camada.locked || camada.bloqueioPosicao) {
       this.nucleo.avisar('Esta camada está bloqueada. Desbloqueie para transformar.');
       return null;

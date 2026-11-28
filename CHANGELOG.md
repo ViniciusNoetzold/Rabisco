@@ -2,6 +2,13 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 7 — Camadas de ajuste
+
+- **Nova camada de ajuste**, no painel Camadas, oferece brilho e contraste, matiz e saturação, curvas e preto e branco com prévia no papel. O ajuste preserva os pixels abaixo. A opacidade e a máscara controlam sua intensidade. Um duplo clique no nome reabre os parâmetros.
+- O `.rabisco` v3 mantém os ajustes editáveis e lê os formatos v1 e v2. A exportação para PSD, ORA e ZIP de PNGs avisa quando os ajustes são aplicados à imagem achatada.
+- Validação com 247 testes unitários, build de produção e 102 fluxos E2E no Edge. A suíte verificou também a leitura e a edição do texto ASCII com o novo formato.
+- Em 4000 × 4000, criar a camada de ajuste de brilho levou 211,7 ms. A prévia e a confirmação tiveram uma tarefa máxima de 239 ms na thread principal. [Desempenho](docs/desempenho.md)
+
 ### Passo 6 — Dithering e estilos artísticos
 
 - **Dithering** oferece Floyd–Steinberg, Atkinson e Bayer de 2 × 2, 4 × 4 e 8 × 8. Escolha de 2 a 16 cores em tons de cinza ou extraídas do desenho.

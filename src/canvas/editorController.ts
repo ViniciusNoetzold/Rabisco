@@ -12,8 +12,9 @@ import {
 import { serializarImagem, type ComandoCamada } from '../commands/comandos';
 import { redimensionarEInclinar } from '../document/transformacoes';
 import { Executador, type PreparoFiltro } from '../commands/executador';
+import { exportacaoComAjusteAchatado } from '../document/ajustes';
 import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
-import { areaDaPreviaFiltro, type PreviaComposicao } from '../document/compositor';
+import { areaDaPreviaFiltro, type PreviaAjuste, type PreviaComposicao } from '../document/compositor';
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { comoImageData, RabiscoDocument } from '../document/model';
 import { luminancia } from '../filtros/cores';
@@ -46,8 +47,12 @@ const MENSAGENS_RECUSA = {
   bloqueada: 'Esta camada está bloqueada. Desbloqueie no painel Camadas para pintar nela.',
   oculta: 'Esta camada está oculta. Mostre-a no painel Camadas (o olho) para pintar nela.',
   'ultima-camada': 'O desenho precisa de pelo menos uma camada.',
+  'ultima-camada-raster': 'O desenho precisa de pelo menos uma camada de desenho.',
   'sem-camada-abaixo': 'Não há camada abaixo para mesclar.',
   'texto-ascii': 'Use Editar ASCII no painel Camadas para alterar os caracteres desta camada.',
+  'ajuste-sem-pixels': 'Para desenhar, escolha uma camada de desenho ou a máscara do ajuste.',
+  'ajuste-mesclar': 'Use Mesclar visíveis para aplicar os ajustes à imagem composta.',
+  'ajuste-mascara': 'Use Mesclar visíveis para incorporar a máscara do ajuste à imagem.',
 } as const;
 
 interface EventosEditor {
@@ -487,9 +492,12 @@ export class EditorController implements EditorApi, NucleoEditor {
     if (!this.pronto) return;
     if (FORMATOS_COM_CAMADAS.has(opcoes.formato)) {
       this.ferramentas.confirmarPendente();
+      const achatado = exportacaoComAjusteAchatado(opcoes.formato, this.doc.layers);
       await arquivos.salvarCamadas(this.doc, opcoes.formato as FormatoCamadas, opcoes.nome);
       this.avisar(
-        opcoes.formato === 'camadas-png'
+        achatado
+          ? `${opcoes.formato === 'camadas-png' ? 'ZIP' : opcoes.formato.toUpperCase()} salvo com os ajustes aplicados em uma imagem achatada.`
+          : opcoes.formato === 'camadas-png'
           ? 'Camadas exportadas: um PNG por camada, num arquivo .zip.'
           : `${opcoes.formato.toUpperCase()} salvo com as camadas.`,
       );
@@ -698,7 +706,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     this.comandos.historico.clear();
     this.superficie.compor();
     for (const camada of doc.layers) {
-      this.persistencia.marcar(chaveDoAlvo({ camada: camada.id }), null);
+      if (!camada.ajuste) this.persistencia.marcar(chaveDoAlvo({ camada: camada.id }), null);
       if (camada.mascara)
         this.persistencia.marcar(chaveDoAlvo({ camada: camada.id, mascara: true }), null);
     }
@@ -716,6 +724,11 @@ export class EditorController implements EditorApi, NucleoEditor {
   }
 
   // ---- Camadas ---------------------------------------------------------------------------
+
+  mostrarPreviaAjuste(previa?: PreviaAjuste) {
+    if (previa && !this.disponivel()) return;
+    this.superficie.mostrarPreviaAjuste(previa);
+  }
 
   /** Comandos do painel de camadas. Confirma antes o que estiver pendente (forma, texto, colagem). */
   executarCamada(comando: ComandoCamada | Extract<Comando, { tipo: 'Lote' }>) {

@@ -9,6 +9,7 @@ import { areaDoSegmento, desenharSegmento, limitarArea, unirAreas } from '../../
 import {
   areaDaPreviaFiltro,
   comporDocumento,
+  type PreviaAjuste,
   type PreviaComposicao,
 } from '../../document/compositor';
 import type { RabiscoDocument } from '../../document/model';
@@ -27,6 +28,7 @@ export class SuperficieTela {
   private readonly overlay: CanvasRenderingContext2D;
   private areaPrevia: Rect | null = null;
   private previaFiltro: PreviaComposicao | null = null;
+  private previaAjuste = false;
   private areaOverlay: Rect | null = null;
   private previaPincel: {
     /** Um pintor por cópia simétrica (a original primeiro). */
@@ -103,6 +105,15 @@ export class SuperficieTela {
     this.areaPrevia = area;
     if (redesenhar && atualizar)
       comporDocumento(this.doc, this.tela, atualizar, previa ?? undefined);
+  }
+
+  mostrarPreviaAjuste(previa?: PreviaAjuste, redesenhar = true) {
+    if (!previa && !this.previaAjuste) return;
+    this.previaAjuste = Boolean(previa);
+    this.areaPrevia = previa
+      ? { x: 0, y: 0, width: this.doc.width, height: this.doc.height }
+      : null;
+    if (redesenhar) comporDocumento(this.doc, this.tela, undefined, undefined, previa);
   }
 
   /** Uma imagem do documento sem prévias, para salvar ou imprimir. */
@@ -215,6 +226,7 @@ export class SuperficieTela {
     this.compor(this.areaPrevia);
     this.areaPrevia = null;
     this.previaFiltro = null;
+    this.previaAjuste = false;
   }
 
   redesenharOverlay(ferramenta: Tool, contexto: () => ToolCtx) {

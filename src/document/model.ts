@@ -113,7 +113,7 @@ export class RabiscoDocument {
 
   existe(alvo: Alvo): boolean {
     const camada = this.camada(alvo.camada);
-    return Boolean(camada && (!alvo.mascara || camada.mascara));
+    return Boolean(camada && (alvo.mascara ? camada.mascara : !camada.ajuste));
   }
 
   canvasDo(alvo: Alvo = this.alvoAtivo()): HTMLCanvasElement {
@@ -174,8 +174,10 @@ export class RabiscoDocument {
     this.largura = largura;
     this.altura = altura;
     for (const camada of this.layers) {
-      camada.canvas.width = largura;
-      camada.canvas.height = altura;
+      if (!camada.ajuste) {
+        camada.canvas.width = largura;
+        camada.canvas.height = altura;
+      }
       if (camada.mascara) {
         camada.mascara.width = largura;
         camada.mascara.height = altura;
@@ -202,8 +204,12 @@ export class RabiscoDocument {
       const existente = atuais.get(propriedades.id);
       const camada: Layer<HTMLCanvasElement> = existente ?? {
         ...propriedades,
-        canvas: novoCanvas(this.width, this.height),
+        canvas: novoCanvas(propriedades.ajuste ? 1 : this.width, propriedades.ajuste ? 1 : this.height),
       };
+      if (existente && Boolean(existente.ajuste) !== Boolean(propriedades.ajuste)) {
+        camada.canvas.width = propriedades.ajuste ? 1 : this.width;
+        camada.canvas.height = propriedades.ajuste ? 1 : this.height;
+      }
       Object.assign(camada, structuredClone(propriedades));
       for (const chave of Object.keys(camada) as (keyof Layer)[]) {
         if (chave !== 'canvas' && chave !== 'mascara' && !(chave in propriedades))

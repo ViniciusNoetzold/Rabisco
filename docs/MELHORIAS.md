@@ -54,7 +54,8 @@
 - [ ] Papel-cebola para animação de pixel art
 - [x] **Dithering**, **meio-tom**, mosaico, pontilhismo, vitral e CRT. ✅ 0.5, Passo 6.
 - [x] Filtros espaciais: desfoque, nitidez, ruído, mediana, bordas e relevo. ✅ 0.5, Passo 3.
-- [ ] Camadas de ajuste não destrutivas
+- [x] Camadas de ajuste com prévia, máscara, opacidade e parâmetros editáveis. Formato `.rabisco` v3. ✅ 0.5, Passo 7.
+- [ ] Aplicar os ajustes à prévia do pincel durante o gesto
 - [ ] Arquitetura de plugins para novos estilos
 
 ## IA (0.6 a 0.9)
