@@ -186,6 +186,19 @@ export function FiltroDialog({
                   </label>
                 );
               }
+              if (parametro.tipo === 'cor') {
+                return (
+                  <label key={id} className="filtro-parametro">
+                    {parametro.nome}
+                    <input
+                      type="color"
+                      aria-label={parametro.nome}
+                      value={String(parametros[id])}
+                      onChange={(evento) => alterar(evento.target.value)}
+                    />
+                  </label>
+                );
+              }
               if (parametro.tipo === 'booleano') {
                 return (
                   <label key={id} className="filtro-parametro filtro-parametro-marcacao">
@@ -202,6 +215,7 @@ export function FiltroDialog({
                 <label key={id} className="filtro-parametro">
                   {parametro.nome}
                   <select
+                    aria-label={parametro.nome}
                     value={String(parametros[id])}
                     onChange={(evento) => alterar(evento.target.value)}
                   >

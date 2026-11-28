@@ -21,6 +21,8 @@ import {
   reduzirRuidoMediana,
 } from './espaciais';
 import { OPCOES_PALETA_PIXEL_ART, pixelizar, reduzirPaleta } from './pixelArt';
+import { dithering, OPCOES_DITHERING, OPCOES_PALETA_DITHERING } from './dithering';
+import { efeitoCrt, meioTom, mosaico, pontilhismo, vitral } from './estilos';
 
 export type IdFiltro =
   | 'inverter'
@@ -40,13 +42,20 @@ export type IdFiltro =
   | 'bordas'
   | 'relevo'
   | 'pixelizar'
-  | 'reduzir-paleta';
+  | 'reduzir-paleta'
+  | 'dithering'
+  | 'meio-tom'
+  | 'mosaico'
+  | 'pontilhismo'
+  | 'vitral'
+  | 'crt';
 export type ParametrosFiltro = Record<string, number | boolean | string | readonly PontoCurva[]>;
 
 type ParametroFiltro = { nome: string; mostrarQuando?(parametros: ParametrosFiltro): boolean } & (
   | { tipo: 'numero'; padrao: number; minimo: number; maximo: number; passo: number }
   | { tipo: 'booleano'; padrao: boolean }
   | { tipo: 'curva'; padrao: readonly PontoCurva[] }
+  | { tipo: 'cor'; padrao: string }
   | { tipo: 'opcao'; padrao: string; opcoes: readonly { valor: string; nome: string }[] }
 );
 
@@ -262,6 +271,96 @@ export const FILTROS: readonly DefinicaoFiltro[] = [
     },
     porBlocos: false,
     aplicar: reduzirPaleta,
+  },
+  {
+    id: 'dithering',
+    nome: 'Dithering',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: dithering,
+    parametros: {
+      algoritmo: {
+        tipo: 'opcao',
+        nome: 'Algoritmo',
+        padrao: 'floyd-steinberg',
+        opcoes: OPCOES_DITHERING,
+      },
+      paleta: { tipo: 'opcao', nome: 'Paleta', padrao: 'cinza', opcoes: OPCOES_PALETA_DITHERING },
+      cores: numero('Quantidade de cores', 2, 2, 16),
+    },
+  },
+  {
+    id: 'meio-tom',
+    nome: 'Meio-tom',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: meioTom,
+    parametros: {
+      modo: {
+        tipo: 'opcao',
+        nome: 'Modo de cor',
+        padrao: 'mono',
+        opcoes: [
+          { valor: 'mono', nome: 'Uma cor' },
+          { valor: 'cmyk', nome: 'CMYK' },
+        ],
+      },
+      tamanho: numero('Tamanho do ponto (px)', 9, 3, 64),
+      angulo: numero('Ângulo', 45, -180, 180),
+      cor: {
+        tipo: 'cor',
+        nome: 'Cor do ponto',
+        padrao: '#000000',
+        mostrarQuando: (p) => p.modo === 'mono',
+      },
+    },
+  },
+  {
+    id: 'mosaico',
+    nome: 'Mosaico',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: mosaico,
+    parametros: {
+      tamanho: numero('Tamanho da peça (px)', 12, 2, 128),
+      junta: numero('Largura das juntas (px)', 1, 0, 8),
+      corJuntas: { tipo: 'cor', nome: 'Cor das juntas', padrao: '#28252a' },
+    },
+  },
+  {
+    id: 'pontilhismo',
+    nome: 'Pontilhismo',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: pontilhismo,
+    parametros: {
+      tamanho: numero('Tamanho do ponto (px)', 8, 3, 64),
+      densidade: numero('Densidade', 70, 10, 100),
+    },
+  },
+  {
+    id: 'vitral',
+    nome: 'Vitral',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: vitral,
+    parametros: {
+      tamanho: numero('Tamanho do vidro (px)', 18, 3, 128),
+      borda: numero('Espessura da borda (px)', 1, 0, 8),
+      corBorda: { tipo: 'cor', nome: 'Cor da borda', padrao: '#202126' },
+    },
+  },
+  {
+    id: 'crt',
+    nome: 'CRT',
+    categoria: 'Estilos',
+    porBlocos: false,
+    aplicar: efeitoCrt,
+    parametros: {
+      linhas: numero('Intensidade das linhas', 25, 0, 100),
+      periodo: numero('Distância entre linhas (px)', 3, 2, 8),
+      separacao: numero('Separação de cor (px)', 2, 0, 8),
+    },
   },
 ];
 

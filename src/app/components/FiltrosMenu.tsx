@@ -59,7 +59,7 @@ export function FiltrosMenu({
 
     posicionar();
     const opcoes = itens();
-    opcoes.at(itemInicial === 'ultimo' ? -1 : 0)?.focus({ preventScroll: true });
+    opcoes.at(itemInicial === 'ultimo' ? -1 : 0)?.focus();
     document.addEventListener('pointerdown', clicarFora);
     window.addEventListener('resize', posicionar);
     window.addEventListener('scroll', posicionar, true);
@@ -101,7 +101,7 @@ export function FiltrosMenu({
     const passo = key === 'ArrowDown' ? 1 : -1;
     const proximo =
       key === 'Home' ? 0 : key === 'End' ? -1 : (atual + passo + opcoes.length) % opcoes.length;
-    opcoes.at(proximo)?.focus({ preventScroll: true });
+    opcoes.at(proximo)?.focus();
   }
 
   return (

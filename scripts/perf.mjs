@@ -299,6 +299,9 @@ async function medirPapel(browser, papel) {
     const pixelizar = filtrosGrandes
       ? await medirFiltroComMarca(pagina, autosave, 'Pixelizar')
       : null;
+    const dithering = filtrosGrandes
+      ? await medirFiltroComMarca(pagina, autosave, 'Dithering')
+      : null;
     for (const [nome, fase] of [
       ['balde', balde],
       ['desfazer', desfazer],
@@ -324,6 +327,7 @@ async function medirPapel(browser, papel) {
         'inverter cores': filtro,
         ...(desfoque ? { 'desfoque gaussiano': desfoque } : {}),
         ...(pixelizar ? { pixelizar } : {}),
+        ...(dithering ? { dithering } : {}),
       },
     };
   } finally {

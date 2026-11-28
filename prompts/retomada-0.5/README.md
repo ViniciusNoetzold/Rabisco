@@ -1,6 +1,6 @@
 # Rascunhos para retomar a 0.5
 
-Use este material junto de [CONTINUAR_0.5.md](../CONTINUAR_0.5.md) e do [plano da 0.5](../PROMPT_0.5.md). Os patches preservam trabalho em andamento dos Passos 6 a 8. A integração e a validação completa dessas etapas ainda precisam ser feitas.
+Use este material junto de [CONTINUAR_0.5.md](../CONTINUAR_0.5.md) e do [plano da 0.5](../PROMPT_0.5.md). Consulte o ponto de continuação para saber quais passos já foram integrados antes de aplicar os patches.
 
 Rode `npm install` na raiz do repositório. Antes de aplicar cada patch dessa pasta, use `git apply --check` seguido do caminho do arquivo. Os rascunhos foram preparados em bases diferentes. Se um trecho precisar de ajuste, confira as mudanças que já chegaram ao arquivo compartilhado e integre o trecho preservando ambas.
 

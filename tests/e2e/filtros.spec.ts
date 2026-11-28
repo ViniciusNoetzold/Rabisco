@@ -4,6 +4,38 @@ const BRANCO = [255, 255, 255, 255];
 const PRETO = [0, 0, 0, 255];
 const AZUL = [48, 131, 197, 255];
 
+test('Dithering Bayer mostra um padrão na prévia e pode ser desfeito', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Salvo neste dispositivo', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Usar cor #687586', exact: true }).click();
+  await page.locator('.drawing-canvas').focus();
+  await page.keyboard.press('f');
+  const ponto = await pontoNaTela(page, 400, 240);
+  await page.mouse.click(ponto.x, ponto.y);
+  await expect.poll(() => pixel(page, 0, 0)).toEqual([104, 117, 134, 255]);
+
+  await page.getByRole('button', { name: 'Filtros', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Dithering', exact: true }).click();
+  const dialogo = page.getByRole('dialog', { name: 'Dithering', exact: true });
+  await dialogo.getByRole('combobox', { name: 'Algoritmo' }).selectOption('bayer-4');
+  const aplicar = dialogo.getByRole('button', { name: 'Aplicar', exact: true });
+  await expect(aplicar).toBeEnabled();
+
+  const amostra = () =>
+    page.locator('.drawing-canvas').evaluate((tela: HTMLCanvasElement) => {
+      const { data } = tela.getContext('2d')!.getImageData(0, 0, 4, 4);
+      return Array.from(new Set(Array.from(data).filter((_, i) => i % 4 === 0))).sort(
+        (a, b) => a - b,
+      );
+    });
+  await expect.poll(amostra).toEqual([0, 255]);
+  await aplicar.click();
+  await expect(dialogo).toBeHidden();
+  await expect.poll(amostra).toEqual([0, 255]);
+  await page.keyboard.press('Control+z');
+  await expect.poll(amostra).toEqual([104]);
+});
+
 async function pixel(page: Page, x: number, y: number) {
   return page
     .locator('.drawing-canvas')

@@ -41,6 +41,11 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Matiz, saturação e luminosidade** controla as cores e o brilho. **Preto e branco** permite misturar os canais. **Sépia**, **Limiar** e **Posterizar** convertem as cores com a intensidade, o limite ou a quantidade de níveis escolhidos.
 - Em **Desfoque**, ajuste o raio do gaussiano ou o raio e o ângulo do desfoque de movimento. Em **Detalhes**, use **Nitidez**, **Adicionar ruído**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** ou **Relevo**. Os pixels vizinhos ajudam no cálculo das bordas sem ampliar a seleção.
 
+## Estilos artísticos (0.5)
+
+- Em **Início › Imagem › Filtros › Estilos**, escolha **Dithering** para limitar a imagem a 2–16 cores. Floyd–Steinberg e Atkinson espalham o erro de cor. Bayer faz um padrão regular de 2 × 2, 4 × 4 ou 8 × 8.
+- **Meio-tom** cria uma trama de pontos com ângulo e tamanho ajustáveis em uma cor ou em CMYK. **Mosaico**, **Pontilhismo** e **Vitral** dão formas diferentes às áreas de cor. **CRT** acrescenta linhas e separação de canais.
+
 ## ASCII (0.5)
 
 - Abra **Início › Imagem › Filtros › Converter em ASCII**. Se houver uma seleção, o conversor usa a região selecionada. Ajuste as **Colunas**, escolha o conjunto de caracteres e use **Inverter** ou **Colorido** para comparar o resultado na prévia.

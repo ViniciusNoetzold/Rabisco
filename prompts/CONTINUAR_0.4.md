@@ -29,7 +29,8 @@ O ponto mais recente fica em **[CONTINUAR_0.5.md](CONTINUAR_0.5.md)**.
 - **Passo 3** — filtros espaciais com transparência preservada nas bordas e cálculo no worker. ✅
 - **Passo 4** — pixelização, redução de paleta, modo pixel art e exportação ampliada. ✅
 - **Passo 5** — conversão ASCII, texto editável, cópia e exportações. ✅
-- **Próximo: Passo 6**, dithering e estilos artísticos. O material está em [CONTINUAR_0.5.md](CONTINUAR_0.5.md).
+- **Passo 6** — dithering, meio-tom e estilos artísticos.
+- **Próximo passo** — consulte o [ponto de continuação da 0.5](CONTINUAR_0.5.md).
 
 ## Para rodar
 

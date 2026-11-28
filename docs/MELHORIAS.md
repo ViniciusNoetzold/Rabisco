@@ -52,7 +52,7 @@
 - [ ] Títulos ASCII com `figlet`, sujeitos a aprovação da dependência
 - [x] **Pixel art**: lápis de 1 px, grade, paletas, pixelização e exportação ampliada. ✅ 0.5, Passo 4.
 - [ ] Papel-cebola para animação de pixel art
-- [ ] **Dithering** retrô, **meio-tom**, mosaico, pontilhismo, vitral, "CRT"
+- [x] **Dithering**, **meio-tom**, mosaico, pontilhismo, vitral e CRT. ✅ 0.5, Passo 6.
 - [x] Filtros espaciais: desfoque, nitidez, ruído, mediana, bordas e relevo. ✅ 0.5, Passo 3.
 - [ ] Camadas de ajuste não destrutivas
 - [ ] Arquitetura de plugins para novos estilos

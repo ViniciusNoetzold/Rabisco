@@ -2,6 +2,13 @@
 
 ## 0.5 — Em desenvolvimento
 
+### Passo 6 — Dithering e estilos artísticos
+
+- **Dithering** oferece Floyd–Steinberg, Atkinson e Bayer de 2 × 2, 4 × 4 e 8 × 8. Escolha de 2 a 16 cores em tons de cinza ou extraídas do desenho.
+- **Estilos** reúne meio-tom com uma cor ou CMYK, mosaico, pontilhismo, vitral e CRT. Os filtros preservam o alfa e o vitral e o pontilhismo usam uma semente fixa para repetir o resultado.
+- Validação com 238 testes unitários, build de produção e 101 fluxos E2E concluídos. Os testes de apagar uma seleção e desenhar na janela reduzida passaram na retentativa.
+- Em 4000 × 4000, o dithering Floyd–Steinberg levou 697,9 ms no worker com transferência. A maior tarefa da thread principal foi de 99 ms. [Desempenho](docs/desempenho.md)
+
 ### Passo 5 — ASCII
 
 - **Início › Imagem › Filtros › Converter em ASCII** converte a camada ativa ou a seleção com os conjuntos simples, detalhado, blocos e Braille. A janela tem prévia monoespaçada, inversão, cores, cópia e exportação `.txt`, `.html` e `.png`.

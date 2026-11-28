@@ -23,6 +23,10 @@ O terminal imprime uma tabela por tamanho de papel. O relatório JSON fica em `o
 
 Máquina: Intel Core i7-8700 (12 núcleos lógicos), 16 GB de RAM, Windows 11, Edge 158. Tempos em ms (p95), zoom 100%. Relatório completo em `output/perf/passo-2.json`.
 
+### 0.5, Passo 6 — 28/11/2026 (dithering)
+
+`npm run perf -- --rotulo=passo-6` aplicou Floyd–Steinberg com dois tons em 4000 × 4000. Leitura dos pixels em 84,6 ms, worker e transferência em 697,9 ms, prévia em 12,7 ms e gravação no histórico em 6,5 ms. A maior tarefa da thread principal durante o filtro durou 99 ms. O maior p95 de movimento do pincel nesse papel foi de 0,4 ms. Relatório em `output/perf/passo-6.json`.
+
 ### 0.5, Passo 4 — 27/11/2026 (Pixelizar)
 
 `npm run perf -- --rotulo=passo-4` aplicou blocos de 8 px em 4000 × 4000. Leitura dos pixels em 105,7 ms, worker e transferência em 226,8 ms, prévia em 20,1 ms e histórico em 61,6 ms. A maior tarefa na thread principal durante o filtro durou 121 ms. O maior p95 de movimento do pincel nesse papel foi de 0,9 ms. Relatório em `output/perf/passo-4.json`.
