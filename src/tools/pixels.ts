@@ -161,17 +161,21 @@ export function mascaraPorCor(
   return planejarPreenchimento(image, x, y, null, tolerance, global)?.mascara ?? null;
 }
 
-/** Aplica o plano a um recorte, indicando sua origem em coordenadas do documento. */
+/** Aplica a parte do plano que cruza o recorte, em coordenadas do documento. */
 export function aplicarPreenchimento(
   image: PixelBuffer,
   plano: PlanoPreenchimento,
   origem: Point,
 ): void {
   const { area, mascara, largura, cor } = plano;
-  for (let y = area.y; y < area.y + area.height; y++) {
-    let destino = ((y - origem.y) * image.width + area.x - origem.x) * 4;
+  const esquerda = Math.max(area.x, origem.x);
+  const direita = Math.min(area.x + area.width, origem.x + image.width);
+  const topo = Math.max(area.y, origem.y);
+  const fundo = Math.min(area.y + area.height, origem.y + image.height);
+  for (let y = topo; y < fundo; y++) {
+    let destino = ((y - origem.y) * image.width + esquerda - origem.x) * 4;
     const linha = y * largura;
-    for (let x = area.x; x < area.x + area.width; x++, destino += 4) {
+    for (let x = esquerda; x < direita; x++, destino += 4) {
       if (!mascara[linha + x]) continue;
       image.data[destino] = cor[0];
       image.data[destino + 1] = cor[1];
@@ -179,6 +183,21 @@ export function aplicarPreenchimento(
       image.data[destino + 3] = cor[3];
     }
   }
+}
+
+/** Bloqueio de transparência: preserva o alfa e os pixels completamente transparentes. */
+export function preservarAlfa(antes: PixelBuffer, depois: PixelBuffer): PixelBuffer {
+  const resultado = { ...depois, data: new Uint8ClampedArray(depois.data) };
+  for (let i = 0; i < resultado.data.length; i += 4) {
+    const alfa = antes.data[i + 3];
+    if (!alfa) {
+      resultado.data[i] = antes.data[i];
+      resultado.data[i + 1] = antes.data[i + 1];
+      resultado.data[i + 2] = antes.data[i + 2];
+    }
+    resultado.data[i + 3] = alfa;
+  }
+  return resultado;
 }
 
 /** Preenche por segmentos horizontais sem recursão e sem atravessar diagonais. */

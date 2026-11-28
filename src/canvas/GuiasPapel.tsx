@@ -1,7 +1,8 @@
 import { useRef, type PointerEvent as EventoPonteiro } from 'react';
 import { clienteNoPapel } from './vistaAtual';
 import { useEditor } from '../app/store';
-import { prenderAnguloDaRegua, semGuia, type Regua } from '../document/guias';
+import type { ComandoGuia } from '../commands/comandos';
+import { prenderAnguloDaRegua, type EixoGuia, type Regua } from '../document/guias';
 import { soltarGuia } from './soltarGuia';
 import type { Point } from '../layers/types';
 import './guias.css';
@@ -10,10 +11,11 @@ interface Props {
   largura: number;
   altura: number;
   zoom: number;
+  executarGuia(comando: ComandoGuia): void;
 }
 
 type Arrasto =
-  | { tipo: 'guia'; eixo: 'horizontal' | 'vertical' }
+  | { tipo: 'guia'; eixo: EixoGuia }
   | { tipo: 'ponta'; ponta: 'a' | 'b' }
   | { tipo: 'regua'; inicio: Point; original: Regua };
 
@@ -29,7 +31,7 @@ function passoDasMarcas(zoom: number) {
  * alças recebem o ponteiro: dá para desenhar colado na régua e nas guias. Com a ferramenta
  * Mover (V), as guias também se arrastam (para fora do papel, somem).
  */
-export function GuiasPapel({ largura, altura, zoom }: Props) {
+export function GuiasPapel({ largura, altura, zoom, executarGuia }: Props) {
   const guias = useEditor((e) => e.guiasDoPapel);
   const mostrar = useEditor((e) => e.mostrarGuias);
   const nova = useEditor((e) => e.guiaNova);
@@ -58,9 +60,10 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
     const estado = useEditor.getState();
     const { dados } = atual;
     if (dados.tipo === 'guia') {
+      if (!estado.guiaNova) return;
       estado.set({
         guiaNova: {
-          eixo: dados.eixo,
+          ...estado.guiaNova,
           valor: Math.round(dados.eixo === 'horizontal' ? ponto.y : ponto.x),
         },
       });
@@ -87,18 +90,29 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
     if (!atual || atual.ponteiro !== evento.pointerId) return;
     mover(evento);
     arrasto.current = null;
-    if (atual.dados.tipo === 'guia') soltarGuia(largura, altura);
+    if (atual.dados.tipo === 'guia') soltarGuia(largura, altura, executarGuia);
   }
 
-  const eventos = { onPointerMove: mover, onPointerUp: terminar, onPointerCancel: terminar };
+  function cancelarGuia(evento: EventoPonteiro<SVGElement>) {
+    const atual = arrasto.current;
+    if (atual?.ponteiro !== evento.pointerId || atual.dados.tipo !== 'guia') return false;
+    arrasto.current = null;
+    useEditor.getState().set({ guiaNova: null });
+    return true;
+  }
 
-  function linhaGuia(
-    eixo: 'horizontal' | 'vertical',
-    valor: number,
-    chave: string,
-    arrastando = false,
-  ) {
+  const eventos = {
+    onPointerMove: mover,
+    onPointerUp: terminar,
+    onPointerCancel: (evento: EventoPonteiro<SVGElement>) => {
+      if (!cancelarGuia(evento)) terminar(evento);
+    },
+    onLostPointerCapture: cancelarGuia,
+  };
+
+  function linhaGuia(eixo: EixoGuia, valor: number, chave: string, arrastando = false) {
     const horizontal = eixo === 'horizontal';
+    const deslocando = !arrastando && nova?.eixo === eixo && nova.origem === valor;
     const linha = {
       x1: horizontal ? 0 : valor * zoom,
       x2: horizontal ? largura * zoom : valor * zoom,
@@ -107,18 +121,21 @@ export function GuiasPapel({ largura, altura, zoom }: Props) {
     };
     return (
       <g key={chave} className={arrastando ? 'guia guia-arrastada' : 'guia'}>
-        <line {...linha} data-testid={`guia-${eixo}`} data-valor={valor} />
-        {moverGuias && !arrastando && (
+        <line
+          {...linha}
+          visibility={deslocando ? 'hidden' : undefined}
+          data-testid={deslocando ? undefined : `guia-${eixo}`}
+          data-valor={valor}
+        />
+        {(moverGuias || deslocando) && !arrastando && (
           <line
             {...linha}
             className={`guia-alvo guia-alvo-${eixo}`}
             onPointerDown={(evento) => {
+              if (evento.button !== 0 || arrasto.current || useEditor.getState().guiaNova) return;
               comecar(evento, { tipo: 'guia', eixo });
-              const estado = useEditor.getState();
-              estado.set({
-                guiasDoPapel: semGuia(estado.guiasDoPapel, eixo, valor),
-                guiaNova: { eixo, valor },
-              });
+              // A alça e a guia gravada ficam no lugar enquanto a prévia acompanha o ponteiro.
+              useEditor.getState().set({ guiaNova: { eixo, valor, origem: valor } });
             }}
             {...eventos}
           >

@@ -115,7 +115,10 @@ export function juntarContornos(contornos: readonly Point[][]): Point[] {
   const lacos = contornos.filter((laco) => laco.length >= 3);
   if (lacos.length <= 1) return lacos[0]?.slice() ?? [];
   const resultado: Point[] = [];
-  for (const laco of lacos) resultado.push(...laco, laco[0]);
+  for (const laco of lacos) {
+    for (const ponto of laco) resultado.push(ponto);
+    resultado.push(laco[0]);
+  }
   for (let i = lacos.length - 2; i >= 0; i--) resultado.push(lacos[i][0]);
   return resultado;
 }

@@ -1,10 +1,15 @@
-# Continuar o Rabisco 0.5
+# Continuar depois da 0.5
 
-## Ponto de parada
+## Planejar a 0.6
 
-A branch `main` está publicada até o **Passo 7 (camadas de ajuste)**. Confira `git log -5 --oneline` ao retomar. O **próximo passo é o 8 (pendências e fechamento da 0.5)**. O plano completo e as decisões ficam no [PROMPT_0.5.md](PROMPT_0.5.md).
+Escreva `prompts/PROMPT_0.6.md` para a etapa de IA no editor. Use o [roteiro do projeto](../ROADMAP.md) como referência.
 
-O [README da retomada](retomada-0.5/README.md) explica a sequência dos rascunhos do Passo 8. Ao integrar trechos de arquivos compartilhados, preserve a edição de ASCII e o `.rabisco` v3, que guarda as camadas de ajuste. Os títulos ASCII com `figlet` seguem condicionados à aprovação da dependência.
+- Planeje a configuração de provedores com chave da pessoa e o AI Horde sem cadastro como opção padrão. Confira a documentação oficial de cada provedor ao especificar a integração.
+- Desenhe a fila cancelável com indicação de progresso e tratamento de falhas. Mantenha as credenciais no dispositivo e fora dos arquivos `.rabisco`.
+- Especifique como cada geração ou edição cria uma camada nova e registra o prompt e a semente quando disponíveis.
+- Prepare testes com respostas simuladas para envio, sucesso, falha, cancelamento e gravação do resultado na camada certa.
+
+A documentação da etapa anterior reúne o [plano da 0.5](PROMPT_0.5.md), o [roteiro manual](../docs/guia-de-uso.md#roteiro-manual-da-05), o [changelog](../CHANGELOG.md) e as [medições de desempenho](../docs/desempenho.md). Os títulos ASCII com `figlet` seguem condicionados à aprovação da dependência. [Lista de melhorias](../docs/MELHORIAS.md)
 
 ## Em outro computador
 
@@ -17,9 +22,4 @@ npm run dev
 
 Para abrir em outro aparelho conectado à mesma rede, execute `npm run dev -- --host 0.0.0.0` e use o endereço **Network** mostrado pelo Vite.
 
-## O que falta
-
-1. Integrar seleções, simetria no Dedo e formas inteligentes, balde em faixas, réguas e miniatura na vista girada e histórico de guias.
-2. Medir balde, desfoque e dithering, atualizar as capturas e publicar a versão 0.5.0.
-
-O [CHANGELOG](../CHANGELOG.md) registra a validação de cada passo publicado. O [guia de desempenho](../docs/desempenho.md) contém as medições feitas no Edge.
+Valide cada etapa com `npm test`, `npm run build` e `npm run test:e2e`. Rode `npm run perf` quando a mudança afetar o desempenho e registre os resultados medidos.

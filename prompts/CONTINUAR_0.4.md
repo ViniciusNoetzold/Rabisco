@@ -18,19 +18,9 @@ Validação da 0.4.0: 181 testes unitários e 91 E2E passando; `npm run build` e
 
 **A 0.4 está concluída.**
 
-## Em andamento: a 0.5 — estilos e filtros
+## Retomar o desenvolvimento
 
-O plano completo está em **[PROMPT_0.5.md](PROMPT_0.5.md)**. Foram adotados os padrões sugeridos, com Canvas 2D e worker, algoritmos próprios de dithering e camadas de ajuste no Passo 7. A inclusão de `figlet.js` será avaliada no Passo 5, mediante aprovação da dependência.
-
-O ponto mais recente fica em **[CONTINUAR_0.5.md](CONTINUAR_0.5.md)**.
-
-- **Passo 1** — registro, comando de filtro, worker cancelável, prévia, Inverter cores e repetição com `Ctrl+F`. ✅
-- **Passo 2** — filtros de cor, editor de curvas e amostragem do ponto preto e branco nos níveis. ✅
-- **Passo 3** — filtros espaciais com transparência preservada nas bordas e cálculo no worker. ✅
-- **Passo 4** — pixelização, redução de paleta, modo pixel art e exportação ampliada. ✅
-- **Passo 5** — conversão ASCII, texto editável, cópia e exportações. ✅
-- **Passo 6** — dithering, meio-tom e estilos artísticos.
-- **Próximo passo** — consulte o [ponto de continuação da 0.5](CONTINUAR_0.5.md).
+O roteiro de estilos e filtros está em [PROMPT_0.5.md](PROMPT_0.5.md). Abra o [ponto de retomada mais recente](CONTINUAR_0.5.md) para seguir para o planejamento da 0.6.
 
 ## Para rodar
 

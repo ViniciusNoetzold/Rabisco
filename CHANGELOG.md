@@ -1,6 +1,16 @@
 # Histórico de alterações
 
-## 0.5 — Em desenvolvimento
+## 0.5.0 — 2026-11-28 — Estilos e filtros
+
+### Passo 8 — Seleções, simetria, vista e desempenho
+
+- **Shift** soma e **Alt** subtrai nas seleções retangular, elíptica e de laço. Use o modificador no início do arraste. Ao iniciar a elipse sem modificador, pressione **Shift** durante o arraste para fazer um círculo.
+- **Dedo** e **Formas inteligentes** acompanham a simetria. As cópias entram em uma única edição reversível.
+- As réguas e a miniatura acompanham a vista girada ou espelhada. Criar, mover, remover ou limpar guias gera uma edição no histórico.
+- O balde prepara áreas grandes em faixas entre quadros. **Esc** cancela o processamento e as faixas são confirmadas juntas em uma edição.
+- O guia inclui um roteiro manual de 15 verificações. O README mostra o Rabisco em ASCII e pixel art. [Guia da 0.5](docs/guia-de-uso.md#roteiro-manual-da-05)
+- Validação com 263 testes unitários, build de produção e 109 fluxos E2E no Edge.
+- Em 4000 × 4000, a maior tarefa do balde caiu de 306 ms para 97 ms. O tempo total passou de 786 ms para 1.232 ms com a divisão em quadros. O movimento do pincel ficou em até 0,4 ms (p95). [Desempenho](docs/desempenho.md)
 
 ### Passo 7 — Camadas de ajuste
 

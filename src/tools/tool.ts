@@ -1,5 +1,6 @@
 import type { Comando, EstiloTraco } from '../commands/comandos';
 import type { FormaGradiente } from './gradiente';
+import type { ConfigSimetria } from '../brushes/simetria';
 import type { MascaraSelecao, RecorteFlutuante } from '../document/selecao';
 import type {
   ConfiguracaoPincel,
@@ -24,7 +25,7 @@ export interface EventoFerramenta {
   botao: number;
   shift: boolean;
   ctrl?: boolean;
-  /** Alt (na varinha mágica: subtrair da seleção). */
+  /** Alt subtrai nas ferramentas de seleção. */
   alt?: boolean;
   instante?: number;
   cliques?: number;
@@ -80,6 +81,8 @@ export interface ToolCtx {
   };
   readonly selecao: Rect | null;
   readonly mascaraSelecao?: MascaraSelecao;
+  readonly simetria?: ConfigSimetria;
+  readonly travarAlfa?: boolean;
   readonly colagemFlutuante?: boolean;
   executar(comando: Comando): boolean;
   /** Balde: em papéis grandes, calcula a área num worker e executa quando ficar pronto. */
@@ -93,7 +96,7 @@ export interface ToolCtx {
   iniciarPreviaPincel(configuracao: ConfiguracaoPincel): void;
   previsualizarMarcasPincel(marcas: readonly MarcaPincel[]): void;
   /** Prévia do dedo: um trecho já borrado (px do papel) vai para a tela. */
-  previsualizarTrecho?(fonte: CanvasImageSource, area: Rect): void;
+  previsualizarTrecho?(fonte: HTMLCanvasElement, area: Rect): void;
   prepararRecorte(area: Rect, mascara?: MascaraSelecao, transparente?: string): RecorteFlutuante;
   reposicionarColagem?(destino: Rect): void;
   confirmarColagem?(): void;
@@ -122,7 +125,11 @@ export interface Tool {
   descartarPendente?(): void;
   commitPendente?(ctx: ToolCtx): void;
   /** Formas inteligentes: recebe a forma reconhecida no traço como forma pendente. */
-  adotarForma?(geometria: GeometriaForma, estilo: Partial<ConfiguracaoForma>): void;
+  adotarForma?(
+    geometria: GeometriaForma,
+    estilo: Partial<ConfiguracaoForma>,
+    simetria?: ConfigSimetria,
+  ): void;
   /** O ponto toca a forma pendente (alças ou dentro dela)? */
   tocaNaForma?(ctx: ToolCtx, ponto: Point): boolean;
 }

@@ -1,4 +1,5 @@
 import type { Alvo, EstruturaDocumento } from '../document/camadas';
+import type { PosicoesGuias } from '../document/guias';
 import type { PixelBuffer, Rect } from '../layers/types';
 import type { Comando } from './comandos';
 
@@ -33,6 +34,7 @@ export interface EntradaComando extends DadosHistorico {
   };
   nome?: { antes: string; depois: string };
   dpi?: { antes: number; depois: number };
+  guias?: { antes: PosicoesGuias; depois: PosicoesGuias };
   /** Lote: sub-itens aplicados em ordem (refazer) ou ao contrário (desfazer). */
   subentradas?: EntradaComando[];
 }
@@ -41,6 +43,15 @@ function bytesDaEntrada(entrada: DadosHistorico): number {
   const comando = entrada as Partial<EntradaComando>;
   if (comando.alteracoes || comando.subentradas) {
     let total = 0;
+    if (comando.guias) {
+      const { antes, depois } = comando.guias;
+      total +=
+        (antes.horizontais.length +
+          antes.verticais.length +
+          depois.horizontais.length +
+          depois.verticais.length) *
+        Float64Array.BYTES_PER_ELEMENT;
+    }
     for (const { before, after } of comando.alteracoes ?? []) {
       total += before.data.byteLength + after.data.byteLength;
     }

@@ -1,4 +1,6 @@
-import { Borrador } from '../brushes/borrar';
+import { BorradorSimetrico } from '../brushes/borrar';
+import { limitarArea } from '../commands/desenho';
+import { coberturaDaSelecao } from '../filtros/cobertura';
 import type { Point } from '../layers/types';
 import type { ToolCtx } from './tool';
 
@@ -15,29 +17,34 @@ export function criarGestoDedo(ctx: ToolCtx, ponto: Point) {
   tela.width = largura;
   tela.height = altura;
   const grafico = tela.getContext('2d')!;
-  const borrador = new Borrador(copia, { x: 0, y: 0 }, espessura, forca);
+  grafico.putImageData(copia, 0, 0);
+  const area = ctx.selecao ?? undefined;
+  const mascara = ctx.mascaraSelecao;
+  const simetria = ctx.simetria;
+  const borrador = new BorradorSimetrico(copia, { x: 0, y: 0 }, espessura, forca, {
+    simetria,
+    area,
+    cobertura: area && mascara ? coberturaDaSelecao(area, mascara) : undefined,
+    travarAlfa: ctx.travarAlfa,
+  });
   const pontos: Point[] = [{ x: ponto.x, y: ponto.y }];
   borrador.iniciar(ponto);
 
   return {
     mover(proximo: Point) {
       pontos.push({ x: proximo.x, y: proximo.y });
-      const area = borrador.mover(proximo);
-      if (!area) return;
-      const x = Math.max(0, area.x);
-      const y = Math.max(0, area.y);
-      const largura = Math.min(tela.width, area.x + area.width) - x;
-      const altura = Math.min(tela.height, area.y + area.height) - y;
-      if (largura <= 0 || altura <= 0) return;
-      grafico.putImageData(copia, 0, 0, x, y, largura, altura);
-      ctx.previsualizarTrecho?.(tela, { x, y, width: largura, height: altura });
+      const recortes = borrador.mover(proximo).flatMap((parte) => limitarArea(parte, tela) ?? []);
+      for (const { x, y, width, height } of recortes)
+        grafico.putImageData(copia, 0, 0, x, y, width, height);
+      for (const parte of recortes) ctx.previsualizarTrecho?.(tela, parte);
     },
     terminar(ultimo: Point) {
       const fim = pontos.at(-1)!;
       if (ultimo.x !== fim.x || ultimo.y !== fim.y) pontos.push({ x: ultimo.x, y: ultimo.y });
       tela.width = tela.height = 1;
       ctx.limparPrevia();
-      if (pontos.length > 1) ctx.executar({ tipo: 'Borrar', pontos, espessura, forca });
+      if (pontos.length > 1)
+        ctx.executar({ tipo: 'Borrar', pontos, espessura, forca, simetria, area, mascara });
     },
     cancelar() {
       tela.width = tela.height = 1;

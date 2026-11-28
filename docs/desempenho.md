@@ -23,6 +23,29 @@ O terminal imprime uma tabela por tamanho de papel. O relatório JSON fica em `o
 
 Máquina: Intel Core i7-8700 (12 núcleos lógicos), 16 GB de RAM, Windows 11, Edge 158. Tempos em ms (p95), zoom 100%. Relatório completo em `output/perf/passo-2.json`.
 
+### 0.5.0 — 28/11/2026 (balde e filtros em papéis grandes)
+
+`npm run perf -- --rotulo=passo-8` mediu três tamanhos de papel, os filtros no worker e a pilha de 20 camadas. A comparação do balde usa o ensaio do Passo 7 nesta mesma máquina. Relatórios em `output/perf/passo-7.json` e `output/perf/passo-8.json`.
+
+| Balde e pincel (ms) | 1024 × 640 | 4000 × 4000 | 8192 × 4096 |
+| --- | ---: | ---: | ---: |
+| Maior tarefa do balde antes das faixas | 72 | 306 | 636 |
+| Maior tarefa do balde na 0.5.0 | 74 | 97 | 204 |
+| Preparação de uma faixa (p95) | — | 1,2 | 1,0 |
+| Aplicação e registro no histórico | 55,1 | 6,0 | 15,5 |
+| Do clique ao preenchimento antes das faixas | — | 786,1 | 2.148,8 |
+| Do clique ao preenchimento na 0.5.0 | — | 1.231,5 | 2.881,2 |
+| Movimento do pincel (maior p95) | 0,3 | 0,4 | 0,4 |
+
+Nos papéis grandes, o clique inclui a leitura inicial do Canvas, que levou 96,4 ms em 4000 × 4000 e 203,3 ms em 8192 × 4096. A preparação é distribuída entre quadros com faixas de até 65.536 pixels. O preenchimento completo entra no Canvas e no histórico de uma vez. Em 1024 × 640, o balde roda de forma síncrona e a tabela apresenta a duração da maior tarefa observada.
+
+| Filtro em 4000 × 4000 (ms) | Leitura | Worker e transferência | Prévia | Histórico | Maior tarefa da thread principal |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Desfoque gaussiano, raio de 3 px | 85,0 | 1.214,3 | 13,8 | 69,5 | 101 |
+| Dithering Floyd–Steinberg, dois tons | 83,5 | 697,1 | 16,1 | 6,0 | 97 |
+
+Na camada de ajuste de brilho, a confirmação levou 232,1 ms e a maior tarefa da fase ocupou 260 ms na thread principal. A montagem de 20 camadas de 4000 × 4000 levou 7.395 ms. Nessa pilha, o movimento do pincel ficou em 0,3 ms (p95) e ocultar uma camada levou 35,2 ms até a tela atualizar na mediana de seis medidas, com máximo de 114,1 ms.
+
 ### 0.5, Passo 7 — 28/11/2026 (camada de ajuste)
 
 `npm run perf -- --rotulo=passo-7` criou uma camada de brilho e contraste sobre um papel branco de 4000 × 4000, com o controle de brilho no mínimo. A confirmação da camada mediu 211,7 ms e a maior tarefa da thread principal entre prévia e confirmação durou 239 ms. O compositor calcula o ajuste junto com a pilha de camadas. A amostra de movimento do pincel nesse papel ficou em até 0,3 ms (p95) antes da inclusão do ajuste. Relatório em `output/perf/passo-7.json`.

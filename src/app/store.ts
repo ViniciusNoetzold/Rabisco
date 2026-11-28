@@ -1,6 +1,6 @@
 import type { ModoSimetria } from '../brushes/simetria';
 import type { FormaGradiente } from '../tools/gradiente';
-import { SEM_GUIAS, type GuiasDocumento } from '../document/guias';
+import { SEM_GUIAS, type EixoGuia, type GuiasDocumento } from '../document/guias';
 import type { CurvaPressao } from '../brushes/pressao';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -129,7 +129,7 @@ interface EditorState {
   /** Vista espelhada (H), para conferir proporções. */
   espelharVista: boolean;
   /** Guia sendo arrastada da régua lateral ou com a ferramenta Mover. */
-  guiaNova: { eixo: 'horizontal' | 'vertical'; valor: number } | null;
+  guiaNova: { eixo: EixoGuia; valor: number; origem?: number } | null;
   /** Na transformação livre, encaixar nas bordas e no centro do papel e das camadas. */
   guiasInteligentes: boolean;
   setTool: (tool: ToolId) => void;

@@ -1,4 +1,5 @@
 import { opacidadeDoPincel } from '../brushes/motor';
+import { simetriaAtiva, transformacoes, type ConfigSimetria } from '../brushes/simetria';
 import type { Rect } from '../layers/types';
 import { obterForma } from './catalogo';
 import { pontosDosLimites } from './limites';
@@ -89,6 +90,35 @@ export function desenharForma(ctx: Grafico, forma: ConfiguracaoForma): void {
   }
 }
 
+/** Desenha a forma editável original e as cópias com a mesma transformação do traço. */
+export function desenharFormaSimetrica(
+  ctx: Grafico,
+  forma: ConfiguracaoForma,
+  simetria?: ConfigSimetria,
+): void {
+  desenharForma(ctx, forma);
+  if (!simetriaAtiva(simetria)) return;
+  for (const transformar of transformacoes(simetria).slice(1)) {
+    const origem = transformar({ x: 0, y: 0 });
+    const eixoX = transformar({ x: 1, y: 0 });
+    const eixoY = transformar({ x: 0, y: 1 });
+    ctx.save();
+    try {
+      ctx.transform(
+        eixoX.x - origem.x,
+        eixoX.y - origem.y,
+        eixoY.x - origem.x,
+        eixoY.y - origem.y,
+        origem.x,
+        origem.y,
+      );
+      desenharForma(ctx, forma);
+    } finally {
+      ctx.restore();
+    }
+  }
+}
+
 /** A caixa do histórico inclui os controles Bézier externos e o raio do contorno. */
 export function areaDaForma(forma: ConfiguracaoForma): Rect {
   const { caixa, rotacao, pontos, contorno, espessura } = forma;
@@ -127,6 +157,32 @@ export function areaDaForma(forma: ConfiguracaoForma): Rect {
     width: Math.ceil(Math.max(...xs) + margem) - x,
     height: Math.ceil(Math.max(...ys) + margem) - y,
   };
+}
+
+export function areasDaFormaSimetrica(forma: ConfiguracaoForma, simetria?: ConfigSimetria): Rect[] {
+  const area = areaDaForma(forma);
+  if (!simetriaAtiva(simetria)) return [area];
+  const { x, y, width, height } = area;
+  const cantos = [
+    { x, y },
+    { x: x + width, y },
+    { x, y: y + height },
+    { x: x + width, y: y + height },
+  ];
+  return transformacoes(simetria).map((transformar, indice) => {
+    if (indice === 0) return area;
+    const pontos = cantos.map(transformar);
+    const xs = pontos.map((ponto) => ponto.x);
+    const ys = pontos.map((ponto) => ponto.y);
+    const esquerda = Math.floor(Math.min(...xs));
+    const topo = Math.floor(Math.min(...ys));
+    return {
+      x: esquerda,
+      y: topo,
+      width: Math.ceil(Math.max(...xs)) - esquerda,
+      height: Math.ceil(Math.max(...ys)) - topo,
+    };
+  });
 }
 
 export function desenharMiniatura(ctx: Grafico, id: FormaId, caixa: Rect): void {

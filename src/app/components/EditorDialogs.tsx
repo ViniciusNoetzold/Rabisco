@@ -203,7 +203,12 @@ export function EditorDialogs({
           <RedimensionarInclinar info={info} fechar={onClose} aplicar={onTransformar} />
         )}
         {dialog === 'save-as' && (
-          <SalvarComo nome={info.name} camadas={info.estrutura.camadas} fechar={onClose} salvar={onSalvarComo} />
+          <SalvarComo
+            nome={info.name}
+            camadas={info.estrutura.camadas}
+            fechar={onClose}
+            salvar={onSalvarComo}
+          />
         )}
         {dialog === 'print' && <ImprimirDesenho fechar={onClose} imprimir={onImprimir} />}
         {dialog === 'colors' && (
@@ -253,7 +258,7 @@ export function EditorDialogs({
             <Logo large />
             <p className="about-tagline">Um pequeno ateliê. Infinitas possibilidades.</p>
             <p>
-              Versão 0.4.0 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
+              Versão 0.5.0 · Feito para desenhar com calma, curiosidade e um pouco de nostalgia.
             </p>
             <div className="about-credits">
               <h3>Feito com ferramentas abertas</h3>

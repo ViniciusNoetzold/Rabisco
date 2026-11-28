@@ -5,7 +5,9 @@ export type OperacaoMedida =
   | `${FerramentaDoTraco}:${FaseDoTraco}`
   | 'spray:quadro'
   | 'balde'
-  /** Do clique ao balde pronto na tela (com o worker, a tela não trava no meio). */
+  /** Trabalho síncrono de cada faixa preparada para o balde. */
+  | 'balde:faixa'
+  /** Do clique ao balde pronto na tela. */
   | 'balde:total'
   | 'desfazer'
   | 'refazer'

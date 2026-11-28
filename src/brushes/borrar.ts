@@ -1,4 +1,12 @@
 import type { PixelBuffer, Point, Rect } from '../layers/types';
+import { transformacoes, type ConfigSimetria, type Transformacao } from './simetria';
+
+interface OpcoesBorrao {
+  area?: Rect;
+  cobertura?: Uint8ClampedArray;
+  travarAlfa?: boolean;
+  simetria?: ConfigSimetria;
+}
 
 /**
  * Dedo (borrar/esfumar): a ponta "carrega" os pixels de onde passou e os arrasta. Cada carimbo
@@ -20,6 +28,7 @@ export class Borrador {
     private readonly origem: Point,
     espessura: number,
     private readonly forca: number,
+    private readonly opcoes: OpcoesBorrao = {},
   ) {
     this.raio = Math.max(1, espessura / 2);
     this.lado = 2 * Math.ceil(this.raio) + 1;
@@ -81,9 +90,12 @@ export class Borrador {
       for (let dx = -meio; dx <= meio; dx++) {
         const d = Math.hypot(dx, dy) / this.raio;
         if (d > 1) continue;
-        const pixel = this.indice(centro.x + dx, centro.y + dy);
+        const x = centro.x + dx;
+        const y = centro.y + dy;
+        const pixel = this.indice(x, y);
         if (pixel < 0) continue;
-        const peso = this.forca * (1 - d * d);
+        const cobertura = this.cobertura(x, y);
+        const peso = this.forca * (1 - d * d) * cobertura;
         const carga = ((dy + meio) * this.lado + dx + meio) * 4;
         const alfa = data[pixel + 3] / 255;
         const antes = [
@@ -95,13 +107,24 @@ export class Borrador {
         const depois = antes.map((valor, c) => valor + (this.carga[carga + c] - valor) * peso);
         for (let c = 0; c < 4; c++)
           this.carga[carga + c] += (antes[c] - this.carga[carga + c]) * pegar;
+        if (!peso || (this.opcoes.travarAlfa && !alfa)) continue;
         const novoAlfa = depois[3];
-        data[pixel + 3] = Math.round(novoAlfa);
+        if (!this.opcoes.travarAlfa) data[pixel + 3] = Math.round(novoAlfa);
+        else if (!novoAlfa) continue;
         const escala = novoAlfa > 0 ? 255 / novoAlfa : 0;
         data[pixel] = Math.round(depois[0] * escala);
         data[pixel + 1] = Math.round(depois[1] * escala);
         data[pixel + 2] = Math.round(depois[2] * escala);
       }
+  }
+
+  private cobertura(x: number, y: number): number {
+    const { area, cobertura } = this.opcoes;
+    if (!area) return 1;
+    const coluna = x - area.x;
+    const linha = y - area.y;
+    if (coluna < 0 || coluna >= area.width || linha < 0 || linha >= area.height) return 0;
+    return cobertura ? cobertura[linha * area.width + coluna] / 255 : 1;
   }
 
   /** Índice do pixel (px do papel) dentro da imagem, ou −1 fora dela. */
@@ -118,6 +141,37 @@ export class Borrador {
   }
 }
 
+/** Cada cópia tem sua própria carga. Compartilham os pixels e a ordem das amostras. */
+export class BorradorSimetrico {
+  private readonly copias: { transformar: Transformacao; borrador: Borrador }[];
+
+  constructor(
+    imagem: PixelBuffer,
+    origem: Point,
+    espessura: number,
+    forca: number,
+    opcoes: OpcoesBorrao = {},
+  ) {
+    this.copias = transformacoes(opcoes.simetria).map((transformar) => ({
+      transformar,
+      borrador: new Borrador(imagem, origem, espessura, forca, opcoes),
+    }));
+  }
+
+  iniciar(ponto: Point) {
+    for (const { transformar, borrador } of this.copias) borrador.iniciar(transformar(ponto));
+  }
+
+  mover(ponto: Point): Rect[] {
+    const areas: Rect[] = [];
+    for (const { transformar, borrador } of this.copias) {
+      const area = borrador.mover(transformar(ponto));
+      if (area) areas.push(area);
+    }
+    return areas;
+  }
+}
+
 function unir(a: Rect, b: Rect): Rect {
   const x = Math.min(a.x, b.x);
   const y = Math.min(a.y, b.y);
@@ -130,32 +184,46 @@ function unir(a: Rect, b: Rect): Rect {
 }
 
 /** A área que um traço de dedo pode mexer: os pontos com a margem do raio. */
-export function areaDoBorrao(pontos: readonly Point[], espessura: number): Rect | null {
+export function areaDoBorrao(
+  pontos: readonly Point[],
+  espessura: number,
+  transformar?: Transformacao,
+): Rect | null {
   if (!pontos.length) return null;
   const margem = Math.ceil(Math.max(1, espessura / 2)) + 1;
-  const xs = pontos.map((p) => Math.round(p.x));
-  const ys = pontos.map((p) => Math.round(p.y));
-  const x = Math.min(...xs) - margem;
-  const y = Math.min(...ys) - margem;
+  let esquerda = Infinity;
+  let topo = Infinity;
+  let direita = -Infinity;
+  let base = -Infinity;
+  for (const original of pontos) {
+    const ponto = transformar?.(original) ?? original;
+    const x = Math.round(ponto.x);
+    const y = Math.round(ponto.y);
+    esquerda = Math.min(esquerda, x);
+    direita = Math.max(direita, x);
+    topo = Math.min(topo, y);
+    base = Math.max(base, y);
+  }
   return {
-    x,
-    y,
-    width: Math.max(...xs) + margem + 1 - x,
-    height: Math.max(...ys) + margem + 1 - y,
+    x: esquerda - margem,
+    y: topo - margem,
+    width: direita - esquerda + 2 * margem + 1,
+    height: base - topo + 2 * margem + 1,
   };
 }
 
-/** Aplica um traço inteiro (o executor e a miniatura da galeria usam). */
+/** Aplica um traço inteiro, na mesma ordem da prévia. */
 export function borrarTraco(
   imagem: PixelBuffer,
   origem: Point,
   pontos: readonly Point[],
   espessura: number,
   forca: number,
+  opcoes: OpcoesBorrao = {},
 ) {
   const [primeiro, ...resto] = pontos;
   if (!primeiro) return;
-  const borrador = new Borrador(imagem, origem, espessura, forca);
+  const borrador = new BorradorSimetrico(imagem, origem, espessura, forca, opcoes);
   borrador.iniciar(primeiro);
   for (const ponto of resto) borrador.mover(ponto);
 }

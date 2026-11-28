@@ -6,6 +6,7 @@ import { reguaPadrao, SEM_GUIAS } from '../document/guias';
 import {
   type Comando,
   type ComandoAplicarFiltro,
+  type ComandoGuia,
   type OpcoesTransformacao,
   type OrientacaoImagem,
 } from '../commands/comandos';
@@ -14,7 +15,11 @@ import { redimensionarEInclinar } from '../document/transformacoes';
 import { Executador, type PreparoFiltro } from '../commands/executador';
 import { exportacaoComAjusteAchatado } from '../document/ajustes';
 import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
-import { areaDaPreviaFiltro, type PreviaAjuste, type PreviaComposicao } from '../document/compositor';
+import {
+  areaDaPreviaFiltro,
+  type PreviaAjuste,
+  type PreviaComposicao,
+} from '../document/compositor';
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { comoImageData, RabiscoDocument } from '../document/model';
 import { luminancia } from '../filtros/cores';
@@ -77,7 +82,13 @@ interface ResultadoFiltro {
  */
 export class EditorController implements EditorApi, NucleoEditor {
   readonly doc = new RabiscoDocument();
-  readonly comandos = new Executador(this.doc);
+  readonly comandos = new Executador(this.doc, {
+    ler: () => useEditor.getState().guiasDoPapel,
+    aplicar: (posicoes) => {
+      const estado = useEditor.getState();
+      estado.set({ guiasDoPapel: { ...estado.guiasDoPapel, ...posicoes }, guiaNova: null });
+    },
+  });
   private readonly superficie: SuperficieTela;
   private readonly selecao: ControleSelecao;
   private readonly colagem: ControleColagem;
@@ -119,11 +130,16 @@ export class EditorController implements EditorApi, NucleoEditor {
     return this.ligado;
   }
 
+  revisaoAtual() {
+    return this.revisao;
+  }
+
   disponivel() {
     return this.ligado && this.pronto && !this.ferramentas.emGesto;
   }
 
   executar(comando: Comando, aposExecutar?: () => void) {
+    if (comando.tipo !== 'Preencher') this.ferramentas.cancelarPreenchimento();
     // As prévias não entram no histórico. O comando rasteriza uma única vez na camada.
     this.superficie.limpar();
     const categoria =
@@ -148,7 +164,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     if (comando.tipo === 'AplicarForma') this.ultimaForma = comando.configuracao;
     if (comando.tipo === 'NovoDocumento' || comando.tipo === 'AbrirImagem') this.ultimaForma = null;
     aposExecutar?.();
-    this.edicaoAplicada(comando.tipo === 'AplicarFiltro');
+    this.edicaoAplicada(comando.tipo === 'AplicarFiltro' || comando.tipo === 'Borrar');
     return true;
   }
 
@@ -253,6 +269,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   }
 
   tecla(evento: KeyboardEvent) {
+    if (evento.key === 'Escape' && this.cancelarGuia()) return true;
     return this.ferramentas.tecla(evento);
   }
 
@@ -269,7 +286,12 @@ export class EditorController implements EditorApi, NucleoEditor {
   }
 
   private mudarHistorico(operacao: 'desfazer' | 'refazer') {
-    if (!this.disponivel() || this.colagem.descartar() || this.ferramentas.descartarPendente())
+    if (
+      !this.disponivel() ||
+      this.cancelarGuia() ||
+      this.colagem.descartar() ||
+      this.ferramentas.descartarPendente()
+    )
       return;
     const mudou = medicaoAtiva
       ? medirOperacao(`historico:${operacao}`, () => this.comandos[operacao]())
@@ -498,8 +520,8 @@ export class EditorController implements EditorApi, NucleoEditor {
         achatado
           ? `${opcoes.formato === 'camadas-png' ? 'ZIP' : opcoes.formato.toUpperCase()} salvo com os ajustes aplicados em uma imagem achatada.`
           : opcoes.formato === 'camadas-png'
-          ? 'Camadas exportadas: um PNG por camada, num arquivo .zip.'
-          : `${opcoes.formato.toUpperCase()} salvo com as camadas.`,
+            ? 'Camadas exportadas: um PNG por camada, num arquivo .zip.'
+            : `${opcoes.formato.toUpperCase()} salvo com as camadas.`,
       );
       return;
     }
@@ -544,6 +566,13 @@ export class EditorController implements EditorApi, NucleoEditor {
   newDocument(nome: string, largura: number, altura: number) {
     this.papel.novo(nome, largura, altura);
     useEditor.getState().set({ guiasDoPapel: SEM_GUIAS, guiaNova: null });
+  }
+
+  /** Registra a edição de guia sem alterar a prévia de pintura. */
+  executarGuia(comando: ComandoGuia) {
+    if (!this.disponivel() || !this.comandos.executar(comando)) return false;
+    this.edicaoAplicada();
+    return true;
   }
 
   /** Liga a régua de desenho no meio da área visível do papel, ou a desliga. */
@@ -690,6 +719,7 @@ export class EditorController implements EditorApi, NucleoEditor {
 
   /** Arquivo com camadas aberto: troca o documento e recomeça o histórico. */
   substituirDocumento(dados: DocumentoComCamadas) {
+    this.ferramentas.cancelarPreenchimento();
     const { doc } = this;
     doc.name = dados.nome;
     doc.dpi = dados.dpi;
@@ -892,13 +922,21 @@ export class EditorController implements EditorApi, NucleoEditor {
 
   // ---- Internos ----------------------------------------------------------------------------
 
+  private cancelarGuia() {
+    const estado = useEditor.getState();
+    if (!estado.guiaNova) return false;
+    estado.set({ guiaNova: null });
+    return true;
+  }
+
   private edicaoAplicada(incluirEfeitos = false) {
-    const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao } = this.comandos;
+    const { ultimasAlteracoes, estruturaMudou, ultimaAlteracao, guiasMudaram } = this.comandos;
     const trecho =
       incluirEfeitos && ultimaAlteracao
         ? areaDaPreviaFiltro(this.doc, ultimaAlteracao)
         : ultimaAlteracao;
-    this.superficie.compor(trecho ?? undefined);
+    if (!guiasMudaram || estruturaMudou || ultimasAlteracoes.length)
+      this.superficie.compor(trecho ?? undefined);
     for (const { alvo, area } of ultimasAlteracoes)
       this.persistencia.marcar(chaveDoAlvo(alvo), area);
     if (estruturaMudou) this.persistencia.marcarDescricao();

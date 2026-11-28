@@ -1,4 +1,6 @@
-import { criarPreenchedor, PIXELS_PARA_WORKER } from './preenchedor';
+import { criarPreenchedor, PIXELS_PARA_WORKER, prepararPreenchimentoEmFaixas } from './preenchedor';
+import { chaveDoAlvo } from '../../document/camadas';
+import { recortarPixels } from '../../commands/history';
 import { registrarDuracao } from '../medicao';
 import { FERRAMENTAS_DE_SELECAO } from '../../tools/select';
 import { useEditor } from '../../app/store';
@@ -81,7 +83,7 @@ export class ControleFerramentas {
 
   private readonly preenchedor = criarPreenchedor();
   /** Balde em andamento no worker: novos gestos esperam (a tela não trava). */
-  private preenchendo = false;
+  private preenchendo: AbortController | null = null;
 
   /** Régua em que o traço em andamento grudou (começou perto da borda dela). */
   private reguaDoGesto: Regua | null = null;
@@ -97,7 +99,7 @@ export class ControleFerramentas {
   ) {}
 
   get emGesto(): boolean {
-    return this.gesto !== null || this.preenchendo;
+    return this.gesto !== null || this.preenchendo !== null;
   }
 
   get ativa(): Tool {
@@ -153,13 +155,16 @@ export class ControleFerramentas {
       : null;
     this.simetria = config && { config, copias: transformacoes(config) };
     // A prévia do traço fica atrás das camadas de cima, como o resultado final.
-    if (FERRAMENTAS_ESTABILIZAVEIS.has(id)) this.superficie.mostrarCamadasDeCima();
-    // Formas inteligentes: lápis e pincel, sem simetria (as cópias ficam para depois).
+    if (
+      FERRAMENTAS_ESTABILIZAVEIS.has(id) &&
+      !(id === 'brush' && useEditor.getState().pincel === 'dedo')
+    )
+      this.superficie.mostrarCamadasDeCima();
+    // Reconhece só o gesto original. A forma editável conserva a simetria do traço.
     this.inteligente =
       useEditor.getState().formasInteligentes &&
       ((id === 'pencil' && !useEditor.getState().modoPixelArt) ||
-        (id === 'brush' && useEditor.getState().pincel !== 'dedo')) &&
-      !config
+        (id === 'brush' && useEditor.getState().pincel !== 'dedo'))
         ? { pontos: [evento.ponto], ancora: evento.ponto, relogio: null, ultimo: evento }
         : null;
     this.armarRelogio();
@@ -236,6 +241,10 @@ export class ControleFerramentas {
   }
 
   tecla(evento: KeyboardEvent) {
+    if (evento.key === 'Escape' && this.cancelarPreenchimento()) {
+      this.nucleo.avisar('Preenchimento cancelado.');
+      return true;
+    }
     if (this.formaInteligente && !this.gesto) {
       if (evento.key === 'Escape') return this.encerrarFormaInteligente('original');
       if (evento.key === 'Enter') return this.encerrarFormaInteligente('confirmar');
@@ -291,6 +300,7 @@ export class ControleFerramentas {
   }
 
   encerrar() {
+    this.cancelarPreenchimento();
     this.preenchedor.encerrar();
     this.cancelarGesto();
   }
@@ -352,6 +362,8 @@ export class ControleFerramentas {
       opcoes: opcoesDaFerramenta(estado),
       selecao: selecao.area,
       mascaraSelecao: selecao.mascara,
+      simetria: this.simetria?.config,
+      travarAlfa: !doc.editandoMascara && doc.activeLayer.bloqueioTransparencia,
       colagemFlutuante: colagem.ativa,
       executar: (comando) => {
         // O comando leva a simetria e as marcas de um eixo só; o executor pinta as cópias.
@@ -426,38 +438,87 @@ export class ControleFerramentas {
     return ponto === evento.ponto ? evento : { ...evento, ponto };
   }
 
-  /**
-   * Balde: papéis pequenos executam na hora; nos grandes, a área é calculada num worker e o
-   * comando é executado quando ela chega. Passando de 200 ms, a barra avisa "Preenchendo…".
-   */
+  cancelarPreenchimento(): boolean {
+    const processo = this.preenchendo;
+    if (!processo) return false;
+    this.preenchendo = null;
+    processo.abort();
+    return true;
+  }
+
+  /** Balde grande: encontra a região no worker e prepara a alteração em faixas. */
   private preencher(comando: Extract<Comando, { tipo: 'Preencher' }>): boolean {
     const { doc, comandos } = this.nucleo;
     if (this.preenchendo) return false;
     if (doc.width * doc.height < PIXELS_PARA_WORKER || !this.preenchedor.noWorker)
       return this.nucleo.executar(comando);
-    this.preenchendo = true;
+    const processo = new AbortController();
+    this.preenchendo = processo;
+    const revisao = this.nucleo.revisaoAtual();
+    const alvo = doc.alvoAtivo();
+    const chave = chaveDoAlvo(alvo);
+    const travarAlfa = !alvo.mascara && doc.activeLayer.bloqueioTransparencia;
+    const ativo = () =>
+      this.preenchendo === processo &&
+      this.nucleo.ativo() &&
+      this.nucleo.revisaoAtual() === revisao &&
+      chaveDoAlvo(doc.alvoAtivo()) === chave;
     const inicio = performance.now();
-    const aviso = setTimeout(() => this.nucleo.avisar('Preenchendo…'), 200);
-    const referencia = comandos.referenciaDoBalde(comando);
-    this.preenchedor
-      .planejar(referencia, comando)
-      .then(({ plano, referencia }) => {
-        if (!this.nucleo.ativo()) return;
-        comandos.usarPlanoPronto(comando, plano, referencia);
-        this.preenchendo = false;
+    const aviso = setTimeout(() => {
+      if (ativo()) this.nucleo.avisar('Preenchendo…');
+    }, 200);
+
+    const preparar = async () => {
+      const { plano, referencia } = await this.preenchedor.planejar(
+        comandos.referenciaDoBalde(comando),
+        comando,
+        processo.signal,
+      );
+      if (!plano || !ativo()) return null;
+      const { area } = plano;
+      const lerFaixa = comando.amostrarTudo
+        ? (faixa: typeof area) => doc.lerPixels(faixa, alvo)
+        : (faixa: typeof area) => recortarPixels(referencia, faixa);
+      const antesCompleto =
+        !comando.amostrarTudo &&
+        area.x === 0 &&
+        area.y === 0 &&
+        area.width === referencia.width &&
+        area.height === referencia.height
+          ? referencia
+          : undefined;
+      const pixels = await prepararPreenchimentoEmFaixas(plano, lerFaixa, ativo, {
+        antesCompleto,
+        travarAlfa,
+        sinal: processo.signal,
+      });
+      return pixels && { ...pixels, alvo, rect: area };
+    };
+
+    void (async () => {
+      try {
+        let alteracao: Awaited<ReturnType<typeof preparar>>;
+        try {
+          alteracao = await preparar();
+        } catch {
+          // Fallback antes de qualquer gravação, somente se for o mesmo documento e alvo.
+          if (ativo()) this.nucleo.executar(comando);
+          return;
+        }
+        if (!ativo() || !alteracao) return;
+        comandos.usarPreenchimentoPronto(comando, alteracao);
         this.nucleo.executar(comando);
         registrarDuracao('balde:total', performance.now() - inicio);
-      })
-      .catch(() => {
-        if (!this.nucleo.ativo()) return;
-        this.preenchendo = false;
-        this.nucleo.executar(comando);
-      })
-      .finally(() => {
+      } catch {
+        if (ativo()) this.nucleo.avisar('Não foi possível concluir o preenchimento.');
+      } finally {
         clearTimeout(aviso);
-        this.preenchendo = false;
-        if (this.nucleo.ativo()) this.nucleo.notificar();
-      });
+        if (this.preenchendo === processo) {
+          this.preenchendo = null;
+          if (this.nucleo.ativo()) this.nucleo.notificar();
+        }
+      }
+    })();
     return true;
   }
 
@@ -499,6 +560,7 @@ export class ControleFerramentas {
     const forma = reconhecerForma(info.pontos);
     if (!forma) return;
     const { ferramenta, ponteiro } = gesto;
+    const simetria = this.simetria?.config;
     // O traço termina como sempre, mas o comando fica guardado (Esc volta a ele).
     this.capturando = { comando: null };
     try {
@@ -521,7 +583,7 @@ export class ControleFerramentas {
     useEditor.getState().setTool('shape');
     this.formaInteligente = { original, voltarPara: ferramenta.id };
     const formas = this.ferramentas.shape;
-    formas.adotarForma?.(forma.geometria, estiloDoTraco(original));
+    formas.adotarForma?.(forma.geometria, estiloDoTraco(original), simetria);
     this.redesenharOverlay(formas);
     const { caixa } = forma.geometria;
     this.superficie.pular(

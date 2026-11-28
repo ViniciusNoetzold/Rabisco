@@ -13,6 +13,9 @@ export interface GuiasDocumento {
   regua: Regua | null;
 }
 
+export type EixoGuia = 'horizontal' | 'vertical';
+export type PosicoesGuias = Pick<GuiasDocumento, 'horizontais' | 'verticais'>;
+
 export const SEM_GUIAS: GuiasDocumento = { horizontais: [], verticais: [], regua: null };
 
 /** Limite de guias por direção (um arquivo não pode pedir milhões). */
@@ -121,11 +124,7 @@ export function prenderAnguloDaRegua(fixa: Point, movel: Point): Point {
 }
 
 /** Acrescenta uma guia (sem repetir), arredondada no pixel. */
-export function comGuia(
-  guias: GuiasDocumento,
-  eixo: 'horizontal' | 'vertical',
-  valor: number,
-): GuiasDocumento {
+export function comGuia(guias: GuiasDocumento, eixo: EixoGuia, valor: number): GuiasDocumento {
   const chave = eixo === 'horizontal' ? 'horizontais' : 'verticais';
   const lista = guias[chave];
   const arredondado = Math.round(valor);
@@ -133,11 +132,7 @@ export function comGuia(
   return { ...guias, [chave]: [...lista, arredondado].sort((a, b) => a - b) };
 }
 
-export function semGuia(
-  guias: GuiasDocumento,
-  eixo: 'horizontal' | 'vertical',
-  valor: number,
-): GuiasDocumento {
+export function semGuia(guias: GuiasDocumento, eixo: EixoGuia, valor: number): GuiasDocumento {
   const chave = eixo === 'horizontal' ? 'horizontais' : 'verticais';
   return { ...guias, [chave]: guias[chave].filter((guia) => guia !== valor) };
 }

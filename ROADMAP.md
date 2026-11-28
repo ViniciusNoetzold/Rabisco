@@ -9,14 +9,14 @@ Cada etapa deve ser utilizável, documentada e validada antes de iniciar a segui
 | 0.2.1  | Estabilização: testes confiáveis, desempenho medido, pixels só no canvas, autosave por blocos, editor em módulos, ribbon adaptável e carregamento sob demanda | Concluída e validada em 24/11/2026 |
 | 0.3    | Camadas, importar/colar imagem, transformação livre, formato .rabisco, PSD e ORA                                                                              | Concluída e validada em 25/11/2026 |
 | 0.4    | Estabilizador, pressão, simetria, formas inteligentes, régua e guias, rotação da vista, gradiente e varinha (prompt em prompts/PROMPT_0.4.md)                 | Concluída e validada em 26/11/2026 |
-| 0.5    | Filtros, arquitetura de estilos, ASCII, pixel art e dithering (prompt em prompts/PROMPT_0.5.md)                                                               | Planejada                          |
+| 0.5    | Filtros, ASCII, pixel art, dithering, meio-tom, camadas de ajuste e melhorias de desenho (prompt em prompts/PROMPT_0.5.md)                                      | Concluída (0.5.0)                  |
 | 0.6    | Configuração BYOK, AI Horde, fila cancelável e geração/edição em nova camada                                                                                  | Planejada                          |
 | 0.7    | Modelos locais sob demanda, seleção inteligente, remoção de fundo, apagar objeto e ampliar                                                                    | Planejada                          |
 | 0.8    | Agente “Desenhe pra mim” usando comandos tipados, com execução visível e desfazer                                                                             | Planejada                          |
 | 0.9    | Tutor Rabi, lições e modo de traçar por cima                                                                                                                  | Planejada                          |
 | 1.0    | PWA, Tauri, i18n, acessibilidade ampliada, testes visuais, performance e documentação final                                                                   | Planejada                          |
 
-O [roteiro manual da versão 0.2](README.md#roteiro-manual-de-10-minutos) reúne 15 verificações para fazer no editor.
+O [roteiro manual da 0.5](docs/guia-de-uso.md#roteiro-manual-da-05) reúne as verificações para fazer no editor. O [ponto de retomada](prompts/CONTINUAR_0.5.md) registra o que planejar na 0.6.
 
 ## Próximos critérios de validação
 

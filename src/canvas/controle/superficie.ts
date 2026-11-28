@@ -191,13 +191,17 @@ export class SuperficieTela {
     this.areaPrevia = origem ? unirAreas(origem, destino) : destino;
   }
 
-  /** Prévia do dedo: copia um trecho já borrado para a tela (some ao limpar). */
-  trecho(fonte: CanvasImageSource, area: Rect) {
+  /** Prévia do dedo: recompõe o trecho com os pixels borrados no alvo original. */
+  trecho(fonte: HTMLCanvasElement, area: Rect) {
     const recorte = limitarArea(area, this.doc);
     if (!recorte) return;
-    const { x, y, width, height } = recorte;
-    this.grafico.drawImage(fonte, x, y, width, height, x, y, width, height);
-    this.areaPrevia = this.areaPrevia ? unirAreas(this.areaPrevia, recorte) : recorte;
+    const atualizar = areaDaPreviaFiltro(this.doc, recorte);
+    comporDocumento(this.doc, this.tela, atualizar, {
+      alvo: this.doc.alvoAtivo(),
+      area: { x: 0, y: 0, width: fonte.width, height: fonte.height },
+      canvas: fonte,
+    });
+    this.areaPrevia = unirAreas(this.areaPrevia, atualizar);
   }
 
   /** Um leve "pulo" da prévia em torno do ponto (formas inteligentes). */

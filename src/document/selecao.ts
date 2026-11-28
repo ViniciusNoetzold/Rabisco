@@ -1,12 +1,25 @@
 import type { PixelBuffer, Point, Rect } from '../layers/types';
+import { unirAreas } from '../commands/desenho';
 import { recortarPixels } from '../commands/history';
 import { parseHexColor } from '../tools/pixels';
+import {
+  combinarMascaras,
+  contornosDaMascara,
+  juntarContornos,
+  limitesDaMascara,
+  type MascaraPixels,
+} from './mascaraPixels';
 import { comoImageData } from './model';
 
 /** O contorno usa coordenadas do papel. A inversão seleciona o exterior. */
 export interface MascaraSelecao {
   contorno: Point[];
   inversa?: boolean;
+}
+
+export interface SelecaoGeometrica {
+  area: Rect;
+  mascara?: MascaraSelecao;
 }
 
 export interface RecorteFlutuante {
@@ -40,6 +53,69 @@ export function caminhoDaSelecao(area: Rect, mascara?: MascaraSelecao): Path2D {
     caminho.closePath();
   }
   return caminho;
+}
+
+/** A mesma máscara binária da varinha, restrita à janela necessária para a operação. */
+export function rasterizarSelecao(
+  { area, mascara }: SelecaoGeometrica,
+  janela: Rect,
+): MascaraPixels | null {
+  const { width, height } = janela;
+  const pixels = new Uint8Array(width * height);
+  if (!mascara) {
+    const esquerda = Math.max(0, area.x - janela.x);
+    const direita = Math.min(width, area.x + area.width - janela.x);
+    const topo = Math.max(0, area.y - janela.y);
+    const fundo = Math.min(height, area.y + area.height - janela.y);
+    if (direita <= esquerda) return pixels;
+    for (let y = topo; y < fundo; y++) pixels.fill(1, y * width + esquerda, y * width + direita);
+    return pixels;
+  }
+
+  const grafico = superficie(width, height);
+  if (!grafico) return null;
+  try {
+    grafico.translate(-janela.x, -janela.y);
+    grafico.fill(caminhoDaSelecao(area, mascara), 'evenodd');
+    const { data } = grafico.getImageData(0, 0, width, height);
+    for (let i = 0; i < pixels.length; i++) pixels[i] = data[i * 4 + 3] >= 128 ? 1 : 0;
+    return pixels;
+  } finally {
+    grafico.canvas.width = grafico.canvas.height = 1;
+  }
+}
+
+/** Devolve os contornos em coordenadas do papel, inclusive para regiões com buracos. */
+export function selecaoDaMascara(
+  pixels: MascaraPixels,
+  janela: Rect,
+): SelecaoGeometrica | null | 'limite' {
+  const { x, y, width, height } = janela;
+  const local = limitesDaMascara(pixels, width, height);
+  if (!local) return null;
+  const contornos = contornosDaMascara(pixels, width, height, local);
+  if (!contornos) return 'limite';
+  const contorno = juntarContornos(contornos);
+  return {
+    area: { ...local, x: local.x + x, y: local.y + y },
+    mascara: {
+      contorno: x || y ? contorno.map((ponto) => ({ x: ponto.x + x, y: ponto.y + y })) : contorno,
+    },
+  };
+}
+
+export function combinarSelecoes(
+  atual: SelecaoGeometrica,
+  nova: SelecaoGeometrica,
+  modo: 'somar' | 'subtrair',
+) {
+  const janela = modo === 'subtrair' ? atual.area : unirAreas(atual.area, nova.area);
+  const base = rasterizarSelecao(atual, janela);
+  const parte = rasterizarSelecao(nova, janela);
+  if (!base || !parte) return 'limite';
+  const pixels = combinarMascaras(base, parte, modo);
+  if (base.every((valor, i) => valor === pixels[i])) return atual;
+  return selecaoDaMascara(pixels, janela);
 }
 
 export function pontoNaSelecao(area: Rect, ponto: Point, mascara?: MascaraSelecao): boolean {

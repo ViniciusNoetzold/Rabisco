@@ -9,6 +9,8 @@ export interface NucleoEditor {
   readonly comandos: Executador;
   /** Editor montado e ainda não encerrado. */
   ativo(): boolean;
+  /** Revisão dos pixels e da estrutura sobre a qual uma operação assíncrona começou. */
+  revisaoAtual(): number;
   /** Pronto para uma ação: carregado, ativo e sem gesto em andamento. */
   disponivel(): boolean;
   /** Executa um comando no histórico. `aposExecutar` roda antes de atualizar tela e autosave. */

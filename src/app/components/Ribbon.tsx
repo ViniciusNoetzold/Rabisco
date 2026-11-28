@@ -452,11 +452,7 @@ export function Ribbon({
                     disabled={
                       !state.guiasDoPapel.horizontais.length && !state.guiasDoPapel.verticais.length
                     }
-                    onClick={() =>
-                      state.set({
-                        guiasDoPapel: { ...state.guiasDoPapel, horizontais: [], verticais: [] },
-                      })
-                    }
+                    onClick={() => editor.current?.executarGuia({ tipo: 'LimparGuias' })}
                   >
                     <Icon name="cross" />
                     Limpar guias

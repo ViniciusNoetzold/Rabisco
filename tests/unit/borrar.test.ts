@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { areaDoBorrao, borrarTraco } from '../../src/brushes/borrar';
+import { areaDoBorrao, borrarTraco, BorradorSimetrico } from '../../src/brushes/borrar';
+import type { ConfigSimetria } from '../../src/brushes/simetria';
+import { Executador } from '../../src/commands/executador';
 import type { PixelBuffer } from '../../src/layers/types';
+import { documentoFalso } from './documentoFalso';
 
 /** 60 × 20: metade esquerda vermelha, direita branca. */
 function papel(): PixelBuffer {
@@ -77,5 +80,52 @@ describe('dedo (borrar)', () => {
     const [r, , , a] = pixel(imagem, 34, 10);
     expect(a).toBeGreaterThan(0);
     expect(r).toBeGreaterThan(180);
+  });
+
+  it('o mesmo comando borra o traço e o seu espelho, num item reversível', () => {
+    const antes = papel();
+    const doc = documentoFalso(antes);
+    const editor = new Executador(doc);
+    const simetria: ConfigSimetria = {
+      modo: 'horizontal',
+      eixos: 2,
+      espelhar: false,
+      centro: { x: 30, y: 10 },
+    };
+    const pontos = traco.map(({ x }) => ({ x, y: 5 }));
+    expect(editor.executar({ tipo: 'Borrar', pontos, espessura: 8, forca: 0.8, simetria })).toBe(
+      true,
+    );
+    expect(pixel(doc.raster, 36, 5)[1]).toBeLessThan(200);
+    expect(pixel(doc.raster, 36, 15)[1]).toBeLessThan(200);
+    expect(editor.historico.entries).toEqual([{ label: 'Dedo' }]);
+    const depois = doc.raster;
+    expect(editor.desfazer()).toBe(true);
+    expect(doc.raster).toEqual(antes);
+    expect(editor.refazer()).toBe(true);
+    expect(doc.raster).toEqual(depois);
+  });
+
+  it('o replay radial coincide com a prévia e respeita a cobertura da seleção', () => {
+    const previa = papel();
+    const resultado = papel();
+    const area = { x: 30, y: 7, width: 12, height: 8 };
+    const cobertura = new Uint8ClampedArray(area.width * area.height).fill(255);
+    cobertura[3 * area.width + 6] = 0;
+    const simetria: ConfigSimetria = {
+      modo: 'radial',
+      eixos: 4,
+      espelhar: true,
+      centro: { x: 30, y: 10 },
+    };
+    const opcoes = { area, cobertura, simetria };
+    const borrador = new BorradorSimetrico(previa, { x: 0, y: 0 }, 8, 0.8, opcoes);
+    borrador.iniciar(traco[0]);
+    for (const ponto of traco.slice(1)) borrador.mover(ponto);
+    borrarTraco(resultado, { x: 0, y: 0 }, traco, 8, 0.8, opcoes);
+    expect(resultado).toEqual(previa);
+    expect(pixel(resultado, 36, 10)).toEqual([255, 255, 255, 255]);
+    expect(pixel(resultado, 43, 10)).toEqual([255, 255, 255, 255]);
+    expect(pixel(resultado, 35, 10)[1]).toBeLessThan(255);
   });
 });

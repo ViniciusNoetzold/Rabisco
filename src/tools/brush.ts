@@ -78,7 +78,6 @@ export const pincel = definirFerramenta(
       cursor: () => 'crosshair',
       onPointerDown(ctx, { ponto, botao }) {
         if (ctx.opcoes.pincel === 'dedo') {
-          ctx.selecionar(null);
           dedo = criarGestoDedo(ctx, ponto);
           return;
         }

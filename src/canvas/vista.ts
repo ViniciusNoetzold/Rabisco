@@ -65,13 +65,23 @@ export function papelParaTela(
   zoom: number,
   vista: Vista,
 ): Point {
-  let x = (ponto.x - largura / 2) * zoom;
-  const y = (ponto.y - altura / 2) * zoom;
+  const delta = deslocamentoNaTela(
+    { x: ponto.x - largura / 2, y: ponto.y - altura / 2 },
+    zoom,
+    vista,
+  );
+  return { x: caixa.left + caixa.width / 2 + delta.x, y: caixa.top + caixa.height / 2 + delta.y };
+}
+
+/** Converte um deslocamento do papel para os eixos da tela, sem mover o centro. */
+export function deslocamentoNaTela(delta: Point, zoom: number, vista: Vista): Point {
+  let x = delta.x * zoom;
+  const y = delta.y * zoom;
   if (vista.espelhar) x = -x;
   const angulo = (vista.rotacao * Math.PI) / 180;
   return {
-    x: caixa.left + caixa.width / 2 + x * Math.cos(angulo) - y * Math.sin(angulo),
-    y: caixa.top + caixa.height / 2 + x * Math.sin(angulo) + y * Math.cos(angulo),
+    x: x * Math.cos(angulo) - y * Math.sin(angulo),
+    y: x * Math.sin(angulo) + y * Math.cos(angulo),
   };
 }
 

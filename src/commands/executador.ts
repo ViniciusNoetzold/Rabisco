@@ -10,6 +10,7 @@ import {
 import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
 import { desenharDistorcido } from '../document/distorcer';
 import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
+import { comGuia, semGuia, type GuiasDocumento, type PosicoesGuias } from '../document/guias';
 import type { RabiscoDocument } from '../document/model';
 import { ajusteSeguro } from '../document/ajustes';
 import {
@@ -36,8 +37,8 @@ import { processarFiltro } from '../filtros/processar';
 import { obterFiltro } from '../filtros/registro';
 import type { PixelBuffer, Rect } from '../layers/types';
 import {
-  areaDaForma as areaFormaEditavel,
-  desenharForma as aplicarFormaEditavel,
+  areasDaFormaSimetrica,
+  desenharFormaSimetrica,
   obterDefinicaoForma,
 } from '../shapes/render';
 import {
@@ -45,6 +46,7 @@ import {
   aplicarPreenchimento,
   clearRectPixels,
   planejarPreenchimento,
+  preservarAlfa,
 } from '../tools/pixels';
 import { areaDoTexto, desenharTexto } from '../tools/texto';
 import {
@@ -53,6 +55,7 @@ import {
   type Comando,
   type ComandoAplicarFiltro,
   type ComandoCamada,
+  type ComandoGuia,
   type ComandoTraco,
 } from './comandos';
 import {
@@ -70,10 +73,16 @@ import {
   type EntradaComando,
 } from './history';
 import { areasDaPincelada, desenharPincelada, nomeDaPincelada } from './pincelada';
-import { copiasDosPontos } from '../brushes/simetria';
+import { copiasDosPontos, transformacoes } from '../brushes/simetria';
 
 const NOMES_TRACO = { pencil: 'Traço de lápis', brush: 'Pincelada', eraser: 'Borracha' };
 const NOMES_FORMA = { line: 'Linha', rectangle: 'Retângulo', ellipse: 'Elipse' };
+const NOMES_GUIA: Record<ComandoGuia['tipo'], string> = {
+  AdicionarGuia: 'Adicionar guia',
+  MoverGuia: 'Mover guia',
+  RemoverGuia: 'Remover guia',
+  LimparGuias: 'Limpar guias',
+};
 const NOMES_ROTACAO = {
   90: 'Girar 90° à direita',
   [-90]: 'Girar 90° à esquerda',
@@ -99,6 +108,15 @@ const PINTURA = new Set<Comando['tipo']>([
 ]);
 
 export type DocumentoEditavel = RabiscoDocument;
+
+interface AcessoGuias {
+  ler(): GuiasDocumento;
+  aplicar(posicoes: PosicoesGuias): void;
+}
+
+function copiarPosicoes({ horizontais, verticais }: PosicoesGuias): PosicoesGuias {
+  return { horizontais: [...horizontais], verticais: [...verticais] };
+}
 
 export interface PreparoFiltro {
   alvo: Alvo;
@@ -136,16 +154,6 @@ function pixelsIguais(a: PixelBuffer, b: PixelBuffer): boolean {
   );
 }
 
-/** Bloqueio de transparência: a tinta só fica onde já havia pixel, com o mesmo alfa. */
-function preservarAlfa(antes: PixelBuffer, depois: PixelBuffer): PixelBuffer {
-  const resultado = { ...depois, data: new Uint8ClampedArray(depois.data) };
-  for (let i = 0; i < resultado.data.length; i += 4) {
-    if (antes.data[i + 3] === 0) resultado.data.set(antes.data.subarray(i, i + 4), i);
-    else resultado.data[i + 3] = antes.data[i + 3];
-  }
-  return resultado;
-}
-
 /**
  * Aplica comandos ao documento e registra no histórico só o necessário para desfazer: o recorte
  * de pixels de uma camada, ou a estrutura e os pixels inteiros das camadas afetadas.
@@ -156,14 +164,14 @@ export class Executador {
   ultimasAlteracoes: { alvo: Alvo; area: Rect | null }[] = [];
   /** Camadas, grupos, tamanho ou propriedades mudaram (recompor tudo, salvar a descrição). */
   estruturaMudou = false;
+  guiasMudaram = false;
   ultimaSelecaoTransformada: Rect | null = null;
   motivoRecusa: MotivoRecusa = null;
 
-  /** Balde calculado fora da thread da tela: usado uma vez, pelo mesmo comando. */
-  private planoPronto: {
-    comando: Comando;
-    plano: ReturnType<typeof planejarPreenchimento>;
-    referencia: PixelBuffer;
+  /** O balde em faixas já calculou e comparou os pixels, sem tocar na camada. */
+  private preenchimentoPronto: {
+    comando: Extract<Comando, { tipo: 'Preencher' }>;
+    alteracao: AlteracaoPixels & { rect: Rect };
   } | null = null;
 
   private filtroPronto: {
@@ -172,20 +180,22 @@ export class Executador {
     depois: PixelBuffer;
   } | null = null;
 
-  constructor(private readonly doc: DocumentoEditavel) {}
+  constructor(
+    private readonly doc: DocumentoEditavel,
+    private readonly guias?: AcessoGuias,
+  ) {}
 
   /** Os pixels em que o balde decide a área (a camada ativa, ou o que se vê). */
   referenciaDoBalde(comando: Extract<Comando, { tipo: 'Preencher' }>): PixelBuffer {
     return comando.amostrarTudo ? this.composto() : this.doc.copiarPixels();
   }
 
-  /** O próximo `executar(comando)` usa este plano em vez de calcular de novo. */
-  usarPlanoPronto(
-    comando: Comando,
-    plano: ReturnType<typeof planejarPreenchimento>,
-    referencia: PixelBuffer,
+  /** O próximo `executar(comando)` publica a alteração já preparada. */
+  usarPreenchimentoPronto(
+    comando: Extract<Comando, { tipo: 'Preencher' }>,
+    alteracao: AlteracaoPixels & { rect: Rect },
   ) {
-    this.planoPronto = { comando, plano, referencia };
+    this.preenchimentoPronto = { comando, alteracao };
   }
 
   /** Captura os pixels do alvo e o recorte que a prévia e o comando usam. */
@@ -245,11 +255,13 @@ export class Executador {
   executar(comando: Comando): boolean {
     this.ultimasAlteracoes = [];
     this.estruturaMudou = false;
+    this.guiasMudaram = false;
     this.ultimaSelecaoTransformada = null;
     this.motivoRecusa = null;
     if (this.filtroPronto?.comando !== comando) this.filtroPronto = null;
     const entrada = this.aplicar(comando);
     this.filtroPronto = null;
+    this.preenchimentoPronto = null;
     if (!entrada) return false;
     if (comando.tipo === 'NovoDocumento') this.historico.clear();
     else this.historico.registrarComando(entrada);
@@ -280,6 +292,11 @@ export class Executador {
     }
 
     switch (comando.tipo) {
+      case 'AdicionarGuia':
+      case 'MoverGuia':
+      case 'RemoverGuia':
+      case 'LimparGuias':
+        return this.alterarGuias(comando);
       case 'TracarPincel':
         return this.tracar(comando);
       case 'Pincelar': {
@@ -294,12 +311,12 @@ export class Executador {
           desenharForma(ctx, comando),
         );
       case 'AplicarForma': {
-        const { configuracao } = comando;
+        const { configuracao, simetria } = comando;
         return this.pintar(
           comando,
           obterDefinicaoForma(configuracao).nome,
-          areaFormaEditavel(configuracao),
-          (ctx) => aplicarFormaEditavel(ctx, configuracao),
+          areasDaFormaSimetrica(configuracao, simetria),
+          (ctx) => desenharFormaSimetrica(ctx, configuracao, simetria),
         );
       }
       case 'AplicarTexto': {
@@ -311,12 +328,29 @@ export class Executador {
       case 'AplicarFiltro':
         return this.aplicarFiltro(comando);
       case 'Borrar': {
-        const limites = areaDoBorrao(comando.pontos, comando.espessura);
-        const area = limites && limitarArea(limites, this.doc);
+        const { pontos, espessura, forca, simetria, mascara } = comando;
+        if (pontos.length < 2) return null;
+        const partes = transformacoes(simetria).map(
+          (transformar) => areaDoBorrao(pontos, espessura, transformar)!,
+        );
+        const area = limitarArea(partes.reduce(unirAreas), this.doc);
         if (!area) return null;
-        const pixels = this.doc.lerPixels(area);
-        borrarTraco(pixels, area, comando.pontos, comando.espessura, comando.forca);
-        return this.escrever(comando, 'Dedo', area, pixels);
+        const selecao = comando.area && limitarArea(comando.area, this.doc);
+        if (comando.area && !selecao) return null;
+        const alvo = this.doc.alvoAtivo();
+        const before = this.doc.lerPixels(area, alvo);
+        const after = {
+          width: before.width,
+          height: before.height,
+          data: new Uint8ClampedArray(before.data),
+        };
+        borrarTraco(after, area, pontos, espessura, forca, {
+          simetria,
+          area: selecao ?? undefined,
+          cobertura: selecao && mascara ? coberturaDaSelecao(selecao, mascara) : undefined,
+          travarAlfa: this.preservaAlfa(alvo),
+        });
+        return this.escreverAlteracao(comando, 'Dedo', { alvo, rect: area, before, after }, partes);
       }
       case 'Gradiente': {
         const area = areaDoGradiente(comando, this.doc.width, this.doc.height);
@@ -327,19 +361,24 @@ export class Executador {
       case 'Preencher': {
         // O balde pode alcançar qualquer ponto do papel. Com "imagem toda", decide a área
         // pelo que se vê, mas pinta só na camada ativa.
-        const pronto = this.planoPronto?.comando === comando ? this.planoPronto : null;
-        this.planoPronto = null;
-        const referencia = pronto?.referencia ?? this.referenciaDoBalde(comando);
-        const plano = pronto
-          ? pronto.plano
-          : planejarPreenchimento(
-              referencia,
-              comando.ponto.x,
-              comando.ponto.y,
-              comando.cor,
-              comando.tolerancia,
-              comando.global,
-            );
+        const pronto =
+          this.preenchimentoPronto?.comando === comando ? this.preenchimentoPronto : null;
+        this.preenchimentoPronto = null;
+        if (pronto) {
+          const { alvo, rect, after } = pronto.alteracao;
+          if (chaveDoAlvo(alvo) !== chaveDoAlvo(this.doc.alvoAtivo())) return null;
+          this.doc.aplicarPixels(after, rect.x, rect.y, alvo);
+          return this.registrarPixels(comando, 'Preenchimento', [pronto.alteracao]);
+        }
+        const referencia = this.referenciaDoBalde(comando);
+        const plano = planejarPreenchimento(
+          referencia,
+          comando.ponto.x,
+          comando.ponto.y,
+          comando.cor,
+          comando.tolerancia,
+          comando.global,
+        );
         if (!plano) return null;
         const depois = comando.amostrarTudo
           ? this.doc.lerPixels(plano.area)
@@ -417,15 +456,17 @@ export class Executador {
         const imagem = desserializarImagem(comando.imagem);
         const dpi = comando.dpi ?? DPI_PADRAO;
         if (!dpiValido(dpi)) throw new Error(`Use uma resolução de 1 a ${DPI_MAXIMO} DPI.`);
-        return this.alterarDocumento(
-          comando,
-          `Abrir ${(comando.formato ?? 'png').toUpperCase()}`,
-          this.todosOsAlvos(),
-          () => {
-            this.doc.substituir(comando.nome, imagem);
-            this.doc.dpi = dpi;
-          },
-        );
+        const rotulo = `Abrir ${(comando.formato ?? 'png').toUpperCase()}`;
+        const entrada = this.alterarDocumento(comando, rotulo, this.todosOsAlvos(), () => {
+          this.doc.substituir(comando.nome, imagem);
+          this.doc.dpi = dpi;
+        });
+        // Uma imagem sem guias substitui as posições como parte da própria abertura.
+        const removidas = this.alterarGuias({ tipo: 'LimparGuias' });
+        if (!removidas) return entrada;
+        const abertura = entrada ?? this.entradaVazia(comando, rotulo);
+        abertura.guias = removidas.guias;
+        return abertura;
       }
       case 'NovoDocumento': {
         // Novo desenho inicia uma sessão de edição independente, como na versão 0.1.
@@ -495,7 +536,11 @@ export class Executador {
         const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
         const propriedades = { ...propriedadesPadrao(comando.id, comando.nome), ajuste };
         const grupo = estrutura.camadas[referencia]?.grupo;
-        estrutura.camadas.splice(referencia + 1, 0, grupo ? { ...propriedades, grupo } : propriedades);
+        estrutura.camadas.splice(
+          referencia + 1,
+          0,
+          grupo ? { ...propriedades, grupo } : propriedades,
+        );
         estrutura.ativa = comando.id;
         estrutura.editandoMascara = false;
         return mudarEstrutura('Nova camada de ajuste', estrutura);
@@ -598,7 +643,10 @@ export class Executador {
           this.motivoRecusa = 'ultima-camada';
           return null;
         }
-        if (!estrutura.camadas[posicao].ajuste && !estrutura.camadas.some((camada, i) => i !== posicao && !camada.ajuste)) {
+        if (
+          !estrutura.camadas[posicao].ajuste &&
+          !estrutura.camadas.some((camada, i) => i !== posicao && !camada.ajuste)
+        ) {
           this.motivoRecusa = 'ultima-camada-raster';
           return null;
         }
@@ -1241,6 +1289,40 @@ export class Executador {
 
   // ---- Documento inteiro, lote e histórico ---------------------------------------------
 
+  private alterarGuias(comando: ComandoGuia): EntradaComando | null {
+    const antes = this.guias?.ler();
+    if (!antes) return null;
+    let depois: GuiasDocumento;
+    if (comando.tipo === 'LimparGuias') {
+      if (!antes.horizontais.length && !antes.verticais.length) return null;
+      depois = { ...antes, horizontais: [], verticais: [] };
+    } else {
+      const { eixo } = comando;
+      if (eixo !== 'horizontal' && eixo !== 'vertical') return null;
+      const horizontal = eixo === 'horizontal';
+      const lista = horizontal ? antes.horizontais : antes.verticais;
+      const limite = horizontal ? this.doc.height : this.doc.width;
+      const valida = (valor: number) => Number.isFinite(valor) && valor >= 0 && valor <= limite;
+      if (comando.tipo === 'AdicionarGuia') {
+        if (!valida(comando.valor)) return null;
+        depois = comGuia(antes, eixo, comando.valor);
+      } else if (comando.tipo === 'RemoverGuia') {
+        if (!lista.includes(comando.valor)) return null;
+        depois = semGuia(antes, eixo, comando.valor);
+      } else {
+        const { origem, destino } = comando;
+        if (!lista.includes(origem) || !valida(destino) || Math.round(destino) === origem)
+          return null;
+        depois = comGuia(semGuia(antes, eixo, origem), eixo, destino);
+      }
+    }
+    if (depois === antes) return null;
+    const entrada = this.entradaVazia(comando, NOMES_GUIA[comando.tipo]);
+    entrada.guias = { antes: copiarPosicoes(antes), depois: copiarPosicoes(depois) };
+    this.aplicarEntrada(entrada, 'after');
+    return entrada;
+  }
+
   /** Pixels e máscara de uma camada, se existirem. */
   private alvosDa(id: string): Alvo[] {
     const camada = this.doc.camada(id);
@@ -1388,11 +1470,13 @@ export class Executador {
       this.ultimasAlteracoes.push({ alvo, area: rect });
     if (entrada.estrutura || entrada.dimensoes || entrada.nome || entrada.dpi)
       this.estruturaMudou = true;
+    if (entrada.guias) this.guiasMudaram = true;
   }
 
   private restaurar(entrada: EntradaComando | null, lado: 'before' | 'after'): boolean {
     this.ultimasAlteracoes = [];
     this.estruturaMudou = false;
+    this.guiasMudaram = false;
     this.ultimaSelecaoTransformada = null;
     if (!entrada) return false;
     this.aplicarEntrada(entrada, lado);
@@ -1421,6 +1505,7 @@ export class Executador {
     }
     if (entrada.nome) doc.name = entrada.nome[chave];
     if (entrada.dpi) doc.dpi = entrada.dpi[chave];
+    if (entrada.guias) this.guias?.aplicar(copiarPosicoes(entrada.guias[chave]));
     this.anotar(entrada);
   }
 }

@@ -5,6 +5,7 @@ import type { OpcoesImpressao } from '../io/imprimir';
 import type {
   Comando,
   ComandoCamada,
+  ComandoGuia,
   OpcoesTransformacao,
   OrientacaoImagem,
 } from '../commands/comandos';
@@ -40,6 +41,7 @@ export interface EditorApi {
   distribuirCamadas(ids: readonly string[], eixo: 'horizontal' | 'vertical'): boolean;
   /** Liga ou desliga a régua de desenho. Devolve true se ficou ligada. */
   alternarRegua(): boolean;
+  executarGuia(comando: ComandoGuia): boolean;
   undo(): void;
   redo(): void;
   save(): Promise<void>;

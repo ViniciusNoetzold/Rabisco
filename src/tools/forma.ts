@@ -1,6 +1,12 @@
 import type { Point, Rect } from '../layers/types';
+import type { ConfigSimetria } from '../brushes/simetria';
+import { unirAreas } from '../commands/desenho';
 import { novoId } from '../document/camadas';
-import { areaDaForma, desenharForma, obterDefinicaoForma } from '../shapes/render';
+import {
+  areasDaFormaSimetrica,
+  desenharFormaSimetrica,
+  obterDefinicaoForma,
+} from '../shapes/render';
 import type { ConfiguracaoForma, IdForma } from '../shapes/tipos';
 import {
   alcaDeRotacao,
@@ -129,10 +135,12 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
     let gesto: GestoForma | null = null;
     /** Formas inteligentes: cor, espessura e pincel do traço que virou forma. */
     let estiloFixo: Partial<ConfiguracaoForma> | null = null;
+    let simetriaFixa: ConfigSimetria | undefined;
 
     function descartar() {
       pendente = curva = poligono = gesto = null;
       estiloFixo = null;
+      simetriaFixa = undefined;
     }
 
     function configurarAqui(geometria: GeometriaForma, ctx: ToolCtx): ConfiguracaoForma {
@@ -165,10 +173,11 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
 
     function confirmar(ctx: ToolCtx) {
       const configuracao = obterFormaPendente(ctx);
+      const simetria = simetriaFixa;
       descartar();
       if (!configuracao) return;
       if (!ctx.opcoes.formasEmNovaCamada) {
-        ctx.executar({ tipo: 'AplicarForma', configuracao });
+        ctx.executar({ tipo: 'AplicarForma', configuracao, simetria });
         return;
       }
       // Um item só no histórico: a camada nova e a forma dentro dela.
@@ -181,7 +190,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
             id: novoId('camada'),
             nome: `Forma: ${obterDefinicaoForma(configuracao).nome}`,
           },
-          { tipo: 'AplicarForma', configuracao },
+          { tipo: 'AplicarForma', configuracao, simetria },
         ],
       });
     }
@@ -257,10 +266,11 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
       obterFormaPendente,
       descartarPendente: descartar,
       commitPendente: confirmar,
-      adotarForma(geometria, estilo) {
+      adotarForma(geometria, estilo, simetria) {
         descartar();
         pendente = geometria;
         estiloFixo = estilo;
+        simetriaFixa = simetria;
       },
       tocaNaForma(ctx, ponto) {
         return Boolean(pendente && operacaoNoPonto(pendente, ponto, ctx));
@@ -331,7 +341,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
         const area = pontos.length
           ? caixaDosPontos(pontos)
           : geometria
-            ? areaDaForma(configurarAqui(geometria, ctx))
+            ? areasDaFormaSimetrica(configurarAqui(geometria, ctx), simetriaFixa).reduce(unirAreas)
             : null;
         if (!area) return null;
         const margem = 40 / ctx.opcoes.zoom;
@@ -352,7 +362,7 @@ export function definirForma(id: FerramentaForma, nome: string, icone: string, a
         }
         const geometria = geometriaAtual();
         if (!geometria) return;
-        desenharForma(grafico, configurarAqui(geometria, ctx));
+        desenharFormaSimetrica(grafico, configurarAqui(geometria, ctx), simetriaFixa);
         if (pendente) desenharAlcas(grafico, pendente, ctx);
         else if (curva) {
           const [inicio, fim, primeiro, segundo] = pontosDaCurva();

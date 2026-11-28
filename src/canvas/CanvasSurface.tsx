@@ -4,7 +4,9 @@ import { caixaGirada, transformacaoCss, vistaNormal } from './vista';
 import { clienteNoPapel } from './vistaAtual';
 import type { PointerEvent as EventoPonteiro } from 'react';
 import { useEditor } from '../app/store';
+import type { ComandoGuia } from '../commands/comandos';
 import type { Rect } from '../layers/types';
+import { FERRAMENTAS_DE_SELECAO } from '../tools/select';
 import { EditorController } from './editorController';
 import type { CanvasCallbacks, EditorApi } from './editorTypes';
 import { PaperResizeHandles, type TamanhoPapel } from './PaperResizeHandles';
@@ -152,8 +154,8 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
         !editor.current?.iniciarGesto(
           evento.pointerId,
           traduzirEvento(evento),
-          // Alt+clique é o conta-gotas, menos na varinha (lá, Alt subtrai da seleção).
-          evento.altKey && useEditor.getState().tool !== 'wand',
+          // Alt subtrai com ferramentas de seleção e ativa o conta-gotas nas outras.
+          evento.altKey && !FERRAMENTAS_DE_SELECAO.has(useEditor.getState().tool),
         )
       )
         return;
@@ -210,9 +212,11 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
       viewport: workspace,
       tela,
       zoom,
+      vista,
       largura: dimensoes.width,
       altura: dimensoes.height,
     };
+    const executarGuia = (comando: ComandoGuia) => editor.current?.executarGuia(comando);
     return (
       <div className="canvas-viewport-frame">
         <div
@@ -304,7 +308,12 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
                 />
               )}
               <GuiasSimetria largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
-              <GuiasPapel largura={dimensoes.width} altura={dimensoes.height} zoom={zoom} />
+              <GuiasPapel
+                largura={dimensoes.width}
+                altura={dimensoes.height}
+                zoom={zoom}
+                executarGuia={executarGuia}
+              />
               {!girada && (
                 <PaperResizeHandles
                   tamanho={dimensoes}
@@ -335,8 +344,10 @@ export const CanvasSurface = forwardRef<EditorApi, CanvasCallbacks>(
             </span>
           </div>
         </div>
-        {ruler && !callbacks.telaInteira && !girada && <Reguas {...propsViewport} />}
-        {miniatura && !callbacks.telaInteira && !girada && (
+        {ruler && !callbacks.telaInteira && (
+          <Reguas {...propsViewport} executarGuia={executarGuia} />
+        )}
+        {miniatura && !callbacks.telaInteira && (
           <Miniatura
             {...propsViewport}
             revisao={callbacks.revisaoMiniatura}

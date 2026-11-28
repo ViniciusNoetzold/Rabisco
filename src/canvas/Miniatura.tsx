@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, type PointerEvent } from 'react';
 import type { Point } from '../layers/types';
+import { deslocamentoNaTela, papelParaTela, type Vista } from './vista';
 import {
-  areaVisivel,
   medirViewport,
+  poligonoVisivel,
   prepararTelaPequena,
   type PropsViewportVisual,
 } from './viewportVisual';
@@ -18,6 +19,8 @@ interface ArrasteMiniatura {
   origem: Point;
   scrollX: number;
   scrollY: number;
+  razao: number;
+  vista: Vista;
 }
 
 const MARGEM = 8;
@@ -40,18 +43,21 @@ export function Miniatura({
   zoom,
   largura,
   altura,
+  vista,
   revisao,
   fechar,
 }: PropsMiniatura) {
   const miniatura = useRef<HTMLCanvasElement>(null);
   const arraste = useRef<ArrasteMiniatura | null>(null);
   const atualizar = useRef<(() => void) | null>(null);
+  const { rotacao, espelhar } = vista;
 
   useLayoutEffect(() => {
     const scroll = viewport.current;
     const desenho = tela.current;
     const mapa = miniatura.current;
     if (!scroll || !desenho || !mapa) return;
+    const orientacao = { rotacao, espelhar };
     let quadroPendente = 0;
 
     function pintar() {
@@ -69,15 +75,25 @@ export function Miniatura({
       ctx.strokeStyle = '#9ab1c4';
       ctx.lineWidth = 1;
       ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
-      const moldura = areaVisivel(medirViewport(scroll, desenho), zoom, largura, altura);
-      if (moldura.width <= 0 || moldura.height <= 0) return;
+      const moldura = poligonoVisivel(
+        medirViewport(scroll, desenho),
+        zoom,
+        largura,
+        altura,
+        orientacao,
+      );
+      if (moldura.length < 3) return;
       ctx.fillStyle = '#2a83bc19';
       ctx.strokeStyle = '#1c6da6';
       ctx.lineWidth = 1.5;
-      const esquerda = x + moldura.x * escala;
-      const topo = y + moldura.y * escala;
-      ctx.fillRect(esquerda, topo, moldura.width * escala, moldura.height * escala);
-      ctx.strokeRect(esquerda, topo, moldura.width * escala, moldura.height * escala);
+      ctx.beginPath();
+      ctx.moveTo(x + moldura[0].x * escala, y + moldura[0].y * escala);
+      for (let i = 1; i < moldura.length; i++) {
+        ctx.lineTo(x + moldura[i].x * escala, y + moldura[i].y * escala);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     }
 
     function agendar() {
@@ -97,7 +113,7 @@ export function Miniatura({
       scroll.removeEventListener('scroll', agendar);
       if (quadroPendente) cancelAnimationFrame(quadroPendente);
     };
-  }, [viewport, tela, zoom, largura, altura]);
+  }, [viewport, tela, zoom, largura, altura, rotacao, espelhar]);
 
   useLayoutEffect(() => atualizar.current?.(), [revisao]);
 
@@ -117,16 +133,14 @@ export function Miniatura({
       y: Math.max(0, Math.min(altura, (evento.clientY - dimensoes.top - y) / escala)),
     };
     const quadro = medirViewport(scroll, desenho);
-    const moldura = areaVisivel(quadro, zoom, largura, altura);
-    const dentro =
-      ponto.x >= moldura.x &&
-      ponto.x <= moldura.x + moldura.width &&
-      ponto.y >= moldura.y &&
-      ponto.y <= moldura.y + moldura.height;
+    const naTela = papelParaTela(ponto, quadro.papel, largura, altura, zoom, vista);
+    const dx = naTela.x - quadro.esquerda;
+    const dy = naTela.y - quadro.topo;
+    const dentro = dx >= 0 && dy >= 0 && dx <= quadro.width && dy <= quadro.height;
     if (!dentro) {
       scroll.scrollTo({
-        left: scroll.scrollLeft + quadro.papelX + ponto.x * zoom - quadro.width / 2,
-        top: scroll.scrollTop + quadro.papelY + ponto.y * zoom - quadro.height / 2,
+        left: scroll.scrollLeft + dx - quadro.width / 2,
+        top: scroll.scrollTop + dy - quadro.height / 2,
       });
     }
     arraste.current = {
@@ -134,6 +148,8 @@ export function Miniatura({
       origem: { x: evento.clientX, y: evento.clientY },
       scrollX: scroll.scrollLeft,
       scrollY: scroll.scrollTop,
+      razao: zoom / escala,
+      vista,
     };
     mapa.setPointerCapture(evento.pointerId);
   }
@@ -142,12 +158,14 @@ export function Miniatura({
     const ativo = arraste.current;
     const scroll = viewport.current;
     if (!ativo || !scroll || ativo.id !== evento.pointerId) return;
-    const { escala } = enquadrar(evento.currentTarget, largura, altura);
-    if (escala <= 0) return;
-    const razao = zoom / escala;
+    const delta = deslocamentoNaTela(
+      { x: evento.clientX - ativo.origem.x, y: evento.clientY - ativo.origem.y },
+      ativo.razao,
+      ativo.vista,
+    );
     scroll.scrollTo({
-      left: ativo.scrollX + (evento.clientX - ativo.origem.x) * razao,
-      top: ativo.scrollY + (evento.clientY - ativo.origem.y) * razao,
+      left: ativo.scrollX + delta.x,
+      top: ativo.scrollY + delta.y,
     });
   }
 
@@ -191,7 +209,8 @@ export function Miniatura({
           if (!direcao) return;
           evento.preventDefault();
           evento.stopPropagation();
-          viewport.current?.scrollBy({ left: direcao[0], top: direcao[1] });
+          const delta = deslocamentoNaTela({ x: direcao[0], y: direcao[1] }, 1, vista);
+          viewport.current?.scrollBy({ left: delta.x, top: delta.y });
         }}
       />
     </section>

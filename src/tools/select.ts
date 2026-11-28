@@ -1,10 +1,13 @@
+import { unirAreas } from '../commands/desenho';
 import { contornoDaElipse, trechosVisiveis } from '../document/mascaraPixels';
 import {
   caminhoDaSelecao,
+  combinarSelecoes,
   pontoNaSelecao,
   projetarMascara,
   type MascaraSelecao,
   type RecorteFlutuante,
+  type SelecaoGeometrica,
 } from '../document/selecao';
 import type { Point, Rect, ToolId } from '../layers/types';
 import {
@@ -28,7 +31,16 @@ interface MoverSelecao {
   recorte: RecorteFlutuante | null;
 }
 
-type GestoSelecao = { tipo: 'marcar'; pontos: Point[] } | MoverSelecao;
+interface MarcarSelecao {
+  tipo: 'marcar';
+  pontos: Point[];
+  marcacao: SelecaoGeometrica | null;
+  combinacao?: { base: SelecaoGeometrica; modo: 'somar' | 'subtrair' };
+  /** O Shift da soma precisa ser solto antes que possa restringir a forma. */
+  reterShift: boolean;
+}
+
+type GestoSelecao = MarcarSelecao | MoverSelecao;
 const setas: Record<string, Point> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
@@ -77,11 +89,12 @@ export function desenharSelecao(
   ctx: ToolCtx,
   grafico: CanvasRenderingContext2D,
   comAlcas: boolean,
+  selecao?: SelecaoGeometrica,
 ) {
-  const area = ctx.selecao;
+  const area = selecao?.area ?? ctx.selecao;
   if (!area) return;
   const zoom = ctx.opcoes.zoom;
-  const caminho = caminhoDoTracejado(area, ctx.mascaraSelecao);
+  const caminho = caminhoDoTracejado(area, selecao ? selecao.mascara : ctx.mascaraSelecao);
   grafico.save();
   grafico.strokeStyle = '#fff';
   grafico.lineWidth = 2 / zoom;
@@ -131,14 +144,26 @@ function definirSelecao(modo: ModoSelecao) {
       ctx.selecionar(destino, projetarMascara(mascara, origem, destino));
     }
 
+    function marcar(
+      ctx: ToolCtx,
+      ajuste: MarcarSelecao,
+      area: Rect | null,
+      mascara?: MascaraSelecao,
+    ) {
+      ajuste.marcacao = area && area.width > 0 && area.height > 0 ? { area, mascara } : null;
+      if (!ajuste.combinacao)
+        ctx.selecionar(ajuste.marcacao?.area ?? null, ajuste.marcacao?.mascara);
+    }
+
     function atualizar(ctx: ToolCtx, { ponto, shift }: EventoFerramenta) {
       if (!gesto) return;
       if (gesto.tipo === 'marcar') {
         const { pontos } = gesto;
+        if (!shift) gesto.reterShift = false;
         if (modo === 'elipse') {
           // Shift: círculo.
           let fim = ponto;
-          if (shift) {
+          if (shift && !gesto.reterShift) {
             const lado = Math.max(Math.abs(ponto.x - pontos[0].x), Math.abs(ponto.y - pontos[0].y));
             fim = {
               x: pontos[0].x + Math.sign(ponto.x - pontos[0].x || 1) * lado,
@@ -147,12 +172,12 @@ function definirSelecao(modo: ModoSelecao) {
           }
           const area = normalizeRect(pontos[0], fim, limites(ctx));
           if (area.width >= 2 && area.height >= 2)
-            ctx.selecionar(area, { contorno: contornoDaElipse(area) });
-          else ctx.selecionar(null);
+            marcar(ctx, gesto, area, { contorno: contornoDaElipse(area) });
+          else marcar(ctx, gesto, null);
           return;
         }
         if (!laco) {
-          ctx.selecionar(normalizeRect(pontos[0], ponto, limites(ctx)));
+          marcar(ctx, gesto, normalizeRect(pontos[0], ponto, limites(ctx)));
           return;
         }
         if (distanciaEntre(pontos.at(-1)!, ponto) < Math.max(1, 2 / ctx.opcoes.zoom)) return;
@@ -165,7 +190,7 @@ function definirSelecao(modo: ModoSelecao) {
           { x: Math.max(...xs), y: Math.max(...ys) },
           limites(ctx),
         );
-        if (pontos.length >= 3) ctx.selecionar(area, { contorno: pontos.slice() });
+        if (pontos.length >= 3) marcar(ctx, gesto, area, { contorno: pontos.slice() });
         return;
       }
       const { alca, origem, inicio, recorte, duplicar, mascara } = gesto;
@@ -194,9 +219,15 @@ function definirSelecao(modo: ModoSelecao) {
 
     return {
       cursor: () => 'crosshair',
-      onPointerDown(ctx, { ponto, ctrl }) {
+      onPointerDown(ctx, { ponto, ctrl, shift, alt }) {
         const origem = ctx.selecao;
         const mascara = ctx.mascaraSelecao;
+        if (alt && !origem && !ctx.colagemFlutuante) return;
+        const modoCombinacao = alt ? 'subtrair' : shift && !ctrl ? 'somar' : null;
+        const combinacao: MarcarSelecao['combinacao'] =
+          origem && !ctx.colagemFlutuante && modoCombinacao
+            ? { base: { area: origem, mascara }, modo: modoCombinacao }
+            : undefined;
         const raio = origem
           ? Math.min(5 / ctx.opcoes.zoom, origem.width / 4, origem.height / 4)
           : 0;
@@ -205,7 +236,7 @@ function definirSelecao(modo: ModoSelecao) {
           alcasDeTamanho({ id: 'rectangle', caixa: origem, rotacao: 0 }).find(
             ({ posicao }) => distanciaEntre(posicao, ponto) <= raio,
           );
-        if (origem && (alca || pontoNaSelecao(origem, ponto, mascara))) {
+        if (!combinacao && origem && (alca || pontoNaSelecao(origem, ponto, mascara))) {
           const corTransparente = ctx.opcoes.selecaoTransparente ? ctx.opcoes.cor2 : undefined;
           gesto = {
             tipo: 'mover',
@@ -223,14 +254,27 @@ function definirSelecao(modo: ModoSelecao) {
           return;
         }
         if (ctx.colagemFlutuante) ctx.confirmarColagem?.();
-        gesto = { tipo: 'marcar', pontos: [ponto] };
-        ctx.selecionar(null);
+        gesto = {
+          tipo: 'marcar',
+          pontos: [ponto],
+          marcacao: null,
+          combinacao,
+          reterShift: combinacao?.modo === 'somar',
+        };
+        if (!combinacao) ctx.selecionar(null);
       },
       onPointerMove: atualizar,
       onPointerUp(ctx, evento) {
         if (gesto?.tipo === 'marcar') atualizar(ctx, evento);
         const concluido = gesto;
         gesto = null;
+        if (concluido?.tipo === 'marcar' && concluido.combinacao && concluido.marcacao) {
+          const { base, modo } = concluido.combinacao;
+          const resultado = combinarSelecoes(base, concluido.marcacao, modo);
+          if (resultado === 'limite') ctx.avisar?.('A seleção combinada tem detalhes demais.');
+          else ctx.selecionar(resultado?.area ?? null, resultado?.mascara);
+          return;
+        }
         if (concluido?.tipo !== 'mover') return;
         ctx.limparPrevia();
         publicar(ctx, concluido);
@@ -240,7 +284,7 @@ function definirSelecao(modo: ModoSelecao) {
         if (gesto?.tipo === 'mover') {
           if (gesto.recorte) ctx.selecionar(gesto.origem, gesto.mascara);
           else ctx.reposicionarColagem?.(gesto.origem);
-        } else ctx.selecionar(null);
+        } else if (!gesto?.combinacao) ctx.selecionar(null);
         gesto = null;
       },
       onKeyDown(ctx, evento) {
@@ -266,8 +310,10 @@ function definirSelecao(modo: ModoSelecao) {
         return true;
       },
       limitesOverlay(ctx) {
-        if (!ctx.selecao) return null;
-        const { x, y, width, height } = ctx.selecao;
+        const extra = gesto?.tipo === 'marcar' && gesto.combinacao && gesto.marcacao;
+        const area = extra ? unirAreas(ctx.selecao, extra.area) : ctx.selecao;
+        if (!area) return null;
+        const { x, y, width, height } = area;
         const margem = 7 / ctx.opcoes.zoom;
         return {
           x: x - margem,
@@ -278,6 +324,8 @@ function definirSelecao(modo: ModoSelecao) {
       },
       overlay(ctx, grafico) {
         desenharSelecao(ctx, grafico, gesto?.tipo !== 'marcar');
+        if (gesto?.tipo === 'marcar' && gesto.combinacao && gesto.marcacao)
+          desenharSelecao(ctx, grafico, false, gesto.marcacao);
       },
     };
   });

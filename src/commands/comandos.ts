@@ -1,6 +1,7 @@
 import { validarDimensoes } from '../document/dimensoes';
 import type { ConfigGradiente } from '../tools/gradiente';
 import type { MascaraSelecao } from '../document/selecao';
+import type { EixoGuia } from '../document/guias';
 import type { ArteAscii } from '../estilos/ascii';
 import type { CamadaAscii } from '../estilos/camadaAscii';
 import type { FormatoImagem } from '../io/imagens';
@@ -79,13 +80,20 @@ export interface ComandoAplicarFiltro {
   mascara?: MascaraSelecao;
 }
 
+export type ComandoGuia =
+  | { tipo: 'AdicionarGuia'; eixo: EixoGuia; valor: number }
+  | { tipo: 'MoverGuia'; eixo: EixoGuia; origem: number; destino: number }
+  | { tipo: 'RemoverGuia'; eixo: EixoGuia; valor: number }
+  | { tipo: 'LimparGuias' };
+
 export type Comando =
   | ComandoTraco
   | ComandoPincel
   | ComandoForma
-  | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma }
+  | { tipo: 'AplicarForma'; configuracao: ConfiguracaoForma; simetria?: ConfigSimetria }
   | { tipo: 'AplicarTexto'; configuracao: ConfiguracaoTexto }
   | ComandoAplicarFiltro
+  | ComandoGuia
   | ({ tipo: 'Gradiente' } & ConfigGradiente)
   | {
       /** Dedo: arrasta os pixels pelos pontos (força 0–1). */
@@ -93,6 +101,9 @@ export type Comando =
       pontos: Point[];
       espessura: number;
       forca: number;
+      simetria?: ConfigSimetria;
+      area?: Rect;
+      mascara?: MascaraSelecao;
     }
   | {
       tipo: 'Preencher';

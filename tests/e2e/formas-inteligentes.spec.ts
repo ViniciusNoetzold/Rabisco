@@ -122,3 +122,43 @@ test('soltar logo, sem segurar, deixa o traço como está; desligado não reconh
   await expect(historico(page, 'Traço de lápis')).toHaveCount(2);
   await expect(page.getByText(/Virou/)).toHaveCount(0);
 });
+
+test('forma inteligente radial confirma as duas cópias e Esc restaura o traço simétrico', async ({
+  page,
+}) => {
+  await abrir(page, 'p');
+  await page.getByRole('tab', { name: 'Exibir' }).click();
+  await page.getByRole('combobox', { name: 'Modo de simetria' }).selectOption('radial');
+  await page.getByRole('spinbutton', { name: 'Fatias da simetria radial' }).fill('2');
+  await page.getByRole('tab', { name: 'Início' }).click();
+  await page.locator('.drawing-canvas').focus();
+  const pontos = circulo(280, 240, 80);
+  const amostras = [
+    { x: 280, y: 160 },
+    { x: 744, y: 480 },
+  ];
+  const reconheceu = page.getByText('Virou um círculo! Enter confirma, Esc desfaz.');
+  await desenhar(page, pontos, 900);
+  await expect(reconheceu).toBeVisible();
+  expect(await pintados(page, amostras)).toBe(0);
+  await page.keyboard.press('Enter');
+  await expect(historico(page, 'Elipse')).toHaveCount(1);
+  expect(await pintados(page, amostras)).toBe(2);
+  await page.keyboard.press('Control+z');
+  expect(await pintados(page, amostras)).toBe(0);
+
+  await desenhar(page, pontos, 900);
+  await expect(reconheceu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(historico(page, 'Traço de lápis')).toHaveCount(1);
+  const imagemDoPapel = () =>
+    page.locator('.drawing-canvas').evaluate((tela: HTMLCanvasElement) => tela.toDataURL());
+  const restaurada = await imagemDoPapel();
+  expect(await pintados(page, amostras)).toBe(2);
+  await page.keyboard.press('Control+z');
+  await page.getByRole('button', { name: 'Formas inteligentes', exact: true }).click();
+  await page.locator('.drawing-canvas').focus();
+  await desenhar(page, pontos, 0);
+  await expect(historico(page, 'Traço de lápis')).toHaveCount(1);
+  expect(await imagemDoPapel()).toBe(restaurada);
+});

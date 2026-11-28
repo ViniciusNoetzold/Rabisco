@@ -10,8 +10,8 @@ Um editor de desenho no navegador com a simplicidade e a cara do paint da era Wi
 mais camadas, colagens e, em breve, uma IA que gera imagens com as próprias ferramentas do app
 e ensina a desenhar.
 
-![Versão](https://img.shields.io/badge/versão-0.4-3083c5)
-![Testes](https://img.shields.io/badge/testes-181_unitários_·_91_E2E-70a54a)
+![Versão](https://img.shields.io/badge/versão-0.5.0-3083c5)
+![Testes](https://img.shields.io/badge/testes-Vitest_e_Playwright-70a54a)
 ![Local-first](https://img.shields.io/badge/seus_desenhos-ficam_no_seu_dispositivo-f6c94d)
 ![Idioma](https://img.shields.io/badge/interface-português_do_Brasil-e24b4b)
 
@@ -67,10 +67,10 @@ e ensina a desenhar.
 
 ### 💾 Local e rápido
 
-- **Autosave** em blocos: grava só o que mudou, sem travar
+- **Autosave** em blocos grava as áreas alteradas
 - Funciona sem internet depois de carregado; nada sai do seu computador
 - Ribbon que se adapta a qualquer largura, de 800 px a 1920 px
-- Abre com 186 KB de JavaScript (o React fica num arquivo próprio, em cache)
+- O React carrega em um arquivo próprio e pode ser reaproveitado do cache
 
 </td>
 </tr>
@@ -89,6 +89,19 @@ e ensina a desenhar.
 <div align="center">
 <img src="docs/imagens/rabisco-janela-estreita.png" alt="O Rabisco numa janela estreita, com os grupos do ribbon recolhidos em botões" width="520" />
 <br /><sub>Em janela estreita, os grupos do ribbon se recolhem em botões, como no paint do Windows 7.</sub>
+</div>
+
+### Estilos e filtros (0.5)
+
+- Abra **Início › Imagem › Filtros** para ajustar cor, curvas e níveis, desfocar ou realçar detalhes. Compare a prévia com **Antes/depois**, cancele com `Esc` ou repita o último filtro com `Ctrl+F`.
+- **Pixel art** com lápis de 1 px, grade, pixelização, paletas e exportação ampliada com pixels quadrados.
+- **ASCII** com prévia colorida, Braille, camada de texto editável, rasterização e exportação `.txt`, `.html` e `.png`.
+- **Dithering**, **meio-tom**, mosaico, pontilhismo, vitral e CRT no menu de filtros.
+- **Camadas de ajuste** para editar cor, curvas e preto e branco com máscara e opacidade. Salve em `.rabisco` para manter os parâmetros editáveis. As exportações PSD e ORA mostram um aviso e achatam documentos com ajustes.
+
+<div align="center">
+<img src="docs/imagens/rabisco-ascii.png" alt="Prévia ASCII colorida de uma paisagem no Rabisco, com controles de colunas e conjunto de caracteres" width="820" />
+<img src="docs/imagens/rabisco-pixel-art.png" alt="A mesma paisagem pixelizada com a paleta PICO-8 e o grupo Pixel art da aba Exibir aberto" width="820" />
 </div>
 
 ## 🚀 Começar
@@ -124,7 +137,7 @@ npm run preview
 | Ferramenta         |     Tecla      |     | Ação                     | Atalho              |
 | ------------------ | :------------: | --- | ------------------------ | ------------------- |
 | Lápis              |      `P`       |     | Desfazer / refazer       | `Ctrl+Z` / `Ctrl+Y` |
-| Pincel             |      `B`       |     | Salvar PNG               | `Ctrl+S`            |
+| Pincel             |      `B`       |     | Salvar `.rabisco`        | `Ctrl+S`            |
 | Spray              |      `A`       |     | Colar (camada nova)      | `Ctrl+V`            |
 | Borracha           |      `E`       |     | Colar na camada atual    | `Ctrl+Shift+V`      |
 | Balde              |      `F`       |     | Copiar mesclado          | `Ctrl+Shift+C`      |
@@ -140,7 +153,7 @@ npm run preview
 | Girar a vista      | `R` + arrastar |     | Girar 15° / voltar a 0°  | `4` `6` / `5`       |
 | Espelhar a vista   |      `H`       |     | Estabilizar menos/mais   | `Alt+[` / `Alt+]`   |
 
-A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](docs/guia-de-uso.md).
+Use `Ctrl+F` para repetir o último filtro. A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](docs/guia-de-uso.md).
 
 ## 🗺️ Roteiro
 
@@ -151,7 +164,7 @@ A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](d
 | 0.2.1  | Estabilização: testes confiáveis, desempenho medido, autosave por blocos, ribbon adaptável                              |    ✅    |
 | 0.3    | Camadas, máscaras, efeitos, colagem, transformação livre, `.rabisco`, PSD e ORA                                         |    ✅    |
 | 0.4    | Estabilizador, pressão, simetria e mandala, formas inteligentes, régua e guias, vista girada, gradiente, varinha e dedo |    ✅    |
-| 0.5    | Filtros e estilos: **ASCII**, pixel art, dithering, meio-tom                                                            |    🔜    |
+| 0.5    | Filtros, **ASCII**, pixel art, dithering, meio-tom, camadas de ajuste e melhorias de desenho                             |    ✅    |
 | 0.6    | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova  |    🔜    |
 | 0.7    | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                       |    🔜    |
 | 0.8    | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                        |    🔜    |
@@ -160,15 +173,15 @@ A lista completa está em **Uma ajudinha?**, dentro do app, e no [guia de uso](d
 
 **Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
-Detalhes em [ROADMAP.md](ROADMAP.md), o que mudou em cada versão em [CHANGELOG.md](CHANGELOG.md) o **ponto de continuação** em [prompts/CONTINUAR_0.4.md](prompts/CONTINUAR_0.4.md) e o **plano da 0.5** (estilos e filtros) em [prompts/PROMPT_0.5.md](prompts/PROMPT_0.5.md).
+Veja o [roteiro do projeto](ROADMAP.md), o [changelog](CHANGELOG.md) e o [ponto de retomada para planejar a 0.6](prompts/CONTINUAR_0.5.md).
 
 ## 🧪 Testes e desempenho
 
 ```powershell
-npm test                    # 181 testes unitários (Vitest)
-npm run test:e2e            # 91 fluxos no navegador (Playwright + Edge)
+npm test                    # testes unitários (Vitest)
+npm run test:e2e            # fluxos no navegador (Playwright + Edge)
 npm run test:e2e:estavel    # a suíte E2E três vezes seguidas
-npm run perf -- --rotulo=x  # mede pincel, spray, balde, desfazer, memória e autosave
+npm run perf -- --rotulo=x  # mede desenho, filtros, balde, histórico, memória e autosave
 ```
 
 Os testes de navegador usam o Edge do Windows. Em outra máquina:
@@ -190,6 +203,8 @@ src/
     controle/   Tela e prévias, ferramentas, seleção, colagem, papel, autosave e arquivos
   commands/     Comandos em JSON, execução e histórico (pixels por área + estrutura das camadas)
   document/     Documento com camadas, compositor (modos, máscaras, efeitos) e transformações
+  filtros/      Registro, algoritmos e worker dos filtros de imagem
+  estilos/      Conversão ASCII e renderização de camadas de texto ASCII
   brushes/      Motor de pincéis por carimbo e aerógrafo
   shapes/       Catálogo de formas, editor de formas próprias e renderização
   tools/        Uma ferramenta por arquivo e o registro com os atalhos

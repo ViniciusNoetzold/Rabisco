@@ -20,14 +20,14 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 
 - **Estabilizar** (cartão "Seu traço", ou Alt+[ / Alt+]): o pincel segue o ponteiro como se puxado por uma corda; quanto maior o valor, mais o tremor da mão some. A corda tracejada aparece enquanto você desenha. **Suavizar** arredonda ainda mais as curvas. "Terminar onde a mão parou" leva o fim do traço até o ponteiro.
 - **Pressão** (cartão "Seu traço"): a curva da caneta escolhe se um toque leve já pinta cheio (suave) ou se é preciso apertar (firme). No mouse e no toque, "Simular pressão pela velocidade" afina o traço rápido. **Afinar pontas** deixa o começo e o fim de cada pincelada finos, como numa pincelada de verdade.
-- **Simetria** (aba Exibir, ou `Shift+S` para ligar e desligar): o lápis, os pincéis, o spray e as borrachas se repetem em espelho. Modos: esquerda/direita, cima/baixo, quatro quadrantes e **radial** com 2 a 24 fatias; marque **Caleidoscópio** para espelhar dentro de cada fatia (mandala). Arraste a bolinha roxa para mudar o centro (`Shift` prende no meio do papel) e use "Centralizar no papel" para voltar. As linhas-guia tracejadas podem ser escondidas. Cada traço simétrico é um item só no histórico: um `Ctrl+Z` apaga todas as cópias.
+- **Simetria** (aba Exibir, ou `Shift+S`): repete o lápis, os pincéis, o spray, as borrachas, o dedo e as formas inteligentes. Escolha esquerda/direita, cima/baixo, quatro quadrantes ou **radial** com 2 a 24 fatias. Marque **Caleidoscópio** para espelhar dentro de cada fatia. Arraste a bolinha roxa para mudar o centro (`Shift` prende no meio do papel) e use **Centralizar no papel** para voltar. Um `Ctrl+Z` desfaz todas as cópias do traço.
 - **Formas inteligentes** (ícone ao lado do campo de espessura, ou cartão "Seu traço"): termine um traço de lápis ou pincel e **segure parado** meio segundo. Se parecer uma linha, círculo, elipse, retângulo, quadrado, triângulo, seta ou polígono, ele vira essa forma certinha, com alças para ajustar. `Enter` confirma, `Esc` devolve o traço como você desenhou. Soltar logo deixa o traço como está.
 - **Régua de desenho** (`Shift+R`, ou aba Exibir › Régua e guias): posicione a régua arrastando a bolinha do meio e gire pelas pontas (`Shift` prende de 15 em 15°). Comece o traço perto da borda e ele sai reto, mesmo com a mão tremendo.
-- **Guias**: ligue as réguas (`Ctrl+R`) e arraste a partir delas para o papel. Seleções, formas e a transformação livre encaixam nas guias. Para mover uma guia, use a ferramenta Mover (`V`); arraste-a para fora do papel para apagar, ou use "Limpar guias". Elas ficam salvas no arquivo .rabisco.
+- **Guias**. Ligue as réguas (`Ctrl+R`) e arraste a partir delas para o papel. Seleções, formas e a transformação livre encaixam nas guias. Use **Mover** (`V`) para mudar a posição de uma guia. Arraste-a para fora do papel para remover ou use **Limpar guias**. As guias entram no histórico e no arquivo `.rabisco`. As réguas laterais e a miniatura ficam disponíveis com a vista girada.
 - **Girar e espelhar a vista** (só a tela, nunca a imagem): segure `R` e arraste no papel para girar como uma folha na mesa; `4` e `6` giram de 15 em 15°, `5` volta a 0°; no toque, gire dois dedos. `H` espelha a vista para conferir proporções. O ângulo aparece na barra de baixo; clique nele para voltar ao normal.
 - **Gradiente** (`G`): arraste do ponto da Cor 1 ao da Cor 2. Escolha linear ou radial e, se quiser, "Até transparente". Com uma seleção, ele fica só dentro dela.
 - **Varinha mágica** (`W`): clique numa cor para selecionar a área dela. `Shift` + clique soma outra área, `Alt` + clique tira. A tolerância é a mesma do balde.
-- **Seleção elíptica** (menu Seleção): arraste para selecionar uma elipse; `Shift` faz um círculo.
+- **Seleção elíptica** (menu Seleção). Arraste para selecionar uma elipse. Pressione `Shift` durante o arraste para obter um círculo. Com uma seleção ativa, segure `Shift` antes de iniciar outro arraste para somar ou `Alt` para subtrair. A combinação funciona no retângulo, na elipse e no laço.
 - **Dedo (borrar)** (galeria de pincéis): esfuma e arrasta as cores como o dedo no carvão. A "Força" diz o quanto ele arrasta.
 - **Toque e caneta**: com caneta, a mão apoiada na tela não risca. Dois dedos tocando desfazem, três refazem.
 
@@ -83,7 +83,7 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - Arraste a alça da direita, da base ou do canto para aumentar ou cortar o papel. A área nova recebe a Cor 2. Use `Shift` para manter a proporção e `Esc` para cancelar.
 - Abra **Propriedades da imagem** (`Ctrl+E`) para definir o tamanho em pixels, centímetros ou polegadas e ajustar a resolução (96 DPI por padrão). O diálogo mostra a memória ocupada pelos pixels e permite escolher a cor da área nova.
 - Abra **Redimensionar e inclinar** (`Ctrl+W`) para reamostrar em pixels ou porcentagem e inclinar até 89° em cada eixo. Use **Girar** para girar 90° ou 180° ou inverter em um dos eixos. Essas operações se aplicam à seleção quando ela está ativa, ou à imagem inteira.
-- Em **Arquivo**, abra PNG, JPEG, BMP, GIF (primeiro quadro), WebP ou ICO. Use `Ctrl+S` para salvar PNG. Em **Salvar como** (`Ctrl+Shift+S`), escolha PNG, JPEG, BMP de 24 bits, GIF ou WebP. JPEG e WebP têm controle de qualidade. O diálogo indica perdas de transparência ou cores.
+- Em **Arquivo**, abra PNG, JPEG, BMP, GIF (primeiro quadro), WebP ou ICO. Use `Ctrl+S` para salvar o `.rabisco` com suas camadas. Em **Salvar como** (`Ctrl+Shift+S`), escolha PNG, JPEG, BMP de 24 bits, GIF ou WebP. JPEG e WebP têm controle de qualidade. O diálogo indica perdas de transparência ou cores.
 - Use `Ctrl+V`, **Colar** ou **Colar de…** para inserir uma imagem. Você também pode arrastar um arquivo para a janela. Reposicione a imagem pela seleção e confirme com `Enter`. Quando a imagem for maior que o papel, escolha se deseja ampliar o papel.
 - Em **Editar cores**, use o espectro, HSL, RGB ou hexadecimal. Salve até 16 cores personalizadas neste navegador.
 - Pressione `Ctrl+P` para imprimir. Escolha orientação, ajuste à página e centralização. A aba de ajuda **Uma ajudinha?** lista os atalhos.
@@ -152,4 +152,24 @@ Use `npm run perf` para medir o custo dos eventos, da pintura e dos comandos no 
 12. `W`: clique numa cor com a varinha; `Shift`+clique em outra área para somar, `Alt` para tirar; `Delete`.
 13. Na galeria de pincéis, escolha **Dedo (borrar)** e esfume uma borda.
 14. Crie três camadas com um desenho em cada, escolha as três com `Ctrl`+clique e **Distribuir ↔**.
-15. Num papel 4000 × 4000, use o balde: a tela não trava e, se demorar, aparece "Preenchendo…".
+15. Num papel 4000 × 4000, use o balde. Se a operação demorar, confira o indicador **Preenchendo…**. Depois de concluir, desfaça com `Ctrl+Z`.
+
+## Roteiro manual da 0.5
+
+Use uma imagem colorida, uma camada com transparência e um desenho que possa salvar e reabrir. Use `Ctrl+Z` entre verificações para recuperar a imagem original.
+
+1. Abra **Início › Imagem › Filtros › Inverter cores**. Segure **Antes/depois**, solte e aplique. Confira que a aplicação gera uma edição no histórico. Desfaça com `Ctrl+Z` e repita com `Ctrl+F`.
+2. Faça uma seleção com a varinha. Aplique um filtro de cor e confira os pixels fora da seleção. Teste com **Travar transparência** ligado e aplique outro filtro à máscara de uma camada.
+3. Compare **Brilho e contraste** com **Matiz, saturação e luminosidade**. Zere a saturação para obter cinza. Em **Preto e branco**, altere os pesos dos canais. Veja também **Sépia**, **Limiar** e **Posterizar**.
+4. Em **Curvas**, adicione e mova um ponto para mudar os meios-tons. Desfaça e abra **Níveis**. Use **Amostrar preto** e **Amostrar branco** para escolher os extremos no papel.
+5. Aplique desfoque gaussiano na borda de um objeto em camada transparente. A borda deve preservar a cor conforme o alfa cai. Em um papel grande, inicie um cálculo e pressione `Esc` durante o processamento. Confira a imagem e o histórico após cancelar.
+6. Mude o ângulo do desfoque de movimento. Compare **Nitidez**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** e **Relevo**. Depois de aplicar **Adicionar ruído**, desfaça e repita para conferir a mesma distribuição de ruído.
+7. Abra **Pixelizar** e mude o tamanho dos blocos. Em **Reduzir paleta**, compare **Game Boy**, **NES**, **PICO-8**, **CGA** e a paleta do desenho. Veja o efeito de **Dithering** com a mesma paleta.
+8. Abra **Exibir › Pixel art** e ligue **Modo pixel art**. Alterne a grade entre 8, 16 e 32 px. Com zoom alto, desenhe com o lápis de 1 px, ative a simetria e amostre um pixel com o conta-gotas.
+9. Em **Salvar como**, exporte PNG com ampliações de 2×, 4× e 8×. Confira as dimensões e amplie uma borda para verificar que os pixels mantêm as cores do original.
+10. Com uma camada ou seleção ativa, use **Filtros › Converter em ASCII**. Mude **Colunas**, compare os quatro conjuntos de caracteres e alterne **Inverter** e **Colorido**. Use **Copiar texto** e abra os arquivos `.txt`, `.html` e `.png` exportados.
+11. Crie uma camada de texto ASCII e altere um caractere com **Editar ASCII** no painel Camadas. Salve e reabra o `.rabisco`. Faça outra conversão com **Rasterizar em camada** e confira os pixels na camada criada.
+12. Aplique **Dithering** em um gradiente. Compare Floyd–Steinberg, Atkinson e Bayer com a mesma paleta. Varie a matriz Bayer e confira que as cores usadas pertencem à paleta escolhida.
+13. Ajuste o tamanho dos pontos e o ângulo em **Meio-tom**. Compare o mesmo desenho em **Mosaico**, **Pontilhismo**, **Vitral** e **CRT**, desfazendo cada aplicação entre estilos.
+14. Crie uma camada de ajuste em **Camadas**. Use duplo clique no nome para editar, alterne a visibilidade, teste opacidade e máscara. Salve em `.rabisco`, reabra e edite os parâmetros. Confira o aviso ao salvar como PSD ou ORA e reabra a imagem achatada.
+15. Some e subtraia nas seleções retangular, elíptica e de laço. Use o dedo e reconheça uma forma com simetria ligada. Gire a vista com réguas e miniatura visíveis. Crie, mova e desfaça uma guia. Em um papel grande, aplique o balde e desfaça depois de concluir.
