@@ -51,6 +51,9 @@ const AsciiTextoDialog = lazy(() =>
     default: AsciiTextoDialog,
   })),
 );
+const DialogIA = lazy(() =>
+  import('./components/DialogIA').then(({ DialogIA }) => ({ default: DialogIA })),
+);
 
 function editandoTexto(alvo: EventTarget | null) {
   return (
@@ -80,6 +83,8 @@ export default function App() {
   const [tab, setTab] = useState('Início');
   const ferramenta = useEditor((estado) => estado.tool);
   const [dialog, setDialog] = useState<EditorDialogKind>(null);
+  const [painelIA, definirPainelIA] = useState<'fechado' | 'aberto' | 'oculto'>('fechado');
+  const [iaOcupada, definirIaOcupada] = useState(false);
   const [filtroDialog, setFiltroDialog] = useState<IdFiltro | 'repetir' | null>(null);
   const [asciiDialog, setAsciiDialog] = useState<
     | { tipo: 'converter'; fonte: FonteAscii }
@@ -96,7 +101,9 @@ export default function App() {
   const colarNaCamadaAtual = useRef(false);
   const [formas, setFormas] = useState<FormaPropria[]>([]);
   const [painelFormas, setPainelFormas] = useState<PainelDeFormas | null>(null);
-  const modalAberto = Boolean(dialog || filtroDialog || painelFormas || asciiDialog);
+  const modalAberto = Boolean(
+    dialog || filtroDialog || painelFormas || asciiDialog || painelIA === 'aberto',
+  );
   const corDeFundo = useEditor((estado) => estado.color2);
   const corAtiva = useEditor((estado) =>
     estado.colorTarget === 1 ? estado.color1 : estado.color2,
@@ -478,6 +485,8 @@ export default function App() {
         onEditarCores={() => setDialog('colors')}
         onFiltro={setFiltroDialog}
         onRepetirFiltro={repetirFiltro}
+        onAbrirIA={() => definirPainelIA('aberto')}
+        iaOcupada={iaOcupada}
         onConverterAscii={() =>
           run(() => {
             const fonte = editor.current?.obterFonteAscii();
@@ -574,6 +583,17 @@ export default function App() {
           fechar={fecharFiltro}
           run={run}
         />
+      )}
+      {painelIA !== 'fechado' && (
+        <Suspense fallback={<CarregandoDiscreto />}>
+          <DialogIA
+            aberto={painelIA === 'aberto'}
+            editor={editor}
+            fechar={() => definirPainelIA('oculto')}
+            avisar={notify}
+            definirOcupada={definirIaOcupada}
+          />
+        </Suspense>
       )}
       <Suspense fallback={<CarregandoDiscreto />}>
         {asciiDialog?.tipo === 'converter' && (

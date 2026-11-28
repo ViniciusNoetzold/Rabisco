@@ -4,6 +4,7 @@ import type { MascaraSelecao } from '../document/selecao';
 import type { EixoGuia } from '../document/guias';
 import type { ArteAscii } from '../estilos/ascii';
 import type { CamadaAscii } from '../estilos/camadaAscii';
+import type { MetadadosIA } from '../document/metadadosIA';
 import type { FormatoImagem } from '../io/imagens';
 import type { ConfiguracaoTexto } from '../tools/texto';
 import type { ConfiguracaoPincel, MarcaPincel } from '../brushes/catalogo';
@@ -149,7 +150,9 @@ export type Comando =
   /** Vários comandos como um único item no histórico (ex.: nova camada + texto). */
   | { tipo: 'Lote'; rotulo: string; comandos: Comando[] };
 
-type AlteracaoCamada = Partial<Omit<PropriedadesCamada, 'id' | 'temMascara' | 'ajuste'>> & {
+type AlteracaoCamada = Partial<
+  Omit<PropriedadesCamada, 'id' | 'temMascara' | 'ajuste' | 'origemIA'>
+> & {
   efeitos?: EfeitosCamada;
 };
 
@@ -166,6 +169,7 @@ export type ComandoCamada =
       propriedades?: AlteracaoCamada;
       /** Pixels iniciais (importar como camada, colar como nova camada). */
       imagem?: ImagemSerializada;
+      origemIA?: MetadadosIA;
       /** Conteúdo ASCII inicial, com a área no papel. */
       ascii?: CamadaAscii;
       rasterizarAscii?: boolean;

@@ -61,9 +61,10 @@
 
 ## IA (0.6 a 0.9)
 
-- [ ] Tela "Configurar IA": passo a passo para pegar a chave grátis de cada provedor, testar a chave, mostrar a cota
-- [ ] **AI Horde sem chave** como padrão; fila de tarefas com progresso e cancelar
-- [ ] Gerar, editar com texto, variações, **rabisco → imagem**, colorir desenho — sempre em camada nova, com prompt e seed guardados
+- [x] Configuração do AI Horde com link para cadastro, teste da chave e saldo de kudos quando disponível. ✅ 0.6.
+- [x] **AI Horde sem cadastro** como padrão e fila com progresso e cancelamento. ✅ 0.6.
+- [x] Gerar por texto e transformar seleção ou papel visível em nova camada, com descrição e semente disponível guardadas. ✅ 0.6.
+- [ ] Outros provedores e fluxos dedicados para variações e colorização
 - [ ] IA local: seleção inteligente, **remover fundo** (o "adesivo" fica perfeito), apagar objeto, ampliar
 - [ ] **"Desenhe pra mim"**: o agente usa os comandos do app, visível e desfazível passo a passo
 - [ ] **Tutor Rabi**: olhar o desenho e dar dicas com setas, lições (formas, perspectiva, rosto, mãos, sombra, cores), traçar por cima, desafio do dia

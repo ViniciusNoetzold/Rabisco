@@ -15,6 +15,7 @@ import {
 } from '../document/camadas';
 import { comporDocumento, desenharCamadaSobre } from '../document/compositor';
 import { DPI_PADRAO, dimensoesValidas, dpiValido } from '../document/dimensoes';
+import { metadadosIASeguros } from '../document/metadadosIA';
 import { identificarArquivoDeCamadas } from './formatosImagem';
 import type { Layer, RabiscoDocument } from '../document/model';
 
@@ -53,8 +54,8 @@ export interface DocumentoComCamadas {
 const LIMITE_ARQUIVO = 512 * 1024 * 1024;
 const LIMITE_CAMADAS = 200;
 const ID_SEGURO = /^[A-Za-z0-9_-]{1,64}$/;
-/** v1: camadas. v2: guias e régua. v3: camadas de ajuste. */
-export const VERSAO_RABISCO = 3;
+/** v1: camadas. v2: guias e régua. v3: camadas de ajuste. v4: origem de camadas de IA. */
+export const VERSAO_RABISCO = 4;
 
 // ---- Utilidades -----------------------------------------------------------------------------
 
@@ -167,7 +168,7 @@ function propriedadesSeguras(
   bruto: unknown,
   indice: number,
   grupos: Set<string>,
-  aceitaAjustes: boolean,
+  versao: number,
 ): PropriedadesCamada {
   const dados = (typeof bruto === 'object' && bruto ? bruto : {}) as Record<string, unknown>;
   const id =
@@ -186,10 +187,14 @@ function propriedadesSeguras(
   if (typeof dados.grupo === 'string' && grupos.has(dados.grupo)) propriedades.grupo = dados.grupo;
   if (dados.recorte === true) propriedades.recorte = true;
   if (dados.fundo === true) propriedades.fundo = true;
-  const ajuste = aceitaAjustes ? ajusteSeguro(dados.ajuste) : undefined;
+  const ajuste = versao >= 3 ? ajusteSeguro(dados.ajuste) : undefined;
   if (!ajuste) {
     const ascii = normalizarCamadaAscii(dados.ascii);
     if (ascii) propriedades.ascii = ascii;
+    else if (versao >= 4) {
+      const origemIA = metadadosIASeguros(dados.origemIA);
+      if (origemIA) propriedades.origemIA = origemIA;
+    }
   }
   if (dados.temMascara === true) {
     propriedades.temMascara = true;
@@ -303,7 +308,7 @@ async function exportarRabisco(doc: RabiscoDocument, guias: GuiasDocumento): Pro
         {
           formato: 'rabisco',
           versao: VERSAO_RABISCO,
-          criadoCom: 'Rabisco 0.5',
+          criadoCom: 'Rabisco 0.6',
           nome: doc.name,
           largura: doc.width,
           altura: doc.height,
@@ -385,7 +390,7 @@ async function exportarOra(doc: RabiscoDocument, achatar: boolean): Promise<Uint
     `<?xml version="1.0" encoding="UTF-8"?>\n<image version="0.0.5" w="${doc.width}" h="${doc.height}" xres="${doc.dpi}" yres="${doc.dpi}">\n <stack>\n${linhas.join('\n')}\n </stack>\n</image>\n`,
   );
   const previa = achatada ?? composto(doc);
-  arquivos['mergedimage.png'] = [bytesAchatados ?? await bytesPng(previa), { level: 0 }];
+  arquivos['mergedimage.png'] = [bytesAchatados ?? (await bytesPng(previa)), { level: 0 }];
   arquivos['Thumbnails/thumbnail.png'] = [await bytesPng(miniatura(previa)), { level: 0 }];
   return zipSync(arquivos);
 }
@@ -527,7 +532,7 @@ async function importarRabisco(
       ? (bruto as { id: string }).id
       : '',
   );
-  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos, versao >= 3));
+  const camadas = camadasBrutas.map((bruto, i) => propriedadesSeguras(bruto, i, idsGrupos, versao));
   const estrutura = estruturaSegura(camadas, grupos, brutoEstrutura.ativa);
   if (camadas.every((camada) => camada.ajuste))
     throw new Error('O arquivo precisa ter pelo menos uma camada de desenho.');

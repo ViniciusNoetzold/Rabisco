@@ -11,17 +11,22 @@ import {
   type OrientacaoImagem,
 } from '../commands/comandos';
 import { serializarImagem, type ComandoCamada } from '../commands/comandos';
+import { limitarArea } from '../commands/desenho';
 import { redimensionarEInclinar } from '../document/transformacoes';
 import { Executador, type PreparoFiltro } from '../commands/executador';
 import { exportacaoComAjusteAchatado } from '../document/ajustes';
 import { alvoDaChave, chaveDoAlvo, novoId } from '../document/camadas';
 import {
   areaDaPreviaFiltro,
+  comporDocumento,
   type PreviaAjuste,
   type PreviaComposicao,
 } from '../document/compositor';
+import { dimensoesValidas } from '../document/dimensoes';
+import { metadadosIASeguros, type MetadadosIA } from '../document/metadadosIA';
 import type { DocumentoComCamadas, FormatoCamadas } from '../io/camadas';
 import { comoImageData, RabiscoDocument } from '../document/model';
+import { caminhoDaSelecao } from '../document/selecao';
 import { luminancia } from '../filtros/cores';
 import { coberturaDaSelecao } from '../filtros/cobertura';
 import type { ArteAscii } from '../estilos/ascii';
@@ -104,6 +109,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   private ligado = true;
   private acompanharAjuste = true;
   private revisao = 0;
+  private geracaoDoPapel = 0;
   private ajustandoZoom = false;
 
   constructor(
@@ -156,6 +162,7 @@ export class EditorController implements EditorApi, NucleoEditor {
     const mudou = categoria
       ? medirOperacao(`historico:${categoria}`, () => this.comandos.executar(comando))
       : this.comandos.executar(comando);
+    if (this.comandos.papelSubstituido) this.geracaoDoPapel++;
     if (!mudou) {
       const motivo = this.comandos.motivoRecusa;
       if (motivo) this.avisar(MENSAGENS_RECUSA[motivo]);
@@ -297,6 +304,7 @@ export class EditorController implements EditorApi, NucleoEditor {
       ? medirOperacao(`historico:${operacao}`, () => this.comandos[operacao]())
       : this.comandos[operacao]();
     if (!mudou) return;
+    if (this.comandos.papelSubstituido) this.geracaoDoPapel++;
     this.selecao.selecionar(null);
     this.edicaoAplicada(true);
   }
@@ -720,6 +728,7 @@ export class EditorController implements EditorApi, NucleoEditor {
   /** Arquivo com camadas aberto: troca o documento e recomeça o histórico. */
   substituirDocumento(dados: DocumentoComCamadas) {
     this.ferramentas.cancelarPreenchimento();
+    this.geracaoDoPapel++;
     const { doc } = this;
     doc.name = dados.nome;
     doc.dpi = dados.dpi;
@@ -853,6 +862,91 @@ export class EditorController implements EditorApi, NucleoEditor {
    * mantendo a proporção (a original não é cortada).
    */
   importarComoCamada(pixels: PixelBuffer, nome: string) {
+    return this.inserirImagemComoCamada(pixels, nome);
+  }
+
+  contextoIA(): string {
+    return `${this.doc.id}:${this.geracaoDoPapel}`;
+  }
+
+  /** Captura o composto confirmado sem tocar nas ferramentas ou nas camadas originais. */
+  prepararFonteIA(maxLado = 1024): HTMLCanvasElement | null {
+    if (!this.disponivel() || !Number.isFinite(maxLado) || maxLado < 1) return null;
+    const { doc } = this;
+    const papel = { x: 0, y: 0, width: doc.width, height: doc.height };
+    const area = this.selecao.area ? limitarArea(this.selecao.area, doc) : papel;
+    if (!area) return null;
+
+    let fonte: HTMLCanvasElement;
+    if (doc.layers.some((camada) => camada.foraDaTela)) {
+      // Um movimento pendente pode ocultar uma camada no composto para exibir sua cópia solta.
+      fonte = document.createElement('canvas');
+      fonte.width = doc.width;
+      fonte.height = doc.height;
+      comporDocumento(
+        {
+          width: doc.width,
+          height: doc.height,
+          layers: doc.layers.map((camada) =>
+            camada.foraDaTela ? { ...camada, foraDaTela: false } : camada,
+          ),
+          grupos: doc.grupos,
+          activeLayerId: doc.activeLayerId,
+          activeLayer: doc.activeLayer,
+        },
+        fonte,
+        area,
+      );
+    } else fonte = this.superficie.telaParaSaida();
+
+    const escala = Math.min(1, Math.floor(maxLado) / Math.max(area.width, area.height));
+    const largura = Math.max(1, Math.round(area.width * escala));
+    const altura = Math.max(1, Math.round(area.height * escala));
+    const { mascara } = this.selecao;
+    const recorte = document.createElement('canvas');
+    recorte.width = mascara ? area.width : largura;
+    recorte.height = mascara ? area.height : altura;
+    const grafico = recorte.getContext('2d')!;
+    if (mascara) {
+      // Primeiro retira os pixels de fora da seleção. Depois pode interpolar o recorte ao reduzir.
+      grafico.translate(-area.x, -area.y);
+      grafico.clip(caminhoDaSelecao(area, mascara), 'evenodd');
+      grafico.translate(area.x, area.y);
+    }
+    grafico.drawImage(
+      fonte,
+      area.x,
+      area.y,
+      area.width,
+      area.height,
+      0,
+      0,
+      recorte.width,
+      recorte.height,
+    );
+    if (!mascara || escala === 1) return recorte;
+    const reduzido = document.createElement('canvas');
+    reduzido.width = largura;
+    reduzido.height = altura;
+    reduzido.getContext('2d')!.drawImage(recorte, 0, 0, largura, altura);
+    recorte.width = recorte.height = 1;
+    return reduzido;
+  }
+
+  adicionarImagemIA(imagem: PixelBuffer, origem: MetadadosIA, contexto: string): boolean {
+    if (contexto !== this.contextoIA()) return false;
+    const dados = metadadosIASeguros(origem);
+    if (
+      !dados ||
+      !dimensoesValidas(imagem.width, imagem.height) ||
+      imagem.data.length !== imagem.width * imagem.height * 4
+    )
+      return false;
+    const nome = dados.operacao === 'gerar' ? 'Imagem gerada por IA' : 'Imagem editada por IA';
+    return this.inserirImagemComoCamada(imagem, nome, dados);
+  }
+
+  private inserirImagemComoCamada(pixels: PixelBuffer, nome: string, origemIA?: MetadadosIA) {
     if (!this.disponivel()) return false;
     let imagem = pixels;
     const escala = Math.min(1, this.doc.width / pixels.width, this.doc.height / pixels.height);
@@ -871,6 +965,7 @@ export class EditorController implements EditorApi, NucleoEditor {
       tipo: 'NovaCamada',
       id,
       nome,
+      ...(origemIA ? { origemIA, acimaDe: this.doc.layers.at(-1)?.id } : {}),
       imagem: serializarImagem(imagem),
       x: Math.round((this.doc.width - imagem.width) / 2),
       y: Math.round((this.doc.height - imagem.height) / 2),

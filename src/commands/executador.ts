@@ -12,6 +12,7 @@ import { desenharDistorcido } from '../document/distorcer';
 import { DPI_MAXIMO, DPI_PADRAO, dpiValido } from '../document/dimensoes';
 import { comGuia, semGuia, type GuiasDocumento, type PosicoesGuias } from '../document/guias';
 import type { RabiscoDocument } from '../document/model';
+import { metadadosIASeguros } from '../document/metadadosIA';
 import { ajusteSeguro } from '../document/ajustes';
 import {
   apagarRecorte,
@@ -164,6 +165,8 @@ export class Executador {
   ultimasAlteracoes: { alvo: Alvo; area: Rect | null }[] = [];
   /** Camadas, grupos, tamanho ou propriedades mudaram (recompor tudo, salvar a descrição). */
   estruturaMudou = false;
+  /** O último comando iniciou outro papel, inclusive ao desfazer ou refazer uma abertura. */
+  papelSubstituido = false;
   guiasMudaram = false;
   ultimaSelecaoTransformada: Rect | null = null;
   motivoRecusa: MotivoRecusa = null;
@@ -255,6 +258,7 @@ export class Executador {
   executar(comando: Comando): boolean {
     this.ultimasAlteracoes = [];
     this.estruturaMudou = false;
+    this.papelSubstituido = false;
     this.guiasMudaram = false;
     this.ultimaSelecaoTransformada = null;
     this.motivoRecusa = null;
@@ -461,6 +465,7 @@ export class Executador {
           this.doc.substituir(comando.nome, imagem);
           this.doc.dpi = dpi;
         });
+        this.papelSubstituido = true;
         // Uma imagem sem guias substitui as posições como parte da própria abertura.
         const removidas = this.alterarGuias({ tipo: 'LimparGuias' });
         if (!removidas) return entrada;
@@ -476,6 +481,7 @@ export class Executador {
         this.doc.name = nome.trim() || 'Sem título';
         this.doc.dpi = DPI_PADRAO;
         this.estruturaMudou = true;
+        this.papelSubstituido = true;
         return this.entradaVazia(comando, 'Novo desenho');
       }
       case 'RedimensionarPapel': {
@@ -555,6 +561,10 @@ export class Executador {
       case 'NovaCamada': {
         const ascii = normalizarCamadaAscii(comando.ascii);
         if (comando.ascii && !ascii) throw new Error('O conteúdo da camada ASCII é inválido.');
+        const origemIA = metadadosIASeguros(comando.origemIA);
+        if (comando.origemIA && (!origemIA || ascii || !comando.imagem))
+          throw new Error('A origem da camada de IA é inválida.');
+        const imagem = !ascii && comando.imagem ? desserializarImagem(comando.imagem) : undefined;
         const referencia = indice(comando.acimaDe ?? doc.activeLayerId);
         const propriedades: PropriedadesCamada = {
           ...propriedadesPadrao(comando.id, comando.nome),
@@ -563,41 +573,44 @@ export class Executador {
           grupo: comando.propriedades?.grupo ?? estrutura.camadas[referencia]?.grupo,
         };
         delete propriedades.ajuste;
+        delete propriedades.origemIA;
         if (!propriedades.grupo) delete propriedades.grupo;
         if (ascii && !comando.rasterizarAscii) propriedades.ascii = ascii;
+        if (origemIA) {
+          propriedades.origemIA = origemIA;
+          delete propriedades.grupo;
+        }
         estrutura.camadas.splice(referencia + 1, 0, propriedades);
         estrutura.ativa = comando.id;
         estrutura.editandoMascara = false;
         const alvo = { camada: comando.id };
-        return this.alterarDocumento(
-          comando,
-          ascii ? 'Converter em ASCII' : 'Nova camada',
-          [alvo],
-          () => {
-            doc.aplicarEstrutura(estrutura);
-            if (ascii) renderizarCamadaAscii(doc.contexto(alvo), ascii);
-            else if (comando.imagem) {
-              const imagem = desserializarImagem(comando.imagem);
-              const area = limitarArea(
-                {
-                  x: comando.x ?? 0,
-                  y: comando.y ?? 0,
-                  width: imagem.width,
-                  height: imagem.height,
-                },
-                doc,
-              );
-              if (area) {
-                const visivel = recortarPixels(imagem, {
-                  ...area,
-                  x: area.x - (comando.x ?? 0),
-                  y: area.y - (comando.y ?? 0),
-                });
-                doc.aplicarPixels(visivel, area.x, area.y, alvo);
-              }
+        let rotulo = 'Nova camada';
+        if (ascii) rotulo = 'Converter em ASCII';
+        else if (origemIA)
+          rotulo = origemIA.operacao === 'gerar' ? 'Gerar imagem com IA' : 'Editar imagem com IA';
+        return this.alterarDocumento(comando, rotulo, [alvo], () => {
+          doc.aplicarEstrutura(estrutura);
+          if (ascii) renderizarCamadaAscii(doc.contexto(alvo), ascii);
+          else if (imagem) {
+            const area = limitarArea(
+              {
+                x: comando.x ?? 0,
+                y: comando.y ?? 0,
+                width: imagem.width,
+                height: imagem.height,
+              },
+              doc,
+            );
+            if (area) {
+              const visivel = recortarPixels(imagem, {
+                ...area,
+                x: area.x - (comando.x ?? 0),
+                y: area.y - (comando.y ?? 0),
+              });
+              doc.aplicarPixels(visivel, area.x, area.y, alvo);
             }
-          },
-        );
+          }
+        });
       }
       case 'EditarCamadaAscii': {
         const camada = estrutura.camadas[indice(comando.id)];
@@ -1476,6 +1489,7 @@ export class Executador {
   private restaurar(entrada: EntradaComando | null, lado: 'before' | 'after'): boolean {
     this.ultimasAlteracoes = [];
     this.estruturaMudou = false;
+    this.papelSubstituido = false;
     this.guiasMudaram = false;
     this.ultimaSelecaoTransformada = null;
     if (!entrada) return false;
@@ -1506,6 +1520,8 @@ export class Executador {
     if (entrada.nome) doc.name = entrada.nome[chave];
     if (entrada.dpi) doc.dpi = entrada.dpi[chave];
     if (entrada.guias) this.guias?.aplicar(copiarPosicoes(entrada.guias[chave]));
+    if (entrada.comando.tipo === 'AbrirImagem' || entrada.comando.tipo === 'NovoDocumento')
+      this.papelSubstituido = true;
     this.anotar(entrada);
   }
 }

@@ -10,6 +10,7 @@ import type {
   OrientacaoImagem,
 } from '../commands/comandos';
 import type { EstruturaDocumento } from '../document/camadas';
+import type { MetadadosIA } from '../document/metadadosIA';
 import type { DadosFormaPropria } from '../shapes/presets';
 import type { IdFiltro, ParametrosFiltro } from '../filtros/registro';
 import type { ArteAscii } from '../estilos/ascii';
@@ -71,6 +72,9 @@ export interface EditorApi {
   copiarMesclado(): Promise<void>;
   adicionarMascara(id: string): boolean;
   importarComoCamada(pixels: PixelBuffer, nome: string): boolean;
+  contextoIA(): string;
+  prepararFonteIA(maxLado?: number): HTMLCanvasElement | null;
+  adicionarImagemIA(imagem: PixelBuffer, origem: MetadadosIA, contexto: string): boolean;
   ativarCamada(id: string, mascara?: boolean): void;
   miniatura(id: string, destino: HTMLCanvasElement, mascara?: boolean): void;
   preverFiltro(

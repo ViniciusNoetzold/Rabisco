@@ -41,6 +41,29 @@ function documentoEmMemoria(width = 50, height = 40) {
 }
 
 describe('comandos serializáveis', () => {
+  it('sinaliza a abertura do papel, inclusive ao desfazer e refazer', () => {
+    const doc = documentoEmMemoria();
+    const editor = new Executador(doc);
+    expect(
+      editor.executar({
+        tipo: 'AbrirImagem',
+        nome: 'Outro desenho',
+        imagem: serializarImagem(papel(doc.width, doc.height)),
+      }),
+    ).toBe(true);
+    expect(editor.papelSubstituido).toBe(true);
+    expect(
+      editor.executar({ tipo: 'ApagarSelecao', area: { x: 6, y: 7, width: 2, height: 3 } }),
+    ).toBe(true);
+    expect(editor.papelSubstituido).toBe(false);
+    expect(editor.desfazer()).toBe(true);
+    expect(editor.papelSubstituido).toBe(false);
+    expect(editor.desfazer()).toBe(true);
+    expect(editor.papelSubstituido).toBe(true);
+    expect(editor.refazer()).toBe(true);
+    expect(editor.papelSubstituido).toBe(true);
+  });
+
   it('preserva os parâmetros e todos os canais RGBA ao gravar e reler o JSON', () => {
     const imagem = papel(70, 61);
     for (let i = 0; i < imagem.data.length; i++) imagem.data[i] = i % 251;

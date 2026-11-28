@@ -1,0 +1,71 @@
+.dialog-ia.app-dialog {
+  width: min(550px, calc(100vw - 24px));
+}
+
+.corpo-ia {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100dvh - 80px);
+  overflow: auto;
+}
+
+.campos-ia,
+.config-ia fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  align-items: end;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.campos-ia label,
+.config-ia label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campos-ia .largura-ia,
+.config-ia label:first-child {
+  grid-column: 1 / -1;
+}
+
+.corpo-ia textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+.config-ia {
+  padding: 8px;
+  border: 1px solid #b0c2d2;
+}
+
+.config-ia summary {
+  cursor: pointer;
+}
+
+.config-ia fieldset {
+  margin-top: 8px;
+}
+
+.config-ia .guardar-chave-ia {
+  display: flex;
+  align-items: center;
+}
+
+.corpo-ia p {
+  margin: 0;
+}
+
+.corpo-ia .config-ia p {
+  margin-top: 6px;
+}
+
+.andamento-ia {
+  padding: 6px 8px;
+  border-left: 2px solid #3083c5;
+  background: #edf5fb;
+}

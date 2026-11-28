@@ -10,13 +10,13 @@ Cada etapa deve ser utilizável, documentada e validada antes de iniciar a segui
 | 0.3    | Camadas, importar/colar imagem, transformação livre, formato .rabisco, PSD e ORA                                                                              | Concluída e validada em 25/11/2026 |
 | 0.4    | Estabilizador, pressão, simetria, formas inteligentes, régua e guias, rotação da vista, gradiente e varinha (prompt em prompts/PROMPT_0.4.md)                 | Concluída e validada em 26/11/2026 |
 | 0.5    | Filtros, ASCII, pixel art, dithering, meio-tom, camadas de ajuste e melhorias de desenho (prompt em prompts/PROMPT_0.5.md)                                      | Concluída (0.5.0)                  |
-| 0.6    | Configuração BYOK, AI Horde, fila cancelável e geração/edição em nova camada                                                                                  | Planejada                          |
+| 0.6    | AI Horde anônimo ou com chave própria, fila cancelável e geração e transformação em nova camada                                                             | Implementada (0.6.0)               |
 | 0.7    | Modelos locais sob demanda, seleção inteligente, remoção de fundo, apagar objeto e ampliar                                                                    | Planejada                          |
 | 0.8    | Agente “Desenhe pra mim” usando comandos tipados, com execução visível e desfazer                                                                             | Planejada                          |
 | 0.9    | Tutor Rabi, lições e modo de traçar por cima                                                                                                                  | Planejada                          |
 | 1.0    | PWA, Tauri, i18n, acessibilidade ampliada, testes visuais, performance e documentação final                                                                   | Planejada                          |
 
-O [roteiro manual da 0.5](docs/guia-de-uso.md#roteiro-manual-da-05) reúne as verificações para fazer no editor. O [ponto de retomada](prompts/CONTINUAR_0.5.md) registra o que planejar na 0.6.
+O [plano da 0.6](prompts/PROMPT_0.6.md) registra as decisões da integração. O [ponto de retomada](prompts/CONTINUAR_0.6.md) indica a próxima etapa.
 
 ## Próximos critérios de validação
 

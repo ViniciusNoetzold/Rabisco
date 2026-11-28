@@ -7,12 +7,11 @@
 **O paint de sempre, com uma IA no pincel.**
 
 Um editor de desenho no navegador com a simplicidade e a cara do paint da era Windows 7,
-mais camadas, colagens e, em breve, uma IA que gera imagens com as próprias ferramentas do app
-e ensina a desenhar.
+mais camadas, colagens, filtros e geração de imagens com IA em uma nova camada.
 
-![Versão](https://img.shields.io/badge/versão-0.5.0-3083c5)
+![Versão](https://img.shields.io/badge/versão-0.6.0-3083c5)
 ![Testes](https://img.shields.io/badge/testes-Vitest_e_Playwright-70a54a)
-![Local-first](https://img.shields.io/badge/seus_desenhos-ficam_no_seu_dispositivo-f6c94d)
+![Local-first](https://img.shields.io/badge/arquivos-guardados_no_dispositivo-f6c94d)
 ![Idioma](https://img.shields.io/badge/interface-português_do_Brasil-e24b4b)
 
 <img src="docs/imagens/rabisco-camadas.png" alt="O Rabisco com um desenho de casa, sol e grama em três camadas, a casa como adesivo e o painel de Camadas aberto" width="900" />
@@ -95,7 +94,7 @@ e ensina a desenhar.
 
 - Abra **Início › Imagem › Filtros** para ajustar cor, curvas e níveis, desfocar ou realçar detalhes. Compare a prévia com **Antes/depois**, cancele com `Esc` ou repita o último filtro com `Ctrl+F`.
 - **Pixel art** com lápis de 1 px, grade, pixelização, paletas e exportação ampliada com pixels quadrados.
-- **ASCII** com prévia colorida, Braille, camada de texto editável, rasterização e exportação `.txt`, `.html` e `.png`.
+- **ASCII** com até 1.024 colunas, prévia colorida, Braille, camada de texto editável, rasterização e exportação `.txt`, `.html` e `.png`.
 - **Dithering**, **meio-tom**, mosaico, pontilhismo, vitral e CRT no menu de filtros.
 - **Camadas de ajuste** para editar cor, curvas e preto e branco com máscara e opacidade. Salve em `.rabisco` para manter os parâmetros editáveis. As exportações PSD e ORA mostram um aviso e achatam documentos com ajustes.
 
@@ -103,6 +102,11 @@ e ensina a desenhar.
 <img src="docs/imagens/rabisco-ascii.png" alt="Prévia ASCII colorida de uma paisagem no Rabisco, com controles de colunas e conjunto de caracteres" width="820" />
 <img src="docs/imagens/rabisco-pixel-art.png" alt="A mesma paisagem pixelizada com a paleta PICO-8 e o grupo Pixel art da aba Exibir aberto" width="820" />
 </div>
+
+### Gerar e transformar imagens (0.6)
+
+- Abra **IA › Gerar ou transformar imagem** para descrever uma imagem ou transformar a seleção ou o papel visível. O AI Horde tem acesso anônimo por padrão e aceita a chave da sua conta.
+- Veja o andamento do pedido e cancele pela janela. Continue desenhando enquanto espera e use **Inserir em nova camada** quando o resultado chegar. Salve em `.rabisco` para guardar a descrição e a semente disponível junto à camada. [Guia da ferramenta](docs/guia-de-uso.md#ia-06) · [AI Horde](https://aihorde.net/docs/image/)
 
 ## 🚀 Começar
 
@@ -165,7 +169,7 @@ Use `Ctrl+F` para repetir o último filtro. A lista completa está em **Uma ajud
 | 0.3    | Camadas, máscaras, efeitos, colagem, transformação livre, `.rabisco`, PSD e ORA                                         |    ✅    |
 | 0.4    | Estabilizador, pressão, simetria e mandala, formas inteligentes, régua e guias, vista girada, gradiente, varinha e dedo |    ✅    |
 | 0.5    | Filtros, **ASCII**, pixel art, dithering, meio-tom, camadas de ajuste e melhorias de desenho                             |    ✅    |
-| 0.6    | **IA com chave gratuita** (AI Horde sem cadastro, Cloudflare, Gemini, Hugging Face…) gerando e editando em camada nova  |    🔜    |
+| 0.6    | **AI Horde** sem cadastro ou com chave própria, fila cancelável e geração e transformação em nova camada            |    ✅    |
 | 0.7    | IA local no navegador: remover fundo, seleção inteligente, apagar objeto, ampliar                                       |    🔜    |
 | 0.8    | **"Desenhe pra mim"**: a IA usa as próprias ferramentas do Rabisco, passo a passo, na sua frente                        |    🔜    |
 | 0.9    | **Rabi**, o tutor que olha seu desenho, dá dicas e propõe lições                                                        |    🔜    |
@@ -173,7 +177,7 @@ Use `Ctrl+F` para repetir o último filtro. A lista completa está em **Uma ajud
 
 **Para não nos perdermos:** a ideia original e os pilares estão em [docs/IDEIA.md](docs/IDEIA.md), as ferramentas e bibliotecas pesquisadas (com licença e versão em que entram) em [docs/FERRAMENTAS.md](docs/FERRAMENTAS.md), e tudo o que falta para o sistema ficar completo em [docs/MELHORIAS.md](docs/MELHORIAS.md).
 
-Veja o [roteiro do projeto](ROADMAP.md), o [changelog](CHANGELOG.md) e o [ponto de retomada para planejar a 0.6](prompts/CONTINUAR_0.5.md).
+Veja o [roteiro do projeto](ROADMAP.md), o [changelog](CHANGELOG.md) e o [ponto de retomada depois da 0.6](prompts/CONTINUAR_0.6.md).
 
 ## 🧪 Testes e desempenho
 

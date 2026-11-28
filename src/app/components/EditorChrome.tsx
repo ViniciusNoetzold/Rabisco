@@ -26,7 +26,7 @@ export function EditorChrome({
   run,
 }: EditorChromeProps) {
   const textoAtivo = useEditor((estado) => estado.tool === 'text');
-  const abas = textoAtivo ? ['Início', 'Exibir', 'Texto'] : ['Início', 'Exibir'];
+  const abas = textoAtivo ? ['Início', 'Exibir', 'Texto', 'IA'] : ['Início', 'Exibir', 'IA'];
   const quick = (icon: string, label: string, action: () => void, disabled = false) => (
     <button
       className="quick-button"
@@ -112,7 +112,7 @@ export function EditorChrome({
         <button className="learn-link" onClick={() => onDialog('help')}>
           <span className="little-spark">✧</span> Uma ajudinha?
         </button>
-        <span className="version-label">Versão 0.5.0</span>
+        <span className="version-label">Versão 0.6.0</span>
       </nav>
     </>
   );

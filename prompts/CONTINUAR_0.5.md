@@ -1,5 +1,7 @@
 # Continuar depois da 0.5
 
+O trabalho da 0.6 está no [plano da 0.6](PROMPT_0.6.md) e no [ponto de continuação atual](CONTINUAR_0.6.md).
+
 ## Planejar a 0.6
 
 Escreva `prompts/PROMPT_0.6.md` para a etapa de IA no editor. Use o [roteiro do projeto](../ROADMAP.md) como referência.

@@ -1,10 +1,20 @@
 import type { Rect } from '../layers/types';
 import { comporAjuste, type AjusteCamada } from './ajustes';
-import { MODOS_MESCLAGEM, propriedadesPadrao, type Alvo, type EfeitosCamada, type Grupo } from './camadas';
+import {
+  MODOS_MESCLAGEM,
+  propriedadesPadrao,
+  type Alvo,
+  type EfeitosCamada,
+  type Grupo,
+} from './camadas';
 import { comoImageData, type Layer, type RabiscoDocument } from './model';
 
 type Contexto = CanvasRenderingContext2D;
 type Camada = Layer<HTMLCanvasElement>;
+type DocumentoComposicao = Pick<
+  RabiscoDocument,
+  'width' | 'height' | 'layers' | 'grupos' | 'activeLayerId' | 'activeLayer'
+>;
 
 /** Trecho que substitui temporariamente os pixels de uma camada ou da máscara dela. */
 export interface PreviaComposicao {
@@ -52,14 +62,16 @@ function superficie(largura: number, altura: number): Contexto {
   return canvas.getContext('2d', { willReadFrequently: true })!;
 }
 
-function camadasComPrevia(doc: RabiscoDocument, previa?: PreviaAjuste): Camada[] {
+function camadasComPrevia(doc: DocumentoComposicao, previa?: PreviaAjuste): Camada[] {
   if (!previa) return doc.layers;
   if (previa.id)
-    return doc.layers.map((camada) => camada.id === previa.id && camada.ajuste
-      ? { ...camada, ajuste: previa.ajuste }
-      : camada);
+    return doc.layers.map((camada) =>
+      camada.id === previa.id && camada.ajuste ? { ...camada, ajuste: previa.ajuste } : camada,
+    );
   const camadas = [...doc.layers];
-  const posicao = camadas.findIndex((camada) => camada.id === (previa.acimaDe ?? doc.activeLayerId));
+  const posicao = camadas.findIndex(
+    (camada) => camada.id === (previa.acimaDe ?? doc.activeLayerId),
+  );
   camadas.splice(posicao + 1, 0, {
     ...propriedadesPadrao('\u0000ajuste', ''),
     // Uma camada de ajuste não lê o canvas. A prévia só reaproveita a referência.
@@ -70,7 +82,7 @@ function camadasComPrevia(doc: RabiscoDocument, previa?: PreviaAjuste): Camada[]
   return camadas;
 }
 
-function montarNos(doc: RabiscoDocument, previa?: PreviaAjuste): No[] {
+function montarNos(doc: DocumentoComposicao, previa?: PreviaAjuste): No[] {
   const nos: No[] = [];
   const grupos = new Map(doc.grupos.map((grupo) => [grupo.id, grupo]));
   for (const camada of camadasComPrevia(doc, previa)) {
@@ -122,7 +134,11 @@ function desenharComPrevia(
   contexto.drawImage(previa.canvas, x - janela.x, y - janela.y);
 }
 
-function lerMascara(camada: Camada, janela: Rect, previa?: PreviaComposicao): ImageData | undefined {
+function lerMascara(
+  camada: Camada,
+  janela: Rect,
+  previa?: PreviaComposicao,
+): ImageData | undefined {
   if (!camada.mascara || camada.mascaraAtiva === false) return undefined;
   if (previa?.alvo.camada === camada.id && previa.alvo.mascara) {
     const superficieMascara = superficie(janela.width, janela.height);
@@ -145,9 +161,13 @@ function aplicarCamadaAjuste(
   // Imagem e máscara usam a mesma janela, embora o destino no grupo seja local (0, 0).
   // getImageData/putImageData ignoram a transformação e o clip atuais do Canvas 2D.
   const abaixo = destino.getImageData(origem.x, origem.y, janela.width, janela.height);
-  const filtrado = comporAjuste(abaixo, camada.ajuste, camada.opacity, lerMascara(camada, janela, previa));
-  if (filtrado !== abaixo)
-    destino.putImageData(comoImageData(filtrado), origem.x, origem.y);
+  const filtrado = comporAjuste(
+    abaixo,
+    camada.ajuste,
+    camada.opacity,
+    lerMascara(camada, janela, previa),
+  );
+  if (filtrado !== abaixo) destino.putImageData(comoImageData(filtrado), origem.x, origem.y);
 }
 
 function desenharRecortadas(
@@ -337,7 +357,7 @@ function desenharLista(
  * é refeito; a janela de trabalho cresce o bastante para sombras e contornos não serem cortados.
  */
 export function comporDocumento(
-  doc: RabiscoDocument,
+  doc: DocumentoComposicao,
   tela: HTMLCanvasElement,
   area?: Rect,
   previa?: PreviaComposicao,

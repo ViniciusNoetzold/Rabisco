@@ -35,6 +35,8 @@ interface RibbonProps {
   onFiltro(filtro: IdFiltro): void;
   onRepetirFiltro(): void;
   onConverterAscii(): void;
+  onAbrirIA(): void;
+  iaOcupada: boolean;
   onColar(): void;
   onColarDe(): void;
   alternarTelaInteira(): void;
@@ -53,6 +55,8 @@ export function Ribbon({
   onFiltro,
   onRepetirFiltro,
   onConverterAscii,
+  onAbrirIA,
+  iaOcupada,
   onColar,
   onColarDe,
   alternarTelaInteira,
@@ -88,7 +92,20 @@ export function Ribbon({
         aria-labelledby={`tab-${tab}`}
         data-opcoes-texto={tab === 'Texto' ? '' : undefined}
       >
-        {tab !== 'Exibir' ? (
+        {tab === 'IA' ? (
+          <RibbonGroup title="Imagem com IA">
+            <button
+              type="button"
+              className="ribbon-large"
+              onClick={onAbrirIA}
+              disabled={carregando}
+            >
+              <Icon name="picture" className="large-icon" />
+              <span>Gerar ou transformar imagem</span>
+            </button>
+            {iaOcupada && <span role="status">Pedido em andamento…</span>}
+          </RibbonGroup>
+        ) : tab !== 'Exibir' ? (
           <>
             {tab === 'Texto' ? (
               <TextTools

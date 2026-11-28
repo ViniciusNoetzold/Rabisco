@@ -41,6 +41,16 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 - **Matiz, saturação e luminosidade** controla as cores e o brilho. **Preto e branco** permite misturar os canais. **Sépia**, **Limiar** e **Posterizar** convertem as cores com a intensidade, o limite ou a quantidade de níveis escolhidos.
 - Em **Desfoque**, ajuste o raio do gaussiano ou o raio e o ângulo do desfoque de movimento. Em **Detalhes**, use **Nitidez**, **Adicionar ruído**, **Reduzir ruído (mediana)**, **Detectar bordas (Sobel)** ou **Relevo**. Os pixels vizinhos ajudam no cálculo das bordas sem ampliar a seleção.
 
+## IA (0.6)
+
+1. Abra **IA › Gerar ou transformar imagem**. Escolha **Gerar do texto** e escreva uma descrição, como “um jardim de cactos desenhado em aquarela”. Escolha o tamanho. A semente é opcional.
+2. Use **Transformar desenho** para partir da seleção ou do composto visível do papel. A referência é reduzida para até 512 px no lado maior. Ajuste **Força da transformação** e confira os dados que o AI Horde receberá.
+3. Clique em **Enviar ao AI Horde**. A janela acompanha a fila. Use **Continuar desenhando** para escondê-la. Para interromper, reabra a aba IA e clique em **Cancelar pedido**.
+4. Quando aparecer **Imagem pronta para inserir**, clique em **Inserir em nova camada**. `Ctrl+Z` desfaz a inserção. A descrição, a operação, o modelo e a semente disponível acompanham a camada no `.rabisco` v4. O editor lê arquivos `.rabisco` v1 a v3.
+5. Para usar sua conta, abra **Configurar AI Horde**, cole a chave e clique em **Testar chave**. O saldo de kudos aparece quando o provedor o informa. Marque **Guardar a chave neste navegador** para conservar a chave entre sessões. [Obter uma chave](https://aihorde.net/register)
+
+O AI Horde recebe os pedidos por internet e usa computadores voluntários. A geração anônima por texto está sujeita ao compartilhamento da imagem e da descrição conforme os termos do serviço. [Como funciona a fila](https://aihorde.net/docs/image/learn/concepts_horde/) · [Termos do AI Horde](https://aihorde.net/terms/)
+
 ## Estilos artísticos (0.5)
 
 - Em **Início › Imagem › Filtros › Estilos**, escolha **Dithering** para limitar a imagem a 2–16 cores. Floyd–Steinberg e Atkinson espalham o erro de cor. Bayer faz um padrão regular de 2 × 2, 4 × 4 ou 8 × 8.

@@ -1,5 +1,12 @@
 # Histórico de alterações
 
+## 0.6.0 — 2026-11-28 — Imagens com IA
+
+- A aba **IA** gera a partir de uma descrição ou transforma a seleção ou o papel visível. O AI Horde funciona em modo anônimo por padrão e aceita uma chave própria com teste e consulta de kudos. [Guia](docs/guia-de-uso.md#ia-06)
+- A fila mostra andamento, permite cancelar e deixa o editor disponível enquanto o pedido roda. A pessoa decide quando inserir a imagem em uma nova camada reversível. A troca de documento protege o outro desenho contra inserções pendentes.
+- O `.rabisco` v4 guarda descrição, origem, modelo e semente disponível. A chave opcional fica neste navegador quando a pessoa ativa a opção de guardar. O editor lê os formatos `.rabisco` v1 a v3.
+- Passaram 278 testes unitários, 115 fluxos no Edge e a compilação de produção. Os fluxos de IA usam respostas simuladas. A conexão direta foi conferida com o preflight público da API. [Plano](prompts/PROMPT_0.6.md)
+
 ## Correção de ASCII
 
 - **Colunas** aceita até 1.024. A janela reduz a prévia de artes grandes e mantém as dimensões informadas na cópia e exportação. O PNG respeita os limites de imagem do Rabisco.

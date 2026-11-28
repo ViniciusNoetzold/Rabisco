@@ -1,6 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ComandoCamada } from '../../src/commands/comandos';
+import { serializarImagem, type ComandoCamada } from '../../src/commands/comandos';
 import { Executador } from '../../src/commands/executador';
 import {
   ajusteSeguro,
@@ -206,7 +206,7 @@ describe('camadas de ajuste', () => {
     );
   });
 
-  it('salva ajustes e ASCII no manifest v3 e exige PNG apenas para a camada de texto', async () => {
+  it('salva ajustes e ASCII, exige PNG para a camada de texto e lê o mesmo documento em v3', async () => {
     instalarCanvas();
     const doc = new RabiscoDocument('Papel de teste', 2, 1);
     new Executador(doc).executar(NOVA);
@@ -215,13 +215,53 @@ describe('camadas de ajuste', () => {
     doc.aplicarEstrutura(estrutura);
     const blob = await exportarCamadas(doc, 'rabisco');
     const arquivos = unzipSync(new Uint8Array(await blob.arrayBuffer()));
-    expect(JSON.parse(strFromU8(arquivos['manifest.json']))).toMatchObject({ versao: 3 });
+    const manifest = JSON.parse(strFromU8(arquivos['manifest.json']));
+    expect(manifest).toMatchObject({ versao: 4 });
     expect(arquivos['camadas/ajuste-1.png']).toBeUndefined();
     expect(arquivos['camadas/ascii-1.png']).toBeDefined();
     const reaberto = await importarCamadas(new File([blob], 'teste.rabisco'));
     expect(reaberto.estrutura.camadas[1].ajuste).toEqual(BRILHO);
     expect(reaberto.estrutura.camadas[2].ascii).toEqual(TEXTO);
     expect(reaberto.pixels.size).toBe(2);
+
+    arquivos['manifest.json'] = strToU8(JSON.stringify({ ...manifest, versao: 3 }));
+    const v3 = await importarCamadas(new File([zipSync(arquivos) as BlobPart], 'v3.rabisco'));
+    expect(v3.estrutura.camadas[1].ajuste).toEqual(BRILHO);
+    expect(v3.estrutura.camadas[2].ascii).toEqual(TEXTO);
+  });
+
+  it('registra a origem da imagem de IA no histórico e reabre só os campos públicos em v4', async () => {
+    instalarCanvas();
+    const doc = new RabiscoDocument('Papel de teste', 2, 1);
+    const editor = new Executador(doc);
+    const origem = {
+      provedor: 'AI Horde',
+      prompt: 'Uma ampulheta de vidro',
+      operacao: 'gerar',
+      semente: 0,
+      modelo: 'modelo-de-teste',
+    } as const;
+    const entrada = { ...origem, credencial: 'não persistir' };
+    expect(
+      editor.executar({
+        tipo: 'NovaCamada',
+        id: 'imagem-ia',
+        nome: 'Imagem gerada por IA',
+        imagem: serializarImagem(faixa([12, 34, 56, 255], [22, 44, 66, 255])),
+        origemIA: entrada,
+      }),
+    ).toBe(true);
+    expect(editor.historico.entries).toEqual([{ label: 'Gerar imagem com IA' }]);
+    expect(doc.activeLayer.origemIA).toEqual(origem);
+    expect(editor.desfazer()).toBe(true);
+    expect(doc.camada('imagem-ia')).toBeUndefined();
+    expect(editor.refazer()).toBe(true);
+    expect(doc.activeLayer.origemIA).toEqual(origem);
+
+    const blob = await exportarCamadas(doc, 'rabisco');
+    const reaberto = await importarCamadas(new File([blob], 'origem.rabisco'));
+    expect(reaberto.estrutura.camadas[1].origemIA).toEqual(origem);
+    expect(reaberto.pixels.has('imagem-ia')).toBe(true);
   });
 
   it('lê os dados da camada ASCII de um arquivo v2', async () => {
