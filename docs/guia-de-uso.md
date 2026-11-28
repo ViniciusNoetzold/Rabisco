@@ -49,6 +49,7 @@ Tudo o que dá para fazer hoje, ferramenta por ferramenta. Visão geral e instal
 ## ASCII (0.5)
 
 - Abra **Início › Imagem › Filtros › Converter em ASCII**. Se houver uma seleção, o conversor usa a região selecionada. Ajuste as **Colunas**, escolha o conjunto de caracteres e use **Inverter** ou **Colorido** para comparar o resultado na prévia.
+- **Colunas** aceita de 1 a 1.024 caracteres por linha. Uma arte colorida grande tem prévia reduzida. A cópia, a exportação e a camada usam as dimensões completas indicadas na janela, dentro do limite de 131.072 caracteres por arte.
 - **Criar camada de texto** mantém os caracteres para editar. Selecione a nova camada e clique em **Editar ASCII** no painel de camadas. O texto editável vai junto no arquivo `.rabisco`.
 - **Rasterizar em camada** cria pixels para as ferramentas de desenho. **Copiar texto** leva os caracteres à área de transferência. **Exportar** oferece `.txt`, HTML com as cores da prévia e PNG.
 

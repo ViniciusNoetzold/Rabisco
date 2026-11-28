@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { converterAscii, desenharAscii, htmlAscii, textoAscii } from '../../src/estilos/ascii';
+import {
+  converterAscii,
+  desenharAscii,
+  htmlAscii,
+  prepararPreviaAscii,
+  textoAscii,
+} from '../../src/estilos/ascii';
+import { normalizarCamadaAscii } from '../../src/estilos/camadaAscii';
 
 const BRANCO = [255, 255, 255, 255];
 const PRETO = [0, 0, 0, 255];
@@ -44,6 +51,41 @@ describe('arte ASCII', () => {
     const arte = converterAscii(pixels, { colunas: 8, conjunto: 'detalhado' });
     expect(arte.linhas).toEqual(Array(4).fill('$$$$$$$$'));
     expect(converterAscii(imagem([]), { colunas: 4 }).linhas).toEqual([]);
+  });
+
+  it('mantém 500 caracteres no texto, no HTML e na camada, e lê artes anteriores', () => {
+    const pixels = imagem([Array.from({ length: 500 }, () => PRETO)]);
+    const arte = converterAscii(pixels, { colunas: 500, colorido: true });
+    const linha = '@'.repeat(500);
+    const area = { x: 0, y: 0, width: 500, height: 100 };
+    expect(arte.colunas).toBe(500);
+    expect(textoAscii(arte)).toBe(linha);
+    expect(htmlAscii(arte)).toContain(`<span style="color:#000000">${linha}</span>`);
+    expect(normalizarCamadaAscii({ arte, area })?.arte).toEqual(arte);
+
+    const antiga = { colunas: 256, linhas: ['Arte anterior'], inverter: true };
+    expect(normalizarCamadaAscii({ arte: antiga, area })?.arte).toMatchObject(antiga);
+  });
+
+  it('preserva o limite de células na saída mais larga e reduz só a prévia colorida', () => {
+    const larga = converterAscii(imagem([[PRETO]]), { colunas: 4096 });
+    expect(larga.colunas).toBe(1024);
+    expect(larga.linhas).toHaveLength(128);
+    expect(prepararPreviaAscii(larga)).toBe(larga);
+
+    const linhas = Array(80).fill('A'.repeat(250) + 'Z'.repeat(250));
+    const cores = Array.from({ length: 80 }, () => [
+      ...Array(250).fill('#112233'),
+      ...Array(250).fill('#445566'),
+    ]);
+    const arte = { colunas: 500, linhas, inverter: true, cores };
+    const previa = prepararPreviaAscii(arte);
+    expect(previa.colunas).toBeLessThanOrEqual(96);
+    expect(previa.linhas.length).toBeLessThanOrEqual(64);
+    expect(previa.linhas[0]).toMatch(/^A+Z+$/);
+    expect(previa.cores?.[0][0]).toBe('#112233');
+    expect(previa.cores?.[0].at(-1)).toBe('#445566');
+    expect(textoAscii(arte).split('\n')[0]).toHaveLength(500);
   });
 
   it('preenche os bits da célula Braille 2 × 4 em ordem Unicode', () => {

@@ -1,5 +1,9 @@
 # Histórico de alterações
 
+## Correção de ASCII
+
+- **Colunas** aceita até 1.024. A janela reduz a prévia de artes grandes e mantém as dimensões informadas na cópia e exportação. O PNG respeita os limites de imagem do Rabisco.
+
 ## 0.5.0 — 2026-11-28 — Estilos e filtros
 
 ### Passo 8 — Seleções, simetria, vista e desempenho

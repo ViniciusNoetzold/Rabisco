@@ -1,3 +1,4 @@
+import { LIMITE_LADO, LIMITE_PIXELS } from '../document/dimensoes';
 import { htmlAscii, textoAscii, type ArteAscii } from './ascii';
 import { renderizarCamadaAscii } from './camadaAscii';
 
@@ -38,8 +39,16 @@ async function criarBlob(arte: ArteAscii, formato: FormatoAscii): Promise<Blob> 
   if (formato === 'txt') return new Blob([textoAscii(arte)], { type: 'text/plain;charset=utf-8' });
 
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, arte.colunas * 8);
-  canvas.height = Math.max(1, arte.linhas.length * 14);
+  const largura = Math.max(1, arte.colunas * 8);
+  const altura = Math.max(1, arte.linhas.length * 14);
+  const escala = Math.min(
+    1,
+    LIMITE_LADO / largura,
+    LIMITE_LADO / altura,
+    Math.sqrt(LIMITE_PIXELS / (largura * altura)),
+  );
+  canvas.width = Math.max(1, Math.floor(largura * escala));
+  canvas.height = Math.max(1, Math.floor(altura * escala));
   const contexto = canvas.getContext('2d')!;
   renderizarCamadaAscii(contexto, {
     arte,

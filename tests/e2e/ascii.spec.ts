@@ -79,3 +79,28 @@ test('edita caracteres da camada ASCII e recupera o texto ao reabrir .rabisco', 
   await editar.click();
   await expect(texto.getByLabel('Texto ASCII', { exact: true })).toHaveValue('A B C\nD E F');
 });
+
+test('exporta todas as 500 colunas em texto e PNG com a prévia colorida reduzida', async ({
+  page,
+}) => {
+  const dialogo = await abrirConversor(page);
+  const colunas = dialogo.getByLabel('Colunas', { exact: true });
+  await colunas.fill('500');
+  await dialogo.getByLabel('Colorido', { exact: true }).check();
+  await expect(colunas).toHaveAttribute('aria-invalid', 'false');
+  await expect(
+    dialogo.getByText(/Prévia reduzida\. A arte completa tem 500 colunas/),
+  ).toBeVisible();
+
+  const texto = page.waitForEvent('download');
+  await dialogo.getByRole('button', { name: 'Exportar .txt', exact: true }).click();
+  const linhas = (await readFile(await (await texto).path(), 'utf8')).split('\n');
+  expect(linhas.length).toBeGreaterThan(1);
+  expect(linhas.every((linha) => linha.length === 500)).toBe(true);
+
+  const imagem = page.waitForEvent('download');
+  await dialogo.getByRole('button', { name: 'Exportar .png', exact: true }).click();
+  const png = await readFile(await (await imagem).path());
+  expect(png.toString('ascii', 12, 16)).toBe('IHDR');
+  expect(png.readUInt32BE(16)).toBe(4000);
+});

@@ -24,7 +24,7 @@ export interface ArteAscii {
   cores?: (string | null)[][];
 }
 
-export const MAX_COLUNAS_ASCII = 256;
+export const MAX_COLUNAS_ASCII = 1024;
 export const MAX_CELULAS_ASCII = 131_072;
 export const MAX_LINHAS_ASCII = 1024;
 
@@ -202,6 +202,31 @@ export function converterAscii(pixels: PixelBuffer, opcoes: Partial<OpcoesAscii>
 
 export function textoAscii(arte: ArteAscii): string {
   return arte.linhas.join('\n');
+}
+
+/** Amostra a grade inteira quando a prévia colorida exigiria milhares de spans. */
+export function prepararPreviaAscii(arte: ArteAscii): ArteAscii {
+  if (!arte.cores || arte.colunas * arte.linhas.length <= 8192) return arte;
+
+  const passo = Math.max(Math.ceil(arte.colunas / 96), Math.ceil(arte.linhas.length / 64));
+  const meio = Math.floor(passo / 2);
+  const colunas = Math.ceil(arte.colunas / passo);
+  const linhas: string[] = [];
+  const cores: (string | null)[][] = [];
+  for (let y = 0; y < arte.linhas.length; y += passo) {
+    const origemY = Math.min(y + meio, arte.linhas.length - 1);
+    const letras = Array.from(arte.linhas[origemY]);
+    const coresDaLinha: (string | null)[] = [];
+    let linha = '';
+    for (let x = 0; x < arte.colunas; x += passo) {
+      const origemX = Math.min(x + meio, arte.colunas - 1);
+      linha += letras[origemX] ?? ' ';
+      coresDaLinha.push(arte.cores[origemY]?.[origemX] ?? null);
+    }
+    linhas.push(linha);
+    cores.push(coresDaLinha);
+  }
+  return { ...arte, colunas, linhas, cores };
 }
 
 function escaparHtml(texto: string): string {

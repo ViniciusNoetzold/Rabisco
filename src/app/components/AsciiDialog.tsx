@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   CONJUNTOS_ASCII,
   MAX_COLUNAS_ASCII,
   OPCOES_ASCII_PADRAO,
   converterAscii,
+  prepararPreviaAscii,
   textoAscii,
   trechosAscii,
   type ArteAscii,
@@ -101,12 +102,21 @@ function criarConversorAscii(origem: PixelBuffer, receber: (resultado: RespostaA
   };
 }
 
-function PreviaAscii({ arte, ocupada }: { arte?: ArteAscii; ocupada: boolean }) {
+function PreviaAscii({
+  arte,
+  ocupada,
+  descricao,
+}: {
+  arte?: ArteAscii;
+  ocupada: boolean;
+  descricao?: string;
+}) {
   return (
     <pre
       className="ascii-previa"
       data-invertido={arte?.inverter ? '' : undefined}
       aria-label="Prévia ASCII"
+      aria-describedby={descricao}
       aria-busy={ocupada}
       tabIndex={0}
     >
@@ -132,6 +142,7 @@ function PreviaAscii({ arte, ocupada }: { arte?: ArteAscii; ocupada: boolean }) 
 
 export function AsciiDialog({ origem, fechar, aplicar, copiar, exportar, run }: AsciiDialogProps) {
   const titulo = useId();
+  const descricaoPrevia = useId();
   const janela = useRef<HTMLDialogElement>(null);
   const conversor = useRef<ReturnType<typeof criarConversorAscii> | null>(null);
   const [largura, definirLargura] = useState(String(OPCOES_ASCII_PADRAO.colunas));
@@ -145,6 +156,8 @@ export function AsciiDialog({ origem, fechar, aplicar, copiar, exportar, run }: 
   const chave = `${colunas}:${conjunto}:${inverter}:${colorido}`;
   const resultado = ultimo?.origem === origem ? ultimo.resultado : undefined;
   const previa = resultado && 'arte' in resultado ? resultado.arte : undefined;
+  const gradePrevia = useMemo(() => previa && prepararPreviaAscii(previa), [previa]);
+  const previaReduzida = gradePrevia !== previa;
   const atual = resultado?.chave === chave ? resultado : undefined;
   const arte = atual && 'arte' in atual ? atual.arte : undefined;
   const ocupada = colunasValidas && !atual;
@@ -255,8 +268,18 @@ export function AsciiDialog({ origem, fechar, aplicar, copiar, exportar, run }: 
                   ? 'Convertendo…'
                   : copiado === chave && 'Texto copiado.'}
           </div>
+          {previaReduzida && previa && (
+            <div className="ascii-status" id={descricaoPrevia}>
+              Prévia reduzida. A arte completa tem {previa.colunas} colunas e {previa.linhas.length}{' '}
+              linhas.
+            </div>
+          )}
         </div>
-        <PreviaAscii arte={previa} ocupada={ocupada} />
+        <PreviaAscii
+          arte={gradePrevia}
+          ocupada={ocupada}
+          descricao={previaReduzida ? descricaoPrevia : undefined}
+        />
         <div className="ascii-acoes">
           <button
             type="button"
